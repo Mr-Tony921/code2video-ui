@@ -11,6 +11,8 @@ subprocess.run(['python3',str(ROOT/'scripts/guard-isolation.py')],check=True)
 report=json.loads((ROOT/'runtime/validation/refactored/report.json').read_text())
 allowed={j['id'] for j in report['jobs']}
 worker='cvw-codex-360'
+cfg=json.loads((ROOT/'config/backend.json').read_text())
+port=next(w['bridge']['port'] for w in cfg['workers'] if w['worker_id']==worker)
 records=[]
 for f in (ROOT/'runtime/bridge'/worker/'running').glob('*.json'):
     idx=json.loads(f.read_text())
@@ -24,7 +26,7 @@ for side in records:
     assert ticks(side['pid'])==str(side['start_ticks'])
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
 def health():
-    return json.load(opener.open('http://127.0.0.1:18082/health',timeout=5))
+    return json.load(opener.open(f'http://127.0.0.1:{port}/health',timeout=5))
 before=health()
 subprocess.run(['python3',str(ROOT/'scripts/service.py'),'bridge','restart',worker],check=True)
 after=health()

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail closed before operations on this independent checkout."""
 import json
+import hashlib
 import os
 from pathlib import Path
 
@@ -41,7 +42,14 @@ def check():
             other = json.loads(p.read_text())
             used = {(other['deployment'][k]['host'], other['deployment'][k]['port']) for k in ('web', 'gateway')}
             used |= {(w['bridge']['host'], w['bridge']['port']) for w in other['workers']}
-            assert not endpoints & used, f'Endpoint collision with {name}'
+            if endpoints & used:
+                assert name == 'code2video-dev', f'Endpoint collision with {name}'
+                marker = ROOT / 'runtime/deployment/dev-takeover.json'
+                handover = json.loads(marker.read_text())
+                assert handover['scope'] == 'retire-cc-dev-processes-only', 'Invalid handover scope'
+                assert handover['source_configs'].get(str(p)) == hashlib.sha256(p.read_bytes()).hexdigest(), 'CC dev config changed since handover'
+                adopted = {tuple(e) for e in handover['adopted_endpoints']}
+                assert endpoints == adopted and endpoints & used <= adopted, 'Unapproved dev endpoint reuse'
             if name != 'code2video-dev':
                 hosts = {host for host, _ in used}
                 assert not ({host for host, _ in endpoints} & hosts), 'Production host selected'

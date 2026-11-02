@@ -14,7 +14,7 @@
       "worker_id": "cvw-codex-360",
       "bridge": {
         "host": "10.120.3.60",
-        "port": 18082,
+        "port": 18080,
         "scheme": "http"
       },
       "ssh": {
@@ -34,7 +34,7 @@
       "worker_id": "cvw-codex-350",
       "bridge": {
         "host": "10.120.3.50",
-        "port": 18082,
+        "port": 18080,
         "scheme": "http"
       },
       "ssh": {
@@ -329,18 +329,18 @@
   "deployment": {
     "web": {
       "host": "10.120.6.65",
-      "port": 8002,
+      "port": 8000,
       "bind": "0.0.0.0",
       "base_path": "",
-      "public_url": ""
+      "public_url": "http://10.210.9.14:30543"
     },
     "gateway": {
       "host": "10.120.3.60",
-      "port": 9996,
+      "port": 9998,
       "bind": "0.0.0.0"
     },
     "bridge": {
-      "port": 18082,
+      "port": 18080,
       "bind": "0.0.0.0"
     },
     "internal_allowed_cidrs": [

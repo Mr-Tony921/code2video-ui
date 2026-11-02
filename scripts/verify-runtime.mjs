@@ -10,7 +10,9 @@ import { execFileSync } from 'node:child_process';
 const root = fileURLToPath(new URL('../', import.meta.url));
 execFileSync('python3', [join(root, 'scripts/guard-isolation.py')]);
 const cfg = JSON.parse(await readFile(join(root, 'config/backend.json'), 'utf8'));
-const base = `http://${cfg.deployment.web.host}:${cfg.deployment.web.port}`;
+const lan = `http://${cfg.deployment.web.host}:${cfg.deployment.web.port}`;
+const base = process.env.CVW_TEST_BASE_URL ?? lan;
+assert.ok([lan, cfg.deployment.web.public_url].includes(base), 'Test URL must be a configured dev entry');
 const label = process.env.CVW_TEST_LABEL ?? 'acceptance';
 assert.match(label, /^[a-z0-9-]+$/);
 const out = join(root, 'runtime/validation', label);
@@ -145,6 +147,13 @@ try {
     await own(`/api/sessions/${sid}/jobs`, { body: { ...first.body, idempotency_key: randomUUID() }, expected: 409 });
     return first.id;
   });
+  if (process.argv.includes('--single-job')) {
+    const finished = await waitJob(first.id);
+    await check('real job through selected entry / playback / download / Range / SSE', () => video(finished, 'first'));
+    report.finished_at = new Date().toISOString(); await save();
+    console.log('ACCEPTANCE COMPLETE', join(out, 'report.json'));
+    process.exit(0);
+  }
   let wb;
   await check('real 3D job / skill isolation', async () => {
     if (process.argv.includes('--continue')) { wb = { id: report.jobs[1].id }; return wb.id; }

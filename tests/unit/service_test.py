@@ -1,6 +1,9 @@
 """Behavioral lifecycle checks using disposable Node processes, never a deployed service."""
 import importlib.util
 import io
+import json
+import hashlib
+import copy
 import os
 from pathlib import Path
 import subprocess
@@ -73,6 +76,67 @@ class LifecycleTests(unittest.TestCase):
                 for process in processes:
                     if process.poll() is None: process.terminate()
                     process.wait(timeout=5)
+
+class PersistenceTests(unittest.TestCase):
+    def test_supervisor_restarts_exited_service(self):
+        with tempfile.TemporaryDirectory(prefix='cvw-codex-restart-') as tmp:
+            root=Path(tmp); counter=root/'starts.json'
+            script=root/'probe.mjs'
+            script.write_text("import fs from 'node:fs';const f='starts.json';let n=0;try{n=JSON.parse(fs.readFileSync(f))}catch{};fs.writeFileSync(f,JSON.stringify(n+1));setTimeout(()=>process.exit(1),100);")
+            def complete():
+                return counter.exists() and json.loads(counter.read_text()) >= 2
+            service.supervise_process([service.node_binary(),str(script)],root,dict(os.environ),root/'service.log',complete,.1)
+            self.assertEqual(json.loads(counter.read_text()),2)
+            self.assertEqual((root/'service.log').read_text().count('service exited 1'),2)
+
+    def test_tmux_service_survives_controller_exit(self):
+        with tempfile.TemporaryDirectory(prefix='cvw-codex-tmux-') as tmp:
+            root=Path(tmp); script=root/'probe.mjs'
+            script.write_text('setInterval(()=>{},1000);')
+            socket='cvw-codex-test-'+str(os.getpid())
+            controller="import subprocess,sys;subprocess.run(['tmux','-L',sys.argv[1],'new-session','-d','-s','probe','-c',sys.argv[2],sys.argv[3],sys.argv[4]],check=True)"
+            try:
+                subprocess.run([os.sys.executable,'-c',controller,socket,str(root),service.node_binary(),str(script)],check=True)
+                time.sleep(.3)
+                first=service.owned_processes(root,str(script),False)
+                self.assertEqual(len(first),1)
+                time.sleep(.3)
+                self.assertEqual(service.owned_processes(root,str(script),False),first)
+            finally:
+                subprocess.run(['tmux','-L',socket,'kill-server'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                service.stop(root,str(script),False)
+
+
+class HandoverGuardTests(unittest.TestCase):
+    def test_dev_reuse_requires_matching_record_and_never_allows_production(self):
+        spec=importlib.util.spec_from_file_location('handover_guard',ROOT/'scripts/guard-isolation.py')
+        guard=importlib.util.module_from_spec(spec);spec.loader.exec_module(guard)
+        original=json.loads((ROOT/'config/backend.example.json').read_text())
+        with tempfile.TemporaryDirectory(prefix='cvw-codex-guard-') as tmp:
+            root=Path(tmp);(root/'config').mkdir();(root/'runtime/deployment').mkdir(parents=True)
+            cfg=json.loads(json.dumps(original).replace(str(ROOT),str(root)))
+            cfg['deployment']['web']['port']=8000;cfg['deployment']['gateway']['port']=9998
+            for worker in cfg['workers']:worker['bridge']['port']=18080
+            configs={}
+            for base in ['/mnt/afs_if','/mnt/afs_toolcall']:
+                p=Path(base)/'codevideo/workspace/code2video-dev/config/backend.json'
+                if p.exists():configs[str(p)]=hashlib.sha256(p.read_bytes()).hexdigest()
+            def endpoints():
+                return [[cfg['deployment'][k]['host'],cfg['deployment'][k]['port']] for k in ['web','gateway']]+[[w['bridge']['host'],w['bridge']['port']] for w in cfg['workers']]
+            def save(): (root/'config/backend.json').write_text(json.dumps(cfg))
+            marker=root/'runtime/deployment/dev-takeover.json'
+            record={'scope':'retire-cc-dev-processes-only','source_configs':configs,'adopted_endpoints':endpoints()}
+            save()
+            with patch.object(guard,'ROOT',root),patch.object(guard,'EXPECTED',root):
+                with self.assertRaises(FileNotFoundError):guard.check()
+                marker.write_text(json.dumps(record));guard.check()
+                damaged=copy.deepcopy(record);damaged['source_configs']={k:'wrong' for k in configs}
+                marker.write_text(json.dumps(damaged))
+                with self.assertRaisesRegex(AssertionError,'changed since handover'):guard.check()
+                cfg['deployment']['gateway']['host']='10.120.7.0';save()
+                record['adopted_endpoints']=endpoints();marker.write_text(json.dumps(record))
+                with self.assertRaises(AssertionError):guard.check()
+
 
 if __name__ == '__main__':
     unittest.main()

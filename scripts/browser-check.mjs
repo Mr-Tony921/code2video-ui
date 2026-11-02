@@ -6,7 +6,9 @@ import assert from 'node:assert/strict';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const cfg = JSON.parse(await readFile(join(root, 'config/backend.json'), 'utf8'));
-const base = `http://${cfg.deployment.web.host}:${cfg.deployment.web.port}`;
+const lan = `http://${cfg.deployment.web.host}:${cfg.deployment.web.port}`;
+const base = process.env.CVW_TEST_BASE_URL ?? lan;
+assert.ok([lan, cfg.deployment.web.public_url].includes(base), 'Test URL must be a configured dev entry');
 const out = join(root, 'runtime/validation/browser');
 await mkdir(out, { recursive: true });
 const creds = JSON.parse(await readFile(join(root, 'runtime/test-account.json'), 'utf8'));

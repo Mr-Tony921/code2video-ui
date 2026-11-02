@@ -1,17 +1,17 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本为 **1.5.0**，以 `VERSION` 为准。代码、数据、Cookie、进程和端口独立；不复制用户数据，不修改原 dev 或线上 `coding-video-web`。
+基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本为 **1.5.0**，以 `VERSION` 为准。代码、数据、Cookie 和进程按接手版隔离；不复制用户数据，不修改原 dev 代码或线上 `coding-video-web`。
 
-当前内网入口：**http://10.120.6.65:8002**。页面显示「Codex 开发环境」。未设置公网入口。
+当前内网入口：**http://10.210.9.14:30543**（内网直连 `http://10.120.6.65:8000`）。页面显示「Codex 开发环境」。已接管原 cc dev 的 30543 入口。
 
 | 服务 | 主机与端口 | 启动目标 |
 | --- | --- | --- |
-| Next.js 前端/BFF | 10.120.6.65:8002 | `web` |
-| Gateway | 10.120.3.60:9996 | `gateway` |
-| Worker Bridge | 10.120.3.60:18082 | `bridge cvw-codex-360` |
-| Worker Bridge | 10.120.3.50:18082 | `bridge cvw-codex-350` |
+| Next.js 前端/BFF | 10.120.6.65:8000 | `web` |
+| Gateway | 10.120.3.60:9998 | `gateway` |
+| Worker Bridge | 10.120.3.60:18080 | `bridge cvw-codex-360` |
+| Worker Bridge | 10.120.3.50:18080 | `bridge cvw-codex-350` |
 
-两个 worker 与原 dev 共用机器资源，但实例及存储独立。并发配置与 dev 一致：2 + 4，实际有效容量 6。常规冒烟只同时运行少量任务。
+原 cc dev 服务进程已停止，代码和历史数据保留；接手版复用其主机和服务端口，使用自己的实例标识、普通测试账户和存储。并发配置与 dev 一致：2 + 4，实际有效容量 6。常规冒烟只同时运行少量任务。
 
 ## 运行
 
@@ -32,6 +32,7 @@ python3 scripts/service.py bridge start cvw-codex-360
 python3 scripts/service.py bridge start cvw-codex-350
 ```
 
+`start` 在专用 tmux socket `cvw-codex` 下启动常驻监护进程，服务退出后自动拉起，退出 SSH/Codex 不影响服务。
 `start`、`stop`、`restart`、`status`、`logs` 共用同一实现；只有 web 有 `build`。旧 `start-frontend.sh`、`start-backend.sh`、`restart-service.sh` 是薄包装。`start-backend.sh` 用于 .60 的 gateway + 本机 bridge；.50 使用 bridge 命令。
 
 服务读取 `config/backend.json` 和 `runtime/.secrets`；前端构建时固化版本、环境角标与 basePath。改这些值后需重新构建。模型设置保留 dev 当前的 SenseNova-6.8-Code2Video；不升级框架、模型、技能内容或渲染依赖。
@@ -84,3 +85,19 @@ bash scripts/release-check.sh
 实际的 `config/backend.json` 保存在本地并被 Git 忽略；仓库提供 `config/backend.example.json`。
 新 clone 需要复制模板并配置自己的部署路径、主机和密钥，还需要独立准备 `runtime/` 的浏览器和渲染依赖。
 Git 管理代码版本，任务数据和运行凭据需单独备份。
+
+## 查看常驻服务
+
+在对应主机执行，全部使用独立 socket，避免影响其他 tmux 会话：
+
+```bash
+tmux -L cvw-codex ls
+# 前端主机
+tmux -L cvw-codex attach -t cvw-codex-web-local
+# Gateway 主机 .60
+tmux -L cvw-codex attach -t cvw-codex-gateway
+```
+
+用 Ctrl-b 然后 d 离开 tmux。日志仍在 runtime/logs；停止/重启使用 service.py，避免只杀 Node 后被监护进程立即拉起。
+端口接管记录保存在 runtime/deployment/dev-takeover.json，隔离校验只允许记录中已授权的 dev 端口复用，生产主机仍始终禁止。
+当前账号、任务和素材仍来自接手版独立数据目录，未导入 cc dev 的用户数据。
