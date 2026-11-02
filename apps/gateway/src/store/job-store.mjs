@@ -91,15 +91,9 @@ export async function listSessionsByUser(userId) {
  * LEASE_INVALID → Bridge 自保停止 → 把刚救回来的任务亲手杀掉。
  */
 export async function reassignLeaseHolder(id, newProcessInstanceId) {
-  const j = await getJob(id);
-  if (!j?.lease) return null;
-  const lease = {
-    ...j.lease,
-    holder_process_instance_id: newProcessInstanceId,
-    reassigned_at: nowIso(),
-  };
-  await patchJob(id, { lease });
-  return lease;
+  return mutateLease(id, lease => ({
+    ...lease, holder_process_instance_id: newProcessInstanceId, reassigned_at: nowIso(),
+  }));
 }
 
 /**
@@ -306,6 +300,49 @@ async function atomicWriteJson(path, obj) {
   }
 }
 
+// A single Gateway owns this store. Serialize the complete read/modify/write per job;
+// atomic rename alone only prevents torn JSON, not concurrent lost updates.
+const jobWrites = new Map();
+async function withJobWrite(id, action) {
+  const previous = jobWrites.get(id) ?? Promise.resolve();
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const tail = previous.then(() => gate);
+  jobWrites.set(id, tail);
+  await previous;
+  try { return await action(); }
+  finally {
+    release();
+    if (jobWrites.get(id) === tail) jobWrites.delete(id);
+  }
+}
+
+const CANCELLING = new Set(['CANCEL_REQUESTED', 'CANCELLING']);
+function mergeJobPatch(job, patch) {
+  // Status/lease have dedicated mutation APIs. A stale whole-record metadata patch
+  // must never rewind a state transition or restore a revoked fencing token.
+  const next = { ...job, ...patch, id: job.id, status: job.status, lease: job.lease };
+  if (patch.cancellation) {
+    next.cancellation = { ...job.cancellation, ...patch.cancellation };
+    for (const [key, value] of Object.entries(job.cancellation ?? {})) {
+      if (value != null && (patch.cancellation[key] == null ||
+          ['requested_at', 'requested_by', 'reason'].includes(key))) next.cancellation[key] = value;
+    }
+  } else if ('cancellation' in patch) next.cancellation = job.cancellation;
+  if (patch.failure) next.failure = { ...job.failure, ...patch.failure };
+  return next;
+}
+
+async function mutateLease(id, update) {
+  return withJobWrite(id, async () => {
+    const j = await getJob(id);
+    if (!j?.lease) return null;
+    const lease = update(j.lease);
+    if (lease !== j.lease) await writeJob({ ...j, lease });
+    return lease;
+  });
+}
+
 async function writeJob(j) {
   await atomicWriteJson(jobPath(j.id), j);
   return j;
@@ -396,29 +433,31 @@ const FORBIDDEN = [
 ];
 
 export async function transition(id, to, patch = {}, { force = false } = {}) {
-  const j = await getJob(id);
-  if (!j) return { ok: false, reason: 'NOT_FOUND' };
-  if (!force) {
-    for (const rule of FORBIDDEN) {
-      if (rule(j.status, to)) {
-        return { ok: false, reason: 'FORBIDDEN_TRANSITION', from: j.status, to, job: j };
-      }
+  return withJobWrite(id, async () => {
+    const j = await getJob(id);
+    if (!j) return { ok: false, reason: 'NOT_FOUND' };
+    // Force permits dispatch retries, never reopening a terminal job or undoing
+    // an already persisted cancellation with a late heartbeat/requeue.
+    const cancelRegression = CANCELLING.has(j.status) && !isTerminal(to) &&
+      to !== 'CANCELLING' && !(j.status === 'CANCEL_REQUESTED' && to === 'CANCEL_REQUESTED');
+    if (isTerminal(j.status) || cancelRegression ||
+        (!force && FORBIDDEN.some(rule => rule(j.status, to)))) {
+      return { ok: false, reason: 'FORBIDDEN_TRANSITION', from: j.status, to, job: j };
     }
-  }
-  const next = { ...j, ...patch, status: to };
-  if (patch.cancellation) next.cancellation = { ...j.cancellation, ...patch.cancellation };
-  if (patch.failure) next.failure = { ...j.failure, ...patch.failure };
-  if (isTerminal(to) && !next.finished_at) next.finished_at = nowIso();
-  await writeJob(next);
-  return { ok: true, job: next, from: j.status };
+    const next = { ...mergeJobPatch(j, patch), status: to };
+    if (isTerminal(to) && !next.finished_at) next.finished_at = nowIso();
+    await writeJob(next);
+    return { ok: true, job: next, from: j.status };
+  });
 }
 
+/** Metadata only; state and fencing changes go through transition/lease APIs. */
 export async function patchJob(id, patch) {
-  const j = await getJob(id);
-  if (!j) return null;
-  const next = { ...j, ...patch };
-  if (patch.cancellation) next.cancellation = { ...j.cancellation, ...patch.cancellation };
-  return writeJob(next);
+  return withJobWrite(id, async () => {
+    const j = await getJob(id);
+    if (!j) return null;
+    return writeJob(mergeJobPatch(j, patch));
+  });
 }
 
 export async function listJobs({ userId, sessionId, statuses } = {}) {
@@ -442,19 +481,20 @@ export async function listJobs({ userId, sessionId, statuses } = {}) {
 
 /** 取得租约。epoch 单调递增：续约不变，重新分配才 +1（I-9）。 */
 export async function acquireLease(id, processInstanceId) {
-  const j = await getJob(id);
-  if (!j) return null;
-  const epoch = (j.lease?.epoch ?? 0) + 1;
-  const lease = {
-    epoch,
-    token: `lt_${randomUUID().replace(/-/g, '')}`,
-    holder_process_instance_id: processInstanceId,
-    acquired_at: nowIso(), renewed_at: nowIso(),
-    expires_at: new Date(Date.now() + config.timing.leaseTtlMs).toISOString(),
-    released_at: null, revoked_at: null,
-  };
-  await patchJob(id, { lease });
-  return lease;
+  return withJobWrite(id, async () => {
+    const j = await getJob(id);
+    if (!j || isTerminal(j.status) || CANCELLING.has(j.status)) return null;
+    const lease = {
+      epoch: (j.lease?.epoch ?? 0) + 1,
+      token: `lt_${randomUUID().replace(/-/g, '')}`,
+      holder_process_instance_id: processInstanceId,
+      acquired_at: nowIso(), renewed_at: nowIso(),
+      expires_at: new Date(Date.now() + config.timing.leaseTtlMs).toISOString(),
+      released_at: null, revoked_at: null,
+    };
+    await writeJob({ ...j, lease });
+    return lease;
+  });
 }
 
 /** 校验 Bridge 带回的 token。失败即丢弃其上报，不改变 Job 状态。 */
@@ -468,31 +508,18 @@ export function validateLease(job, token) {
 }
 
 export async function renewLease(id) {
-  const j = await getJob(id);
-  if (!j?.lease) return null;
-  const lease = {
-    ...j.lease,
-    renewed_at: nowIso(),
+  return mutateLease(id, lease => lease.revoked_at || lease.released_at ? lease : ({
+    ...lease, renewed_at: nowIso(),
     expires_at: new Date(Date.now() + config.timing.leaseTtlMs).toISOString(),
-  };
-  await patchJob(id, { lease });
-  return lease;
+  }));
 }
 
 export async function revokeLease(id) {
-  const j = await getJob(id);
-  if (!j?.lease) return null;
-  const lease = { ...j.lease, revoked_at: nowIso() };
-  await patchJob(id, { lease });
-  return lease;
+  return mutateLease(id, lease => ({ ...lease, revoked_at: lease.revoked_at ?? nowIso() }));
 }
 
 export async function releaseLease(id) {
-  const j = await getJob(id);
-  if (!j?.lease) return null;
-  const lease = { ...j.lease, released_at: nowIso() };
-  await patchJob(id, { lease });
-  return lease;
+  return mutateLease(id, lease => ({ ...lease, released_at: lease.released_at ?? nowIso() }));
 }
 
 /* ───────────────────────── 事件（SSE 的持久化来源） ───────────────────────── */

@@ -41,11 +41,12 @@ const wdPrompts = new WatchdogPrompts({ pool });
 /** 心跳断够久 → 停止任务（V2 需求 5） */
 const presence = new PresenceTracker({
   onTimeout: async (job, ageMs) => {
-    await store.transition(job.id, 'CANCEL_REQUESTED', {
+    const requested = await store.transition(job.id, 'CANCEL_REQUESTED', {
       cancellation: {
         requested_at: nowIso(), requested_by: 'system', reason: 'presence_lost',
       },
     });
+    if (!requested.ok) return;
     await store.appendEvent(job.id, 'job.cancel_requested', {
       status: 'CANCEL_REQUESTED', reason: 'presence_lost',
       note: `用户已离开页面超过 ${Math.round(ageMs / 60000)} 分钟，自动停止`,
@@ -55,7 +56,8 @@ const presence = new PresenceTracker({
     if (base) {
       bridge.cancelJob(base, job.id, { reason: 'presence_lost' })
         .then(async () => {
-          await store.transition(job.id, 'CANCELLING');
+          const cancelling = await store.transition(job.id, 'CANCELLING');
+          if (!cancelling.ok) return;
           await store.appendEvent(job.id, 'job.cancelling', { status: 'CANCELLING' });
         })
         .catch((e) => console.warn(`[presence] 下达停止失败: ${e.message}`));
@@ -938,26 +940,34 @@ const routes = {
       return json(res, 202, { job: publicJob(j), already_requested: true, server_time: nowIso() });
 
     // ① 先持久化取消意图，再做任何外部调用
-    await store.transition(j.id, 'CANCEL_REQUESTED', {
+    const requested = await store.transition(j.id, 'CANCEL_REQUESTED', {
       cancellation: { requested_at: nowIso(), requested_by: u.id, reason: 'user' },
     });
+    if (!requested.ok) {
+      const current = requested.job ?? await store.getJob(j.id);
+      if (current && ['CANCEL_REQUESTED', 'CANCELLING'].includes(current.status))
+        return json(res, 202, { job: publicJob(current), already_requested: true, server_time: nowIso() });
+      return err(res, 409, current && store.isTerminal(current.status) ? 'JOB_ALREADY_TERMINAL' : 'FORBIDDEN_TRANSITION',
+        '任务状态已变化，取消请求未应用', { status: current?.status });
+    }
     await store.appendEvent(j.id, 'job.cancel_requested', { status: 'CANCEL_REQUESTED', reason: 'user' });
 
     // ② 撤租约：立刻阻止旧执行者提交结果
     await store.revokeLease(j.id);
 
     // ③ 通知 Bridge（失败则靠心跳 control 兜底）
-    if (j.status === 'QUEUED') {
-      await store.transition(j.id, 'CANCELLED', {
+    if (requested.from === 'QUEUED') {
+      const cancelled = await store.transition(j.id, 'CANCELLED', {
         cancellation: { acked_at: nowIso(), effective: true, resources_released_at: nowIso() },
       });
-      await store.appendEvent(j.id, 'job.cancelled', { status: 'CANCELLED', note: '排队中取消，无需联系后端' });
+      if (cancelled.ok) await store.appendEvent(j.id, 'job.cancelled', { status: 'CANCELLED', note: '排队中取消，无需联系后端' });
     } else {
       const base = pool.bridgeUrlFor(j.process_instance_id, j.worker_id);
       if (base) {
         bridge.cancelJob(base, j.id, { reason: 'user', grace_seconds: config.timing.cancelGraceMs / 1000 })
           .then(async () => {
-            await store.transition(j.id, 'CANCELLING');
+            const cancelling = await store.transition(j.id, 'CANCELLING');
+            if (!cancelling.ok) return;
             await store.appendEvent(j.id, 'job.cancelling', { status: 'CANCELLING' });
           })
           .catch((e) => console.warn(`[gateway] 下达取消失败（将靠心跳兜底）: ${e.message}`));
@@ -1434,8 +1444,8 @@ const routes = {
       ...(b.progress_percent != null ? { progress_percent: b.progress_percent } : {}),
     };
     if (j.status === 'ASSIGNED') {
-      await store.transition(id, 'RUNNING', { ...patch, started_at: j.started_at ?? nowIso() });
-      await store.appendEvent(id, 'job.started', { status: 'RUNNING', phase: b.phase });
+      const started = await store.transition(id, 'RUNNING', { ...patch, started_at: j.started_at ?? nowIso() });
+      if (started.ok) await store.appendEvent(id, 'job.started', { status: 'RUNNING', phase: b.phase });
     } else {
       await store.patchJob(id, patch);
     }
@@ -1469,8 +1479,9 @@ const routes = {
     } else {
       await store.patchJob(id, patch);
     }
+    const updated = await store.getJob(id);
     const ev = await store.appendEvent(id, b.phase && b.phase !== j.phase ? 'job.phase' : 'job.progress', {
-      status: 'RUNNING', phase: b.phase ?? j.phase, progress_percent: b.progress_percent ?? null,
+      status: updated.status, phase: b.phase ?? j.phase, progress_percent: b.progress_percent ?? null,
     });
     const cur = await store.getJob(id);
     return json(res, 200, {

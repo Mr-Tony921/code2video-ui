@@ -35,6 +35,7 @@ export class Watchdog {
      * 所以不会因此永久卡住。
      */
     this.cancelResends = new Map();
+    this.cancelTimestampWarnings = new Set();
   }
 
   start(intervalMs = config.timing.sweepIntervalMs) {
@@ -70,7 +71,7 @@ export class Watchdog {
         const sessions = await store.degradeSessionsOnProcess(
           st.process_instance_id, `后端进程 ${st.process_instance_id} 已失联`);
         this.log.warn(`[watchdog] ${sessions.length} 个会话转 DEGRADED（不迁移，需新建会话）`);
-        for (const j of await store.listJobs({ statuses: ['ASSIGNED', 'RUNNING', 'CANCELLING'] })) {
+        for (const j of await store.listJobs({ statuses: ['ASSIGNED', 'RUNNING'] })) {
           if (j.process_instance_id !== st.process_instance_id) continue;
           const t = await store.transition(j.id, 'UNKNOWN');
           if (t.ok) await store.appendEvent(j.id, 'job.state_unknown', {
@@ -83,18 +84,23 @@ export class Watchdog {
 
   async sweepJobs() {
     const now = Date.now();
-    for (const j of await store.listJobs({
+    const jobs = await store.listJobs({
       statuses: ['ASSIGNED', 'RUNNING', 'UNKNOWN', 'RECOVERING', 'CANCEL_REQUESTED', 'CANCELLING'],
-    })) {
+    });
+    const cancelling = new Set(jobs.filter(j => ['CANCEL_REQUESTED', 'CANCELLING'].includes(j.status)).map(j => j.id));
+    for (const tracked of [this.cancelResends, this.cancelTimestampWarnings]) {
+      for (const id of tracked.keys()) if (!cancelling.has(id)) tracked.delete(id);
+    }
+    for (const j of jobs) {
       // 1) 超最大运行时间 → 走取消流程（不是直接 FAILED）
       if (j.started_at && (j.status === 'RUNNING' || j.status === 'ASSIGNED')) {
         const ran = now - new Date(j.started_at).getTime();
         if (ran > (j.max_runtime_seconds ?? 10800) * 1000) {
           this.log.warn(`[watchdog] ${j.id} 超最大运行时间 ${Math.round(ran / 60000)}min → 请求取消`);
-          await store.transition(j.id, 'CANCEL_REQUESTED', {
+          const requested = await store.transition(j.id, 'CANCEL_REQUESTED', {
             cancellation: { requested_at: new Date().toISOString(), requested_by: 'system', reason: 'max_runtime' },
           });
-          await store.appendEvent(j.id, 'job.cancel_requested', { status: 'CANCEL_REQUESTED', reason: 'max_runtime' });
+          if (requested.ok) await store.appendEvent(j.id, 'job.cancel_requested', { status: 'CANCEL_REQUESTED', reason: 'max_runtime' });
           continue;
         }
       }
@@ -127,8 +133,15 @@ export class Watchdog {
       }
 
       // 5) 取消宽限超时
-      if (j.status === 'CANCELLING' && j.cancellation?.requested_at) {
-        const age = now - new Date(j.cancellation.requested_at).getTime();
+      if (j.status === 'CANCELLING' || j.status === 'CANCEL_REQUESTED') {
+        // State itself proves cancellation intent. A missing/invalid timestamp must
+        // not disable every retry/probe/final-settlement safeguard.
+        const requestedAt = Date.parse(j.cancellation?.requested_at);
+        const age = Number.isFinite(requestedAt) ? now - requestedAt : Infinity;
+        if (!Number.isFinite(requestedAt) && !this.cancelTimestampWarnings.has(j.id)) {
+          this.cancelTimestampWarnings.add(j.id);
+          this.log.warn(`[watchdog] ${j.id} ${j.status} cancellation.requested_at 缺失或无效，按超过宽限处理`);
+        }
         if (age > config.timing.cancelGraceMs) {
           const st = this.pool.processes.get(j.process_instance_id);
           if (st?.status === 'HEALTHY') {
@@ -155,7 +168,7 @@ export class Watchdog {
             const base = this.pool.bridgeUrlFor(j.process_instance_id, j.worker_id);
             this.log.warn(`[watchdog] ${j.id} 取消宽限超时，重发取消（第 ${n} 次）`);
             const r = base
-              ? await bridge.cancelJob(base, j.id, { reason: j.cancellation.reason ?? 'user' })
+              ? await bridge.cancelJob(base, j.id, { reason: j.cancellation?.reason ?? 'user' })
                   .catch(() => null)
               : null;
 
@@ -197,6 +210,9 @@ export class Watchdog {
               this.cancelResends.delete(j.id);
             }
           } else {
+            // An unavailable instance may still have a definitive on-disk result.
+            const base = this.pool.bridgeUrlFor(j.process_instance_id, j.worker_id);
+            if (base && await this.settleCancelByProbe(j, base)) continue;
             // 进程失联 + 取消未确认 ⇒ 不谎称取消成功
             const tc = await store.transition(j.id, 'FAILED', {
               failure: { code: 'CANCEL_UNCONFIRMED', message: '已请求停止，但后端进程失联，无法确认计算是否终止' },
@@ -204,10 +220,10 @@ export class Watchdog {
             if (tc.ok) {
               await store.releaseLease(j.id);
               this.releaseSlot(j);
+              await store.appendEvent(j.id, 'job.failed', {
+                status: 'FAILED', failure: { code: 'CANCEL_UNCONFIRMED' },
+              });
             }
-            await store.appendEvent(j.id, 'job.failed', {
-              status: 'FAILED', failure: { code: 'CANCEL_UNCONFIRMED' },
-            });
             this.cancelResends.delete(j.id);
           }
         }
@@ -294,7 +310,8 @@ export class Watchdog {
 
     if (job.status !== 'RECOVERING' && job.status !== 'UNKNOWN') {
       const t = await store.transition(job.id, 'UNKNOWN');
-      if (t.ok) await store.appendEvent(job.id, 'job.state_unknown', { status: 'UNKNOWN', reason });
+      if (!t.ok) return;
+      await store.appendEvent(job.id, 'job.state_unknown', { status: 'UNKNOWN', reason });
     }
 
     const base = this.pool.bridgeUrlFor(job.process_instance_id, job.worker_id);
@@ -308,7 +325,8 @@ export class Watchdog {
         // UNKNOWN → FAILED 被 FORBIDDEN 规则挡住（必须经 RECOVERING 对账，
         // 防止"状态不明"被草率判死）。这里确实已完成对账：进程实例不存在
         // ⇒ 不可能再有执行者。所以先合法地过一次 RECOVERING，再判死。
-        await store.transition(job.id, 'RECOVERING');
+        const recovering = await store.transition(job.id, 'RECOVERING');
+        if (!recovering.ok) return;
         await store.appendEvent(job.id, 'job.recovering', {
           status: 'RECOVERING', probe: 'process_gone',
         });
@@ -342,7 +360,8 @@ export class Watchdog {
       // 超过 unknown 上限仍无定论 → FAILED（经 RECOVERING，满足 I-7）
       const age = Date.now() - new Date(job.last_heartbeat_at ?? job.created_at).getTime();
       if (age > config.timing.unknownMaxMs) {
-        await store.transition(job.id, 'RECOVERING');
+        const recovering = await store.transition(job.id, 'RECOVERING');
+        if (!recovering.ok) return;
         const t = await store.transition(job.id, 'FAILED', {
           failure: { code: 'STATE_UNRESOLVED', message: '长时间无法确认后端任务状态' },
         });
@@ -358,7 +377,8 @@ export class Watchdog {
     }
 
     this.probeBackoff.delete(job.id);
-    await store.transition(job.id, 'RECOVERING');
+    const recovering = await store.transition(job.id, 'RECOVERING');
+    if (!recovering.ok) return;
     await store.appendEvent(job.id, 'job.recovering', { status: 'RECOVERING', probe: truth.status });
 
     if (truth.status === 'running') {

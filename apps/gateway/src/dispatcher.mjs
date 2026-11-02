@@ -81,6 +81,7 @@ export class Dispatcher {
     if (!t.ok) { this.log.warn(`[dispatcher] ${job.id} 迁移被拒: ${t.reason}`); return; }
 
     const lease = await store.acquireLease(job.id, job.process_instance_id);
+    if (!lease) return; // Cancellation/terminal settlement won after assignment.
     await store.appendEvent(job.id, 'job.assigned', {
       status: 'ASSIGNED',
       worker_id: job.worker_id,
@@ -117,7 +118,8 @@ export class Dispatcher {
       this.pool.release(job.id);            // 没投出去，立刻归还预留
       if (e.code === 'WORKER_AT_CAPACITY' || e.status === 503) {
         // 后端满载或正在下线 → 退回队列，attempt 已记，不算失败
-        await store.transition(job.id, 'QUEUED', { assigned_at: null }, { force: true });
+        const queued = await store.transition(job.id, 'QUEUED', { assigned_at: null }, { force: true });
+        if (!queued.ok) return;
         await store.revokeLease(job.id);
         await store.appendEvent(job.id, 'job.queued', { status: 'QUEUED', reason: e.code ?? 'BRIDGE_BUSY' });
         this.log.warn(`[dispatcher] ${job.id} 后端忙，退回队列: ${e.message}`);
