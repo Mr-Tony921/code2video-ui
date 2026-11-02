@@ -1,9 +1,9 @@
 {
   "name": "cvw-worker-bridge",
-  "version": "1.5.0",
+  "version": "1.5.2",
   "private": true,
   "type": "module",
-  "description": "\u540e\u7aef\u673a\u5668\u4e0a\u7684\u5e38\u9a7b HTTP \u670d\u52a1\uff1aGateway \u7684\u751f\u4ea7\u6570\u636e\u901a\u8def\u3002SSH \u4ec5\u7528\u4e8e\u90e8\u7f72\u8c03\u8bd5\u3002",
+  "description": "后端机器上的常驻 HTTP 服务：Gateway 的生产数据通路。SSH 仅用于部署调试。",
   "engines": {
     "node": ">=20"
   },

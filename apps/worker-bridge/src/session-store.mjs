@@ -177,13 +177,29 @@ export async function exportSession(sessionId, { includeClaudeLogs = false } = {
   const meta = await readSessionMeta(sessionId);
   if (!meta) return null;
   const jobs = await listSessionJobs(sessionId);
+  const executionLogs = {};
   if (includeClaudeLogs) {
+    // Current sessions share one append-only stream. Export it once, not once per round.
+    const ws = join(sessionPath(sessionId), 'workspace');
+    for (const name of ['claude.jsonl', 'claude.stderr']) {
+      if (existsSync(join(ws, name))) executionLogs[name] = await readFile(join(ws, name), 'utf8');
+    }
+    async function nativeLogs(dir, prefix = '') {
+      if (!existsSync(dir)) return;
+      for (const entry of await readdir(dir, { withFileTypes: true })) {
+        const path = join(dir, entry.name), key = prefix + entry.name;
+        if (entry.isDirectory()) await nativeLogs(path, key + '/');
+        else if (entry.isFile() && entry.name.endsWith('.jsonl')) executionLogs['native/' + key] = await readFile(path, 'utf8');
+      }
+    }
+    await nativeLogs(join(ws, '.home', '.claude', 'projects'));
     for (const j of jobs) {
-      const lp = join(sessionPath(sessionId), 'jobs', j.job_id, 'claude.log');
-      if (existsSync(lp)) j.claude_log = await readFile(lp, 'utf8');
+      const legacy = join(sessionPath(sessionId), 'jobs', j.job_id, 'claude.log');
+      if (existsSync(legacy)) j.claude_log = await readFile(legacy, 'utf8');
     }
   }
-  return { meta, trace: await readTrace(sessionId), jobs, exported_at: nowIso() };
+  return { meta, trace: await readTrace(sessionId), jobs,
+    ...(includeClaudeLogs ? { execution_logs: executionLogs } : {}), exported_at: nowIso() };
 }
 
 export async function exportUserTrajectory(userId, { includeClaudeLogs = false, limit = 50 } = {}) {

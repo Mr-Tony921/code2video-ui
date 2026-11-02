@@ -13,7 +13,7 @@ import { uuid } from '@/lib/uuid';
 
 export function Composer({
   sessionId, disabled, disabledReason, onSubmit, injected, onInjected,
-  enhance, onEnhanceChange, basedOn, enhanceLocked,
+  enhance, onEnhanceChange, basedOn, enhanceLocked, experimental,
 }: {
   sessionId: string | null;
   disabled: boolean;
@@ -34,6 +34,7 @@ export function Composer({
    * 用户实测反馈过这一点。
    */
   enhanceLocked?: string | null;
+  experimental?: boolean;
   onSubmit: (text: string, idempotencyKey: string) => Promise<void>;
   /** 是否做 prompt 增强（默认开）。点击示例会自动关闭 —— 示例本身已是增强结果 */
   enhance: boolean;
@@ -76,7 +77,7 @@ export function Composer({
     if (!t || busy || disabled) return;
     setBusy(true);
     try {
-      await onSubmit(t, idemKey.current);
+      await onSubmit(experimental ? text : t, idemKey.current);
       setText('');
       if (sessionId) saveDraft(sessionId, '');
       idemKey.current = uuid();   // 成功后换新 key，供下次提交
@@ -146,7 +147,7 @@ export function Composer({
           <button className="btn primary" onClick={submit} disabled={disabled || busy || !text.trim()}>
             {busy ? '提交中…' : '发送 ↑'}
           </button>
-          <span className="tiny">{text.length}/8000</span>
+          <span className="tiny">{text.length}{experimental ? '' : '/8000'}</span>
         </div>
       </div>
       {disabled && disabledReason && (

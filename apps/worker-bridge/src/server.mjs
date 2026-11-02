@@ -158,7 +158,7 @@ const routes = {
     if (sup.draining) return err(res, 503, 'DRAINING', '本进程正在下线，不接新会话');
 
     try {
-      const ws = await prepareSessionWorkspace({ sessionId: b.session_id, mode: b.mode });
+      const ws = await prepareSessionWorkspace({ sessionId: b.session_id, mode: b.mode, modelSelection: b.model_selection, builtinSkills: b.builtin_skills });
       sup.activeSessions.add(b.session_id);
       // 持久化会话元信息：便于按用户恢复与导出轨迹
       await store.upsertSessionMeta({
@@ -170,11 +170,12 @@ const routes = {
         skill: ws.skillsetName,
         status: 'ACTIVE',
         // 渠道写进 meta：按渠道（测试/外发）汇总或导出用户轨迹时用
-        extra: { channel: b.channel ?? null, user_note: b.user_note ?? null },
+        extra: { channel: b.channel ?? null, user_note: b.user_note ?? null, model_selection: b.model_selection ?? null, builtin_skills: b.builtin_skills ?? null },
       });
       await store.appendTrace(b.session_id, {
         kind: 'session_created', mode: b.mode, skillset: ws.skillsetName, skills: ws.skills,
         process_instance_id: PROCESS_INSTANCE_ID, user_id: b.user_id ?? null,
+        extra: { model_selection: b.model_selection ?? null, builtin_skills: b.builtin_skills ?? null },
       });
       return json(res, 200, {
         accepted: true,
@@ -210,6 +211,7 @@ const routes = {
         jobId: b.job_id,
         sessionId: b.session_id,
         mode: b.mode,
+        modelSelection: b.model_selection, experimentalSkills: b.experimental_skills,
         prompt: b.prompt,
         leaseToken: b.lease_token,
         baseAssetPath: b.base_asset_path ?? null,

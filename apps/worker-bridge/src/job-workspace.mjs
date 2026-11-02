@@ -33,6 +33,7 @@ import { mkdir, writeFile, cp, rm, readdir, symlink, link, copyFile, stat } from
 import { existsSync, readdirSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { config } from './config.mjs';
+import { mountCustomSkills } from '../../shared/experimental-skills.mjs';
 import { sessionDir, referencesDir } from './session-workspace.mjs';
 import {
   resolveJobPaths, ccSessionIdFor, findCcSessionFile,
@@ -151,12 +152,13 @@ function buildRevisionNote() {
   ].join('\n');
 }
 
-export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agentWsPath }) {
+export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agentWsPath, experimentalSkills, modelSelection }) {
   const { agentWs, bookDir, legacy } = resolveJobPaths(sessionId, jobId);
   const ws = agentWs;
   // agent 视图里的工作区路径：隔离开启时是浅挂载点，否则就是宿主真实路径
   const viewPath = agentWsPath ?? ws;
-  const { name: skillsetName, src: skillsetPath } = skillsetSrc(mode);
+  const builtin = mode === 'experimental' ? (experimentalSkills?.builtin ?? 'none') : mode;
+  const { name: skillsetName, src: skillsetPath } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetSrc(builtin);
 
   /**
    * 本轮是不是同一会话的后续轮次。
@@ -240,7 +242,8 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
   const skillTarget = join(ws, '.claude', 'skills');
   await rm(skillTarget, { recursive: true, force: true });
   await mkdir(skillTarget, { recursive: true });
-  await cp(skillsetPath, skillTarget, { recursive: true });
+  if (skillsetPath) await cp(skillsetPath, skillTarget, { recursive: true });
+  if (mode === 'experimental') await mountCustomSkills(join(config.storage.sessionsRoot, config.storage.sessionsSubdir), sessionId, experimentalSkills, skillTarget);
   const skills = (await readdir(skillTarget, { withFileTypes: true }))
     .filter((e) => e.isDirectory()).map((e) => e.name).sort();
 
@@ -290,18 +293,20 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
   }
 
   // prompt.md = 增强后的 prompt + 微调上下文 + output contract
-  const contract = buildOutputContract({
+  const contract = mode === 'experimental' ? '\n\n## Delivery\nSave the finished video to `output/final.mp4` in the current working directory.\n' : buildOutputContract({
     wsDir: viewPath, hasAssets: assetFiles.length > 0, skills, mode,
   });
-  const revisionNote = revision ? buildRevisionNote() : '';
+  const revisionNote = revision && mode !== 'experimental' ? buildRevisionNote() : '';
   // ★ prompt.md 与 _meta.json 落【本轮簿记目录】，不落共享工作区 ——
   //   共享的话第 2 轮会把第 1 轮的 prompt 覆盖掉，排障时查不到当轮提交了什么。
   const promptPath = join(bookDir, 'prompt.md');
-  await writeFile(promptPath, `${prompt.trim()}\n${revisionNote}${contract}`, 'utf8');
+  const submittedPrompt = mode === 'experimental' ? prompt : prompt.trim();
+  await writeFile(promptPath, `${submittedPrompt}\n${revisionNote}${contract}`, 'utf8');
 
   await writeFile(join(bookDir, '_meta.json'), JSON.stringify({
     session_id: sessionId, job_id: jobId, mode,
     skillset: skillsetName, skills,
+    model_selection: modelSelection ?? null, experimental_skills: experimentalSkills ?? null,
     assets: assetFiles,
     node_modules: kit ?? null,
     host_path: ws,
@@ -334,7 +339,7 @@ export function verifyJobIsolation(sessionId, jobId, mode) {
       .filter((e) => e.isDirectory()).map((e) => e.name).sort();
   } catch {}
   return {
-    ok: hasWhitebox === (mode === 'blockout_3d'),
+    ok: mode === 'experimental' || hasWhitebox === (mode === 'blockout_3d'),
     mode, has_whitebox: hasWhitebox,
     should_have_whitebox: mode === 'blockout_3d',
     skills, skill_count: skills.length,

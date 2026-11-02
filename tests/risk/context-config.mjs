@@ -24,7 +24,7 @@ t('env 用占位符引用上下文（不写死）',
 t('env 用占位符引用压缩率（不写死）',
   env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE==='${model.autocompact_pct}');
 t('★ 占位符已在白名单登记（漏了会静默失效）',
-  /'model\.autocompact_pct':\s*config\.model\.autocompactPct/.test(jr));
+  /'model\.autocompact_pct':\s*model\.autocompactPct/.test(jr));
 t('config.mjs 读出 autocompactPct', /autocompactPct:\s*Number\(/.test(cm));
 t('两种 mode 共用同一套 env（白模也生效）',
   !/mode\s*===\s*'blockout_3d'[\s\S]{0,200}resolveClaudeEnv/.test(jr));

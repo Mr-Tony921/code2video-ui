@@ -4,6 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { experimentalEnabled } from '../../shared/experimental.mjs';
 
 function req(name, fallback = undefined) {
   const v = process.env[name] ?? fallback;
@@ -68,7 +69,7 @@ export const config = {
     port: Number(process.env.CVW_BRIDGE_PORT ?? self.bridge.port),
     maxConcurrentJobs: Number(process.env.CVW_MAX_CONCURRENT_JOBS ?? self.max_concurrent_jobs),
     maxSessions: Number(process.env.CVW_MAX_SESSIONS ?? self.max_sessions),
-    supportedModes: self.supported_modes,
+    supportedModes: [...new Set([...self.supported_modes, ...(experimentalEnabled(backendCfg) ? ['experimental'] : [])])],
   },
 
   gateway: {

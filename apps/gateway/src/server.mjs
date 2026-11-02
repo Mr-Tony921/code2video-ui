@@ -11,6 +11,7 @@
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { json, err, readJson, matchRoute } from '../../shared/http.mjs';
 import { internalAuthed, setSessionCookie, currentUser } from './auth.mjs';
@@ -31,6 +32,23 @@ import * as examples from './examples.mjs';
 import { ensurePreview, previewPathFor, previewIsFresh, initPreviews } from './asset-preview.mjs';
 import * as users from './users.mjs';
 import { bridgeRefs } from './refs-proxy.mjs';
+import { experimentalEnabled, experimentalModels, resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
+import { prepareSkillRevision } from '../../shared/experimental-skills.mjs';
+import { streamSessionArchive } from '../../shared/session-archive.mjs';
+
+async function experimentalUser(req) {
+  const signed = currentUser(req);
+  if (!signed) throw Object.assign(new Error('未登录'), { status: 401, code: 'UNAUTHENTICATED' });
+  const user = signed ? await users.get(signed.username) : null;
+  if (!experimentalEnabled(config.raw) || !user?.can_use_experimental || user.status !== 'active')
+    throw Object.assign(new Error('需管理员授予 dev 实验模式权限'), { status: 403, code: 'EXPERIMENTAL_FORBIDDEN' });
+  return user;
+}
+function builtinPermission(user, builtin) {
+  if (builtin === 'blockout_3d' && !(user.can_use_blockout_3d || user.role === 'admin'))
+    throw Object.assign(new Error('加载白模内置 skill 还需白模权限'), { status: 403, code: 'BLOCKOUT_3D_FORBIDDEN' });
+}
+
 
 const pool = new WorkerPool({ repoRoot: config.repoRoot });
 const dispatcher = new Dispatcher({ pool });
@@ -448,11 +466,14 @@ const routes = {
     if (!me) return err(res, 401, 'UNAUTHENTICATED', '未登录');
     if (me.role !== 'admin') return err(res, 403, 'FORBIDDEN', '需要管理员权限');
     const b = await readJson(req);
-    if (typeof b.can_use_blockout_3d !== 'boolean') {
-      return err(res, 400, 'VALIDATION_FAILED', 'can_use_blockout_3d 必须是布尔值');
+    if (!['can_use_blockout_3d', 'can_use_experimental'].some(k => typeof b[k] === 'boolean') ||
+        ['can_use_blockout_3d', 'can_use_experimental'].some(k => k in b && typeof b[k] !== 'boolean')) {
+      return err(res, 400, 'VALIDATION_FAILED', '权限字段必须是布尔值');
     }
     try {
-      const u = await users.setBlockout3d(id, b.can_use_blockout_3d);
+      let u;
+      if ('can_use_blockout_3d' in b) u = await users.setBlockout3d(id, b.can_use_blockout_3d);
+      if ('can_use_experimental' in b) u = await users.setExperimental(id, b.can_use_experimental);
       const kept = (await store.listJobs({})).filter(
         (j) => j.user_id === u.id && !store.isTerminal(j.status)).map((j) => j.id);
       return json(res, 200, {
@@ -717,16 +738,31 @@ const routes = {
       return err(res, 403, 'ACCOUNT_DISABLED', '账号已被禁用，请联系管理员');
     }
     const modes = ['coding_to_video'];
+    if (eff.can_use_experimental && experimentalEnabled(config.raw)) modes.push('experimental');
     if (eff.can_use_blockout_3d || eff.role === 'admin') modes.push('blockout_3d');
     return json(res, 200, {
       user: {
         id: eff.id, username: eff.username, role: eff.role,
         can_use_blockout_3d: eff.can_use_blockout_3d,
+        can_use_experimental: eff.can_use_experimental === true,
         must_change_password: eff.must_change_password === true,
       },
       permissions: { modes, is_admin: eff.role === 'admin' },
       server_time: nowIso(),
     });
+  },
+
+  'GET /api/experimental/models': async (req, res) => {
+    await experimentalUser(req);
+    return json(res, 200, { models: experimentalModels(config.raw).map(({ endpoint, ...p }) => p) });
+  },
+
+  'GET /api/sessions/:id/archive': async (req, res, { id }) => {
+    const u = currentUser(req);
+    if (!u) return err(res, 401, 'UNAUTHENTICATED', '未登录');
+    const s = await store.getSession(id);
+    if (!s || s.user_id !== u.id) return err(res, 404, 'NOT_FOUND', '会话不存在或无权访问');
+    return streamSessionArchive(config.storage.sessionsRoot, config.raw.storage.sessions_subdir, id, req, res);
   },
 
   /** 创建会话并绑定进程。绑定后永不迁移。 */
@@ -738,13 +774,21 @@ const routes = {
     if (!u) return err(res, 401, 'UNAUTHENTICATED', '未登录');
     const b = await readJson(req);
     const mode = b.mode;
-    if (!['coding_to_video', 'blockout_3d'].includes(mode))
+    if (!['coding_to_video', 'blockout_3d', 'experimental'].includes(mode))
       return err(res, 400, 'VALIDATION_FAILED', 'mode 必须是 coding_to_video 或 blockout_3d');
 
     // ★ 权限校验点 1/4：白模权限在服务端验，前端传什么都不作数
     if (mode === 'blockout_3d' && !(u.can_use_blockout_3d || u.role === 'admin'))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '需管理员授予白模预演权限');
 
+    let modelSelection = null, experimentalSkills = null;
+    if (mode === 'experimental') {
+      const liveUser = await experimentalUser(req);
+      modelSelection = resolveExperimentalModel(config.raw, b.model_id).snapshot;
+      const builtin = validateBuiltinSkills(b.builtin_skills);
+      builtinPermission(liveUser, builtin);
+      experimentalSkills = { builtin };
+    }
     const proc = pool.pickForSession(mode);
     if (!proc) return err(res, 503, 'PROCESS_UNAVAILABLE', '当前无健康后端进程可分配，请稍后重试');
 
@@ -752,7 +796,7 @@ const routes = {
     const sess = await store.createSession({
       userId: u.id, mode,
       workerId: proc.worker_id, processInstanceId: proc.process_instance_id,
-      backendRef: null, skillset: null, skills: [],
+      backendRef: null, skillset: null, skills: [], modelSelection, experimentalSkills,
     });
 
     try {
@@ -765,6 +809,7 @@ const routes = {
         session_id: sess.id, mode, user_id: u.id,
         channel: live?.channel ?? null,
         user_note: live?.note ?? null,
+        model_selection: modelSelection, builtin_skills: experimentalSkills?.builtin,
       });
       // Bridge 返回 skillset（组名）+ skills（组内 skill 列表）
       const updated = await store.updateSession(sess.id, {
@@ -776,6 +821,7 @@ const routes = {
       return json(res, 201, {
         session: {
           id: updated.id, mode: updated.mode, status: updated.status,
+          model_selection: updated.model_selection, experimental_skills: updated.experimental_skills,
           created_at: updated.created_at, last_activity_at: updated.last_activity_at,
         },
         binding: {
@@ -830,6 +876,11 @@ const routes = {
     if (s.mode === 'blockout_3d' && !(u.can_use_blockout_3d || u.role === 'admin'))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '白模权限已变更，无法提交此任务');
 
+    let liveExperimentalUser = null;
+    if (s.mode === 'experimental') {
+      liveExperimentalUser = await experimentalUser(req);
+      resolveExperimentalModel(config.raw, s.model_selection);
+    }
     const b = await readJson(req);
     if (!b.prompt) return err(res, 400, 'VALIDATION_FAILED', '缺少 prompt');
     const idemKey = req.headers['idempotency-key'] ?? b.idempotency_key;
@@ -868,6 +919,15 @@ const routes = {
      * 继承什么由会话自己决定，客户端无从指定，这个洞结构上消失了。
      * 字段保留但【不再参与任何判断】—— 留个名字是为了让下次有人想接回来时先读到这段。
      */
+    let experimentalSkills = null;
+    if (s.mode === 'experimental') {
+      builtinPermission(liveExperimentalUser, b.experimental_skills?.builtin ?? s.experimental_skills?.builtin);
+      try {
+        experimentalSkills = await prepareSkillRevision(
+          join(config.storage.sessionsRoot, config.raw.storage.sessions_subdir), id,
+          b.experimental_skills ?? {}, s.experimental_skills);
+      } catch (e) { return err(res, 400, 'SKILL_INVALID', e.message); }
+    }
     const isRevision = b.is_revision === true;
     // 用户可在发送处关闭增强（默认开启）。示例 prompt 本身已是增强结果，
     // 再过一遍只会偏离原意，所以点击示例时前端会自动关掉。
@@ -883,7 +943,8 @@ const routes = {
       workerId: s.binding.worker_id, processInstanceId: s.binding.process_instance_id,
       idempotencyKey: idemKey,
       maxRuntimeSeconds: b.max_runtime_seconds ?? config.raw.production?.max_runtime_seconds,
-      initialStatus: 'ENHANCING',
+      initialStatus: s.mode === 'experimental' ? 'QUEUED' : 'ENHANCING',
+      modelSelection: s.model_selection, experimentalSkills,
     });
     if (replayed) {
       dbg('job.submit.replay', { u: u.id, sid: id, job: job.id, key: idemKey });
@@ -892,6 +953,11 @@ const routes = {
     dbg('job.submit', { u: u.id, sid: id, job: job.id, mode: s.mode, key: idemKey, rev: isRevision, enh: !skipEnhance });
 
     bridgeRefs.freeze(pool, s, id).catch(() => {});   // 提交即冻结附件集合
+    if (s.mode === 'experimental') {
+      await store.updateSession(id, { experimental_skills: experimentalSkills });
+      await store.patchJob(job.id, { enhancement: { skipped: true, reason: 'experimental', model: null } });
+      return json(res, 202, { job: publicJob(await store.getJob(job.id)), idempotent_replay: false, enhancing: false, server_time: nowIso() });
+    }
     runEnhancement({ job, session: s, instruction: b.prompt, isRevision, skipRequested: skipEnhance })
       .catch((e) => console.error(`[gateway] 增强流程异常: ${e.message}`));
 
@@ -1811,7 +1877,8 @@ async function runEnhancement({ job, session, instruction, isRevision, skipReque
   let r;
   try {
     const assets = await bridgeRefs.assetsJson(pool, session, job.session_id).catch(() => []);
-    r = await enhance({ instruction, assets, isRevision, skipRequested });
+    r = await enhance({ instruction, assets, isRevision, skipRequested,
+      auditDir: join(config.storage.sessionsRoot, config.raw.storage.sessions_subdir, job.session_id, 'rounds', job.id, 'enhancement') });
   } catch (e) {
     // ★ 增强失败【不该让整个任务失败】。
     //
@@ -1940,6 +2007,7 @@ function publicJob(j, queueIds = null) {
   const ms = (t) => (t ? now - new Date(t).getTime() : null);
   return {
     id: j.id, session_id: j.session_id, mode: j.mode,
+    model_selection: j.model_selection ?? null, experimental_skills: j.experimental_skills ?? null,
     status: j.status, phase: j.phase,
     progress_percent: j.progress_percent,          // 可为 null → 前端不得伪造
     created_at: j.created_at, queued_at: j.queued_at, assigned_at: j.assigned_at,
@@ -2071,7 +2139,7 @@ const server = createServer(async (req, res) => {
   try { await h(req, res, params); }
   catch (e) {
     console.error(`[gateway] ${req.method} ${pathname}:`, e);
-    if (!res.headersSent) err(res, 500, 'INTERNAL', e.message);
+    if (!res.headersSent) err(res, e.status ?? 500, e.code ?? 'INTERNAL', e.message);
   }
 });
 

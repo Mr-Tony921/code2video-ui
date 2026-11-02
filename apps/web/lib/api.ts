@@ -4,7 +4,7 @@
  */
 import { withBase } from './base-path';
 import type {
-  Capacity, Enhancement, ExamplePrompt, GalleryBrief, GalleryItem, GalleryLoad, GalleryUser,
+  ExperimentalModel, ExperimentalSkillsInput, SessionOptions, Capacity, Enhancement, ExamplePrompt, GalleryBrief, GalleryItem, GalleryLoad, GalleryUser,
   InviteView, Job, JobEvent, Maintenance, Mode,
   OutOfScopeNotice, Permissions, ReferenceManifest, SessionBinding, SessionInfo, User,
 } from './types';
@@ -69,6 +69,12 @@ export const api = {
       `/api/admin/users/${encodeURIComponent(username)}/permissions`, {
         method: 'PATCH', body: JSON.stringify({ can_use_blockout_3d: allowed }),
       }),
+
+  adminSetExperimental: (username: string, allowed: boolean) =>
+    call<{ user: User; note: string }>(`/api/admin/users/${encodeURIComponent(username)}/permissions`, {
+      method: 'PATCH', body: JSON.stringify({ can_use_experimental: allowed }),
+    }),
+  experimentalModels: () => call<{ models: ExperimentalModel[] }>('/api/experimental/models'),
 
   adminSetStatus: (username: string, status: 'active' | 'disabled') =>
     call<{ user: User }>(`/api/admin/users/${encodeURIComponent(username)}`, {
@@ -179,10 +185,10 @@ export const api = {
     }),
 
   /* 会话 */
-  createSession: (mode: Mode) =>
+  createSession: (mode: Mode, options?: SessionOptions) =>
     call<{ session: SessionInfo; binding: SessionBinding; skill: string }>('/api/sessions', {
       method: 'POST',
-      body: JSON.stringify({ mode }),
+      body: JSON.stringify({ mode, ...options }),
     }),
 
   getSession: (id: string) =>
@@ -200,7 +206,7 @@ export const api = {
     sessionId: string,
     prompt: string,
     idempotencyKey: string,
-    opts?: { is_revision?: boolean; enhance?: boolean },
+    opts?: { is_revision?: boolean; enhance?: boolean; experimental_skills?: ExperimentalSkillsInput },
   ) =>
     call<{
       job: Job | null;

@@ -76,7 +76,7 @@ export function HistoryPanel({ onClose, onPick, onReuse }: {
           {list.map((j) => (
             <div key={j.id} className="card" style={{ marginBottom: 10 }}>
               <div className="row wrap" style={{ gap: 8 }}>
-                <span className="badge">{j.mode === 'blockout_3d' ? '3D Blockout' : 'Coding→Video'}</span>
+                <span className="badge">{j.model_selection?.name ?? (j.mode === 'experimental' ? '实验模式' : j.mode === 'blockout_3d' ? '3D Blockout' : 'Coding→Video')}</span>
                 <span className="tiny">{STATUS_LABEL[j.status] ?? j.status}</span>
                 <span className="tiny" style={{ opacity: .75 }}>
                   {new Date(j.created_at).toLocaleString('zh-CN')}

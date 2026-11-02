@@ -127,6 +127,10 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
                 const r = await api.adminSetBlockout(u.username, !u.can_use_blockout_3d);
                 setNotice(r.note);
               })}
+              onToggleExperimental={(u) => run(async () => {
+                const r = await api.adminSetExperimental(u.username, !u.can_use_experimental);
+                setNotice(r.note);
+              })}
               onToggleStatus={(u) => run(async () => {
                 await api.adminSetStatus(u.username, u.status === 'active' ? 'disabled' : 'active');
               })}
@@ -203,7 +207,7 @@ function InvitesTab({ invites, busy, channels, defaultChannel, onCreate, onRevok
           <th>邀请码</th><th>渠道</th><th>用量</th><th>白模</th><th>有效期至</th><th>状态</th><th>已用于</th><th>备注</th><th>操作</th>
         </tr></thead>
         <tbody>
-          {invites.length === 0 && <tr><td colSpan={9} className="tiny">暂无邀请码</td></tr>}
+          {invites.length === 0 && <tr><td colSpan={10} className="tiny">暂无邀请码</td></tr>}
           {invites.map((i) => {
             const st = INVITE_STATUS[i.status] ?? { label: i.status, cls: '' };
             return (
@@ -267,10 +271,11 @@ function NoteCell({ user, busy, onSave }: {
   );
 }
 
-function UsersTab({ users, busy, channels, onSetChannel, onToggleBlockout, onToggleStatus, onReset }: {
+function UsersTab({ users, busy, channels, onSetChannel, onToggleBlockout, onToggleExperimental, onToggleStatus, onReset }: {
   users: AdminUser[]; busy: boolean; channels: string[];
   onSetChannel: (u: AdminUser, channel: string, note?: string) => void;
   onToggleBlockout: (u: AdminUser) => void;
+  onToggleExperimental: (u: AdminUser) => void;
   onToggleStatus: (u: AdminUser) => void;
   onReset: (u: AdminUser) => void;
 }) {
@@ -278,7 +283,7 @@ function UsersTab({ users, busy, channels, onSetChannel, onToggleBlockout, onTog
     <>
       <table className="atable">
         <thead><tr>
-          <th>用户名</th><th>渠道</th><th>备注</th><th>角色</th><th>3D Blockout</th><th>状态</th>
+          <th>用户名</th><th>渠道</th><th>备注</th><th>角色</th><th>3D Blockout</th><th>实验模式</th><th>状态</th>
           <th>运行中</th><th>最近登录</th><th>操作</th>
         </tr></thead>
         <tbody>
@@ -309,6 +314,9 @@ function UsersTab({ users, busy, channels, onSetChannel, onToggleBlockout, onTog
                   {u.role === 'admin' && <span className="tiny" style={{ marginLeft: 4 }}>（管理员默认有）</span>}
                 </label>
               </td>
+              <td><label><input type="checkbox" aria-label={`${u.username} 实验模式`}
+                checked={u.can_use_experimental === true} disabled={busy}
+                onChange={() => onToggleExperimental(u)} />启用</label></td>
               <td>
                 <span className={`ptag ${u.status === 'active' ? 'ok' : 'err'}`}>
                   {u.status === 'active' ? '正常' : '已禁用'}

@@ -18,7 +18,7 @@
  *   绝不能变成"增强名额耗尽 → 新任务卡在 ENHANCING"。
  */
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm, mkdir, appendFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.mjs';
@@ -67,7 +67,7 @@ function killTree(child, sig) {
  * 跑一轮 agent loop，返回 stdout 聚合出来的最终文本。
  * 失败一律抛错 —— 调用方会降级成单轮或直投，不会让任务失败。
  */
-export async function runEnhanceAgent(promptText, { log = console } = {}) {
+export async function runEnhanceAgent(promptText, { log = console, auditDir } = {}) {
   const a = agentCfg();
   if (!a.configured && !(a.enabled && a.baseUrl && a.apiKey && a.model)) {
     throw new Error('agent 增强未配置');
@@ -79,7 +79,9 @@ export async function runEnhanceAgent(promptText, { log = console } = {}) {
   }
 
   inflight += 1;
-  const dir = await mkdtemp(join(tmpdir(), 'cvw-enh-'));
+  const dir = auditDir ?? await mkdtemp(join(tmpdir(), 'cvw-enh-'));
+  if (auditDir) await mkdir(join(dir, '.home'), { recursive: true });
+  let auditWrites = Promise.resolve();
   let child = null;
   let timer = null;
   let hardTimer = null;
@@ -92,6 +94,7 @@ export async function runEnhanceAgent(promptText, { log = console } = {}) {
     // 显式清掉可能从 Gateway 继承下来的变量，避免串到生成用的模型。
     const env = {
       ...process.env,
+      ...(auditDir ? { HOME: join(dir, '.home'), CLAUDE_CONFIG_DIR: join(dir, '.home/.claude') } : {}),
       ANTHROPIC_BASE_URL: a.baseUrl,
       ANTHROPIC_API_KEY: a.apiKey,
       ANTHROPIC_MODEL: a.model,
@@ -125,10 +128,14 @@ export async function runEnhanceAgent(promptText, { log = console } = {}) {
       let settled = false;
       const done = (fn, v) => { if (!settled) { settled = true; fn(v); } };
 
-      child.stdout.on('data', (b) => { out += b.toString(); });
-      child.stderr.on('data', (b) => { err += b.toString().slice(0, 2000); });
+      child.stdout.on('data', (b) => { out += b.toString();
+        if (auditDir) { const bytes = Buffer.from(b); auditWrites = auditWrites.then(() => appendFile(join(dir, 'claude.jsonl'), bytes)); auditWrites.catch(() => {}); }
+      });
+      child.stderr.on('data', (b) => { err += b.toString().slice(0, 2000);
+        if (auditDir) { const bytes = Buffer.from(b); auditWrites = auditWrites.then(() => appendFile(join(dir, 'claude.stderr'), bytes)); auditWrites.catch(() => {}); }
+      });
       child.on('error', (e) => done(reject, new Error(`增强 agent 启动失败: ${e.message}`)));
-      child.on('exit', (code, signal) => {
+      child.on('close', (code, signal) => {
         if (signal) return done(reject, new Error(`增强 agent 被信号终止 ${signal}`));
         if (code !== 0) return done(reject, new Error(`增强 agent 退出码 ${code}: ${err.slice(0, 200)}`));
         done(resolve, out);
@@ -159,7 +166,8 @@ export async function runEnhanceAgent(promptText, { log = console } = {}) {
     if (child && child.exitCode === null && child.signalCode === null) {
       killTree(child, 'SIGKILL');
     }
-    await rm(dir, { recursive: true, force: true }).catch(() => {});
+    await auditWrites.catch(e => log.warn?.(`[enhance-agent] 原始日志保存失败: ${e.message}`));
+    if (!auditDir) await rm(dir, { recursive: true, force: true }).catch(() => {});
     inflight -= 1;                       // ★ 一定释放，不依赖进程是否真死
   }
 }

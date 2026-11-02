@@ -11,7 +11,7 @@
  *
  * 未配置 aux_model 时跳过增强，用户原始 prompt 直投，并明确标记 skipped（不静默）。
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { config } from './config.mjs';
@@ -68,7 +68,7 @@ function parseModelJson(text) {
   throw new Error('模型返回不是合法 JSON');
 }
 
-async function callAux({ baseUrl, apiKey, model, maxTokens, timeoutMs }, message) {
+async function callAux({ baseUrl, apiKey, model, maxTokens, timeoutMs }, message, auditDir) {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), timeoutMs);
   try {
@@ -86,6 +86,7 @@ async function callAux({ baseUrl, apiKey, model, maxTokens, timeoutMs }, message
       signal: ac.signal,
     });
     const txt = await res.text();
+    if (auditDir) await writeFile(join(auditDir, 'single-response.json'), txt);
     if (!res.ok) {
       const e = new Error(`增强模型 HTTP ${res.status}: ${txt.slice(0, 200)}`);
       e.status = res.status;
@@ -107,7 +108,7 @@ async function callAux({ baseUrl, apiKey, model, maxTokens, timeoutMs }, message
  * @param {Array}  p.assets       assets JSON（来自 references，含 ffprobe meta）
  * @param {boolean} p.isRevision  是否是对已完成视频的 prompt 调整（跳过增强）
  */
-export async function enhance({ instruction, assets = [], isRevision = false, skipRequested = false }) {
+export async function enhance({ instruction, assets = [], isRevision = false, skipRequested = false, auditDir }) {
   const a = auxCfg();
   const st = enhancementStatus();
 
@@ -145,6 +146,11 @@ export async function enhance({ instruction, assets = [], isRevision = false, sk
     .replace('{{USER_INSTRUCTION}}', instruction)
     .replace('{{ASSETS_JSON}}', JSON.stringify(assets, null, 2));
 
+  if (auditDir) {
+    await mkdir(auditDir, { recursive: true });
+    await writeFile(join(auditDir, 'prompt.md'), msg);
+    await writeFile(join(auditDir, 'model.json'), JSON.stringify({ model: a.model, endpoint: a.baseUrl }));
+  }
   const t0 = Date.now();
   let text, usage, model, via = 'single';
   let agentTools = null;
@@ -154,7 +160,7 @@ export async function enhance({ instruction, assets = [], isRevision = false, sk
   const ag = agentStatus();
   if (ag.configured) {
     try {
-      const r = await runEnhanceAgent(msg, { log: console });
+      const r = await runEnhanceAgent(msg, { log: console, auditDir });
       text = r.text; usage = r.usage; model = r.model ?? a.model;
       agentTools = r.tools; via = 'agent';
       console.log(`[enhancer] agent loop 完成（${Date.now() - t0}ms，工具 ${(r.tools ?? []).join(',') || '无'}）`);
@@ -164,7 +170,7 @@ export async function enhance({ instruction, assets = [], isRevision = false, sk
   }
   // ② 单轮（原有路径）
   if (text === undefined) {
-    const r = await callAux(a, msg);
+    const r = await callAux(a, msg, auditDir);
     text = r.text; usage = r.usage; model = r.model;
   }
 

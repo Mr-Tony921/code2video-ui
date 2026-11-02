@@ -9,6 +9,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { JobCard } from '@/components/JobCard';
 import { Sidebar } from '@/components/Sidebar';
+import { ExperimentSkills } from '@/components/ExperimentSkills';
+import { withBase } from '@/lib/base-path';
 import { Composer } from '@/components/Composer';
 import { PromptBubble } from '@/components/PromptBubble';
 import { ProcessPanel } from '@/components/ProcessPanel';
@@ -25,7 +27,7 @@ import { api, ApiError } from '@/lib/api';
 import { BASE_PATH } from '@/lib/base-path';
 import { clean } from '@/lib/sanitize';
 import { broadcast, onBroadcast } from '@/lib/local-state';
-import type { ExamplePrompt, Job, Mode, OutOfScopeNotice, ReferenceManifest } from '@/lib/types';
+import type { ExperimentalModel, ExperimentalSkillsInput, ExamplePrompt, Job, Mode, OutOfScopeNotice, ReferenceManifest } from '@/lib/types';
 import { isTerminal } from '@/lib/types';
 
 /** 对外模型名与版本。技术实现细节不外露（见 lib/sanitize.ts）。 */
@@ -46,11 +48,16 @@ const ENV_LABEL = process.env.NEXT_PUBLIC_ENV_LABEL || '';
 const MODES: { id: Mode; label: string }[] = [
   { id: 'coding_to_video', label: 'Coding to Video' },
   { id: 'blockout_3d', label: '3D Blockout' },
+  { id: 'experimental', label: '实验模式' },
 ];
 
 export default function Workspace() {
   const boot = useBoot();
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
+  const [models, setModels] = useState<ExperimentalModel[]>([]);
+  const [modelId, setModelId] = useState('');
+  const [experimentSkills, setExperimentSkills] = useState<ExperimentalSkillsInput>({ builtin: 'none', text: '' });
+  const [newBuiltin, setNewBuiltin] = useState<ExperimentalSkillsInput['builtin']>('none');
   const [pendingMode, setPendingMode] = useState<Mode>('coding_to_video');
   const [showWelcome, setShowWelcome] = useState(false);
   const [showNewSession, setShowNewSession] = useState(false);
@@ -244,6 +251,17 @@ export default function Workspace() {
     };
   }, [boot.jobs]);
 
+  useEffect(() => {
+    if (!boot.user?.can_use_experimental) { setModels([]); return; }
+    api.experimentalModels().then(r => {
+      setModels(r.models); setModelId(current => current || r.models[0]?.profile_id || '');
+    }).catch(() => setModels([]));
+  }, [boot.user?.can_use_experimental]);
+  useEffect(() => {
+    setExperimentSkills({ builtin: boot.session?.experimental_skills?.builtin ?? 'none',
+      text: boot.session?.experimental_skills?.text ?? '' });
+  }, [boot.session?.id]);
+
   const submit = useCallback(async (text: string, idemKey: string) => {
     if (!boot.session) return;
     setOutOfScope(null);
@@ -254,7 +272,8 @@ export default function Workspace() {
         is_revision: isRevision,
         // 续写轮不报扩写意图：后端无论如何都会跳过（enhancer.mjs:125），
         // 这里送 true 只会让 UI 和实际行为对不上（用户实测：勾着但其实没扩写）。
-        enhance: isRevision ? false : enhance,
+        enhance: boot.session.mode === 'experimental' || isRevision ? false : enhance,
+        ...(boot.session.mode === 'experimental' ? { experimental_skills: experimentSkills } : {}),
       });
 
       // 增强是异步的：Job 以 ENHANCING 建好并秒回，
@@ -280,7 +299,7 @@ export default function Workspace() {
       setToast(e instanceof ApiError ? e.message : '提交失败，请重试');
     }
     // enhance 必须在依赖里：漏了会捕获旧值，用户改了开关却按上一次的设置提交
-  }, [boot, loadRefs, enhance, continuation]);
+  }, [boot, loadRefs, enhance, continuation, experimentSkills]);
 
   /**
    * 切换模式。
@@ -300,6 +319,7 @@ export default function Workspace() {
       return;
     }
     setPendingMode(m);
+    if (m === 'experimental') { setShowNewSession(true); return; }
     if (!boot.session || boot.session.mode !== m) {
       try {
         await boot.createSession(m);
@@ -315,14 +335,14 @@ export default function Workspace() {
   const doNewSession = useCallback(async () => {
     setShowNewSession(false);
     try {
-      await boot.createSession(pendingMode);
+      await boot.createSession(pendingMode, pendingMode === 'experimental' ? { model_id: modelId, builtin_skills: newBuiltin } : undefined);
       setFocusJobId(null);
       setEnhance(true);                        // 新对话回到默认：扩写开启
       broadcast({ type: 'session-changed' });
     } catch (e) {
       setToast(e instanceof ApiError ? e.message : '新建会话失败');
     }
-  }, [boot, pendingMode]);
+  }, [boot, pendingMode, modelId, newBuiltin]);
 
   /**
    * 弹框里点「新建对话并导入」。
@@ -460,10 +480,10 @@ export default function Workspace() {
     <div className="shell">
       <header className="topbar">
         <div className="logo"><span className="dot" />SenseNova Coding Video</div>
-        <span className="pill" title={MODEL_NAME}>{MODEL_NAME}</span>
+        <span className="pill" title={boot.session?.model_selection?.model ?? MODEL_NAME}>{boot.session?.model_selection?.name ?? MODEL_NAME}</span>
 
         <div className="seg" role="group" aria-label="模式切换">
-          {MODES.map((m) => {
+          {MODES.filter(m => m.id !== 'experimental' || boot.user?.can_use_experimental).map((m) => {
             const allowed = canUse(m.id);
             return (
               <button key={m.id} data-mode={m.id} aria-pressed={pendingMode === m.id}
@@ -477,6 +497,7 @@ export default function Workspace() {
         </div>
 
         <span className="spacer" />
+        {boot.session && <a className="btn tiny" href={withBase(`/api/sessions/${boot.session.id}/archive`)}>下载完整会话</a>}
         <button className="btn" style={{ padding: '5px 11px', fontSize: 13 }}
                 onClick={() => setShowHistory(true)}>创作历史</button>
         {boot.user.role === 'admin' && (
@@ -598,7 +619,12 @@ export default function Workspace() {
             )}
           </div>
 
+          {boot.session?.mode === 'experimental' && <ExperimentSkills value={experimentSkills}
+            onChange={setExperimentSkills} disabled={degraded || sessionBusy || locked}
+            archiveName={boot.session.experimental_skills?.archive_name}
+            canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} />}
           <Composer
+            experimental={boot.session?.mode === 'experimental'}
             sessionId={boot.session?.id ?? null}
             disabled={!boot.session || degraded || sessionBusy || locked}
             disabledReason={
@@ -614,7 +640,7 @@ export default function Workspace() {
             enhance={enhance}
             onEnhanceChange={setEnhance}
             basedOn={continuation}
-            enhanceLocked={continuation ? '续写不做扩写：你的修改说明会直接交给已有的制作上下文' : null}
+            enhanceLocked={boot.session?.mode === 'experimental' ? '实验模式直接使用原始 prompt，不做扩写' : continuation ? '续写不做扩写：你的修改说明会直接交给已有的制作上下文' : null}
           />
 
           {/* 过程窗口在主区【下方】（上中下三段的"下"），独立滚动。
@@ -650,7 +676,7 @@ export default function Workspace() {
 
       <div className="verbadge">
         {ENV_LABEL && <span className="envtag">{ENV_LABEL}</span>}
-        {MODEL_NAME} · v{APP_VERSION}
+        {boot.session?.model_selection?.name ?? MODEL_NAME} · v{APP_VERSION}
       </div>
 
       <WelcomeDialog open={showWelcome} onClose={() => {
@@ -661,8 +687,23 @@ export default function Workspace() {
         open={showNewSession}
         runningJobs={boot.runningJobs}
         onConfirm={doNewSession}
-        onCancel={() => setShowNewSession(false)}
-      />
+        confirmDisabled={pendingMode === 'experimental' && !modelId}
+        onCancel={() => { setShowNewSession(false); if (boot.session) setPendingMode(boot.session.mode); }}
+      >
+        {pendingMode === 'experimental' && <div style={{ marginBottom: 14 }}>
+          <label className="tiny">实验模型<select className="input" value={modelId} onChange={e => setModelId(e.target.value)}>
+            {models.map(m => <option key={m.profile_id} value={m.profile_id}>{m.name} · {m.model}</option>)}
+          </select></label>
+          {!models.length && <p className="note warn">当前没有可用实验模型，请联系配置维护者。</p>}
+          <label className="tiny">内置 skill<select className="input" value={newBuiltin}
+            onChange={e => setNewBuiltin(e.target.value as ExperimentalSkillsInput['builtin'])}>
+            <option value="none">不使用任何内置 skill</option>
+            <option value="coding_to_video">Coding to Video</option>
+            {(boot.user.can_use_blockout_3d || boot.user.role === 'admin') && <option value="blockout_3d">3D Blockout</option>}
+          </select></label>
+          <p className="tiny">模型在此对话内固定。自定义 skill 可在生成页粘贴或上传。</p>
+        </div>}
+      </NewSessionDialog>
       <ExampleDialog
         example={exOpen}
         busy={exBusy}

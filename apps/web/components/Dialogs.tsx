@@ -40,15 +40,16 @@ export function WelcomeDialog({ open, onClose }: { open: boolean; onClose: () =>
 }
 
 export function NewSessionDialog({
-  open, runningJobs, onConfirm, onCancel,
+  open, runningJobs, onConfirm, onCancel, children, confirmDisabled,
 }: {
-  open: boolean; runningJobs: Job[];
+  open: boolean; runningJobs: Job[]; children?: React.ReactNode; confirmDisabled?: boolean;
   onConfirm: () => void; onCancel: () => void;
 }) {
   const ref = useDialog(open);
   return (
     <dialog ref={ref} onCancel={(e) => { e.preventDefault(); onCancel(); }}>
       <h2 style={{ margin: '0 0 10px', fontSize: 18 }}>确认新建对话</h2>
+      {children}
       {runningJobs.length > 0 ? (
         <>
           <p style={{ margin: '0 0 8px', fontSize: 14 }}>
@@ -72,7 +73,7 @@ export function NewSessionDialog({
       <div className="row" style={{ marginTop: 16 }}>
         <span className="spacer" />
         <button className="btn" onClick={onCancel}>取消</button>
-        <button className="btn primary" onClick={onConfirm}>新建对话</button>
+        <button className="btn primary" disabled={confirmDisabled} onClick={onConfirm}>新建对话</button>
       </div>
     </dialog>
   );

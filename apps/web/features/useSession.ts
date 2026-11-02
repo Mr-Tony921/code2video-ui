@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '@/lib/api';
 import { hashScope, loadContext, saveContext } from '@/lib/local-state';
-import type { Job, Maintenance, Mode, Permissions, SessionBinding, SessionInfo, User } from '@/lib/types';
+import type { Job, Maintenance, Mode, Permissions, SessionBinding, SessionInfo, SessionOptions, User } from '@/lib/types';
 
 export type Boot = {
   loading: boolean;
@@ -132,8 +132,8 @@ export function useBoot() {
 
   useEffect(() => { void reload(); }, [reload]);
 
-  const createSession = useCallback(async (mode: Mode) => {
-    const r = await api.createSession(mode);
+  const createSession = useCallback(async (mode: Mode, options?: SessionOptions) => {
+    const r = await api.createSession(mode, options);
     const { user } = await api.me();
     saveContext({
       userScope: hashScope(user.username), sessionId: r.session.id, mode, jobId: null,

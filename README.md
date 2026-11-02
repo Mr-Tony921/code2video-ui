@@ -1,6 +1,6 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本为 **1.5.0**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
+基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本为 **1.5.2**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
 
 当前内网入口：**http://10.210.9.14:30543**（内网直连 `http://10.120.6.65:8000`）。页面显示「Codex 开发环境」。已接管原 cc dev 的 30543 入口。
 
@@ -78,7 +78,7 @@ bash scripts/release-check.sh
 ## Git 管理
 
 私有仓库：https://github.com/Mr-Tony921/code2video-ui 。默认分支为 `main`。
-`v1.4.6-codex.1` 保留首次重构基线，`v1.5.0` 对应当前版本。提交署名为 Tony，仅在本仓库设置。
+`v1.4.6-codex.1` 保留首次重构基线，`v1.5.0` 保留首个常规版本，后续以 VERSION 与发布标签追溯。提交署名为 Tony，仅在本仓库设置。
 
 开发时创建功能分支、验证后提交并推送，完成评审再合并到 `main`；详细命令见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
 
@@ -113,3 +113,7 @@ tmux -L cvw-codex attach -t cvw-codex-gateway
 旧 cc dev 服务保持停止，避免两个实现同时写同一批数据。原 cc 源码保持不变；接手版是 dev 数据的唯一运行写入者。
 复用授权记录位于 `runtime/deployment/dev-data-reuse.json`；守卫只放行这组明确的 dev 路径，生产目录始终禁止。
 首次切换采用的独立测试数据留作验证证据；未完成的原数据复制目录已清理，不保留重复的 16GB 工作区。
+
+## dev 实验模式（1.5.2）
+
+管理员在用户页显式授予实验权限，用户可选择服务端配置的模型，关闭内置 skill 并粘贴或上传自定义 skill。模型配置、工作区留存和验收入口见 [EXPERIMENTAL_MODE.md](docs/EXPERIMENTAL_MODE.md)。所有模式支持下载完整会话。

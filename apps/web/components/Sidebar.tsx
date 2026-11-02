@@ -11,7 +11,7 @@ import { Collapsible } from './Collapsible';
 import { STATUS_LABEL, formatDuration } from '@/lib/format';
 import type { Job, SessionBinding, SessionInfo } from '@/lib/types';
 
-const MODE_LABEL = { coding_to_video: 'Coding→Video', blockout_3d: '3D Blockout' } as const;
+const MODE_LABEL = { coding_to_video: 'Coding→Video', blockout_3d: '3D Blockout', experimental: '实验模式' } as const;
 
 /** 选中态：左侧高亮条 + 描边 + 轻微底色。不改布局，避免点一下整列表跳动。 */
 function selStyle(on: boolean): React.CSSProperties {
@@ -64,7 +64,7 @@ export function Sidebar({
           <div className="card compact">
             <div className="row">
               <span className={`badge ${session.mode === 'blockout_3d' ? 'violet' : 'cyan'}`}>
-                {MODE_LABEL[session.mode]}
+                {MODE_LABEL[session.mode]}{session.model_selection && ` · ${session.model_selection.name}`}
               </span>
             </div>
             {binding && binding.status !== 'BOUND' && (

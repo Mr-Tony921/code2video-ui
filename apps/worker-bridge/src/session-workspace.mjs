@@ -9,6 +9,7 @@ import { mkdir, writeFile, cp, rm } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from './config.mjs';
+import { resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
 
 export function sessionDir(sessionId) {
   // 会话数据走 sessionsRoot（存储充足的卷），不再和控制面挤在 runtime/ 下
@@ -33,18 +34,17 @@ export function skillsetForMode(mode) {
  * 写 claude CLI 的 settings 文件。
  * 模型地址、API key、代理全部来自配置，不硬编码。
  */
-function buildSettings() {
-  const { model, proxy } = config;
+function buildSettings(model = config.model) {
+  const { proxy } = config;
   return {
     env: {
       ANTHROPIC_BASE_URL: model.baseUrl,
-      ANTHROPIC_API_KEY: model.apiKey,
       ANTHROPIC_MODEL: model.model,
       ANTHROPIC_DEFAULT_OPUS_MODEL: model.model,
       ANTHROPIC_DEFAULT_SONNET_MODEL: model.model,
       ANTHROPIC_DEFAULT_HAIKU_MODEL: model.model,
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-      CLAUDE_CODE_MAX_CONTEXT_TOKENS: model.maxContextTokens,
+      ...(model.maxContextTokens ? { CLAUDE_CODE_MAX_CONTEXT_TOKENS: model.maxContextTokens } : {}),
       HTTP_PROXY: proxy.http_proxy,
       HTTPS_PROXY: proxy.http_proxy,
       http_proxy: proxy.http_proxy,
@@ -65,9 +65,11 @@ function buildSettings() {
  * 创建 session 工作区：目录 + 隔离的 skill + settings。
  * 幂等：同一 sessionId 重复调用不会破坏已有内容。
  */
-export async function prepareSessionWorkspace({ sessionId, mode }) {
+export async function prepareSessionWorkspace({ sessionId, mode, modelSelection, builtinSkills }) {
   const dir = sessionDir(sessionId);
-  const { name: skillsetName, src } = skillsetForMode(mode);
+  const builtin = mode === 'experimental' ? validateBuiltinSkills(builtinSkills) : mode;
+  const { name: skillsetName, src } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetForMode(builtin);
+  const model = mode === 'experimental' ? resolveExperimentalModel(config.raw, modelSelection) : config.model;
 
   await mkdir(join(dir, 'jobs'), { recursive: true });
   await mkdir(join(dir, 'references'), { recursive: true });   // Reference 附件（V2）
@@ -78,7 +80,7 @@ export async function prepareSessionWorkspace({ sessionId, mode }) {
   const skillTarget = join(dir, config.skills.targetDirInSession);
   await rm(skillTarget, { recursive: true, force: true });
   await mkdir(skillTarget, { recursive: true });
-  await cp(src, skillTarget, { recursive: true });
+  if (src) await cp(src, skillTarget, { recursive: true });
 
   const { readdir } = await import('node:fs/promises');
   const skills = (await readdir(skillTarget, { withFileTypes: true }))
@@ -87,7 +89,7 @@ export async function prepareSessionWorkspace({ sessionId, mode }) {
     .sort();
 
   const settingsPath = join(dir, config.claudeCli.settingsFileName);
-  await writeFile(settingsPath, JSON.stringify(buildSettings(), null, 2), 'utf8');
+  await writeFile(settingsPath, JSON.stringify(buildSettings(model), null, 2), 'utf8');
 
   return { dir, skillsetName, skillTarget, skills, settingsPath };
 }
@@ -100,7 +102,7 @@ export function verifySkillIsolation(sessionId, mode) {
   const skillTarget = join(sessionDir(sessionId), config.skills.targetDirInSession);
   const wbName = config.skills.whiteboxSkillName;
   const hasWhitebox = existsSync(join(skillTarget, wbName, 'SKILL.md'));
-  const shouldHaveWhitebox = mode === 'blockout_3d';
+  const shouldHaveWhitebox = mode === 'experimental' ? hasWhitebox : mode === 'blockout_3d';
   let skills = [];
   try {
     skills = readdirSync(skillTarget, { withFileTypes: true })

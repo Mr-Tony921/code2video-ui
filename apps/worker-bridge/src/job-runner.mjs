@@ -13,6 +13,7 @@
  *  · 每个 Job 一个 process group，可整树终止，绝不影响其他 Job 或 Bridge 自身
  *  · 失去租约的 Job 不得提交产物
  */
+import { resolveExperimentalModel } from '../../shared/experimental.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile, readdir, stat, appendFile, open, copyFile, rename, rm } from 'node:fs/promises';
 import { existsSync, statSync, readFileSync, readdirSync } from 'node:fs';
@@ -69,30 +70,37 @@ const EARLY_HARVEST_AGENT_SILENT_MS = Number(
  * 为什么要占位符：上下文长度既要给 CLAUDE_CODE_MAX_CONTEXT_TOKENS，
  * 又是 model.max_context_tokens 本身，两处手写必然哪天对不上。
  */
-function resolveClaudeEnv() {
+function resolveClaudeEnv(model = config.model) {
   const src = config.claudeCli.env ?? {};
   // 占位符白名单。新增 ${model.xxx} 时【必须】在这里登记 ——
   // 不登记会被替换成空串，而空串在下面被当作"不设该变量"直接丢掉，
   // 配置看着改了却完全没生效，且没有任何报错。
   const vars = {
-    'model.max_context_tokens': config.model.maxContextTokens,
-    'model.max_output_tokens': config.model.maxOutputTokens,
-    'model.model': config.model.model,
-    'model.autocompact_pct': config.model.autocompactPct,
+    'model.max_context_tokens': model.maxContextTokens,
+    'model.max_output_tokens': model.maxOutputTokens,
+    'model.model': model.model,
+    'model.autocompact_pct': model.autocompactPct,
   };
   const out = {};
   for (const [k, raw] of Object.entries(src)) {
     if (k.startsWith('$')) continue;                 // $note 之类的说明字段
     let v = String(raw ?? '');
     v = v.replace(/\$\{([\w.]+)\}/g, (_, name) => String(vars[name] ?? ''));
-    if (v === '') continue;                          // 空串 = 不设该变量
+    if (v === '' || v === 'null' || v === 'undefined') continue;                          // 空串 = 不设该变量
     out[k] = v;
   }
   return out;
 }
 
-function buildChildEnv(jobWs, agentWsPath, jobId) {
-  const { model, proxy, runtimeBinaries, videokit } = config;
+function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
+  const { proxy, runtimeBinaries, videokit } = config;
+  const inherited = { ...process.env };
+  if (model !== config.model) {
+    // API profiles use their own limits, never the intranet model's process defaults.
+    for (const key of ['CLAUDE_CODE_MAX_CONTEXT_TOKENS', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
+      'CLAUDE_CODE_SUBAGENT_MODEL', 'ANTHROPIC_AUTH_TOKEN',
+      'CVW_INTERNAL_TOKEN', 'CVW_SESSION_SECRET']) delete inherited[key];
+  }
   // ★ HOME 必须指向【命名空间内可写】的路径。
   //
   // 事故（线上 job_356f7a34）：HOME=/mnt/afs_toolcall/codevideo，而隔离把整个
@@ -117,7 +125,7 @@ function buildChildEnv(jobWs, agentWsPath, jobId) {
   const sharedCaches = config.raw?.shared_caches ?? {};
 
   return {
-    ...process.env,
+    ...inherited,
     HOME: home,
     XDG_CONFIG_HOME: `${home}/.config`,
     XDG_CACHE_HOME: `${home}/.cache`,
@@ -131,7 +139,9 @@ function buildChildEnv(jobWs, agentWsPath, jobId) {
     ANTHROPIC_DEFAULT_HAIKU_MODEL: model.model,
     // cc 的启动参数来自 config.claude_cli.env（见 resolveClaudeEnv），
     // 不在代码里写死 —— 调上下文/输出上限不需要改代码。
-    ...resolveClaudeEnv(),
+    ...resolveClaudeEnv(model),
+    CLAUDE_CODE_SUBAGENT_MODEL: model.model,
+    ANTHROPIC_AUTH_TOKEN: '',
     HTTP_PROXY: proxy.http_proxy,
     HTTPS_PROXY: proxy.http_proxy,
     http_proxy: proxy.http_proxy,
@@ -174,7 +184,7 @@ function probeIsolation(iso) {
   return r.status === 0;
 }
 
-function buildCommand({ jobWs, isoAvailable, mountPoint, ccSessionId, resume }) {
+function buildCommand({ jobWs, isoAvailable, mountPoint, ccSessionId, resume, experimental }) {
   const iso = config.isolation ?? {};
   // ★ prompt 【不】进 argv，改从 stdin 送。
   //
@@ -195,7 +205,7 @@ function buildCommand({ jobWs, isoAvailable, mountPoint, ccSessionId, resume }) 
     '--permission-mode', config.claudeCli.permissionMode,
     '--output-format', 'stream-json',
     '--verbose',
-    '--disallowedTools', 'WebSearch',
+    ...(experimental ? [] : ['--disallowedTools', 'WebSearch']),
     // 续跑：带上一轮的 cc 会话，历史与上下文由 cc 自己从磁盘恢复。
     // 首轮：显式指定 id，使 cc 会话 id ≡ 我们的会话 id，后续轮次才找得到它。
     // ccSessionId 为 null（会话 id 形状异常）时两个都不加 —— 退化成 1.3.x 行为。
@@ -267,6 +277,7 @@ export async function startJob(p) {
   const ws = await prepareJobWorkspace({
     sessionId: p.sessionId, jobId: p.jobId, mode: p.mode, prompt: p.prompt,
     agentWsPath: isoAvailable ? mountPoint : hostWs,
+    experimentalSkills: p.experimentalSkills, modelSelection: p.modelSelection,
   });
 
   // 轨迹与 stderr 跟【工作区】走：各轮追加到同一个文件，
@@ -287,7 +298,7 @@ export async function startJob(p) {
   const { cmd, args, cwd, isolated } = buildCommand({
     jobWs: ws.ws, isoAvailable, mountPoint,
     ccSessionId: ws.ccSessionId,
-    resume: ws.isContinuation === true,
+    resume: ws.isContinuation === true, experimental: p.mode === 'experimental',
   });
   if (ws.ccSessionId) {
     console.log(`[runner] job ${p.jobId} cc 会话 ${ws.ccSessionId} ` +
@@ -301,7 +312,7 @@ export async function startJob(p) {
 
   const child = spawn(cmd, args, {
     cwd,
-    env: buildChildEnv(ws.ws, ws.viewPath, p.jobId),
+    env: buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection) : config.model),
     detached: true,                 // ★ 独立 process group，可整树终止
     stdio: ['pipe', outFh.fd, errFh.fd],   // stdin 用来送 prompt
   });

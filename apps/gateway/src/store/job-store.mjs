@@ -37,7 +37,7 @@ export async function init() {
 
 /* ───────────────────────── Session ───────────────────────── */
 
-export async function createSession({ userId, mode, workerId, processInstanceId, backendRef, skillset, skills }) {
+export async function createSession({ userId, mode, workerId, processInstanceId, backendRef, skillset, skills, modelSelection, experimentalSkills }) {
   const id = `sess_${randomUUID()}`;
   const s = {
     id, user_id: userId, mode, status: 'ACTIVE',
@@ -46,6 +46,7 @@ export async function createSession({ userId, mode, workerId, processInstanceId,
       backend_session_ref: backendRef, status: 'BOUND', bound_at: nowIso(),
     },
     skillset: skillset ?? null, skills: skills ?? [],
+    model_selection: modelSelection ?? null, experimental_skills: experimentalSkills ?? null,
     created_at: nowIso(), last_activity_at: nowIso(),
   };
   await atomicWriteJson(join(sessDir(), `${id}.json`), s);
@@ -366,7 +367,7 @@ export async function findByIdempotency(userId, key) {
 export async function createJob({
   userId, sessionId, workflowId, mode, prompt, baseAssetPath, isRevision = false,
   workerId, processInstanceId, idempotencyKey, maxRuntimeSeconds,
-  originalPrompt, enhancement, initialStatus,
+  originalPrompt, enhancement, initialStatus, modelSelection, experimentalSkills,
 }) {
   // I-5 / I-6：幂等重放返回同一个 Job，不产生第二个昂贵任务
   //
@@ -392,6 +393,7 @@ export async function createJob({
     id, user_id: userId, session_id: sessionId, workflow_id: workflowId ?? null,
     mode,
     prompt,                                   // 投产用（增强后的 dense prompt）
+    model_selection: modelSelection ?? null, experimental_skills: experimentalSkills ?? null,
     original_prompt: originalPrompt ?? null,  // 用户原始指令，留档与轨迹导出
     enhancement: enhancement ?? null,         // 增强元信息（含 skipped 标记）
     base_asset_path: baseAssetPath ?? null,

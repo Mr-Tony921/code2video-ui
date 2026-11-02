@@ -1,6 +1,16 @@
 /** 与 Gateway 的 API 契约共享的类型。字段对齐 openapi/openapi.yaml。 */
 
-export type Mode = 'coding_to_video' | 'blockout_3d';
+export type Mode = 'coding_to_video' | 'blockout_3d' | 'experimental';
+export type ExperimentalModel = {
+  profile_id: string; name: string; model: string; revision: string;
+};
+export type ExperimentalSkillsInput = {
+  builtin: 'none' | 'coding_to_video' | 'blockout_3d'; text?: string;
+  archive_base64?: string; archive_name?: string; clear_archive?: boolean;
+};
+export type ExperimentalSkills = ExperimentalSkillsInput & { revision?: string; skills?: string[] };
+export type SessionOptions = { model_id?: string; builtin_skills?: ExperimentalSkillsInput['builtin'] };
+
 
 export type JobStatus =
   | 'ENHANCING'                                  // V2：正在理解需求（opus 增强）
@@ -26,6 +36,7 @@ export type User = {
   role: 'admin' | 'user';
   /** 与 role 独立：role='user' ∧ can_use_blockout_3d=true 是合法的"业务用户" */
   can_use_blockout_3d: boolean;
+  can_use_experimental?: boolean;
   status?: 'active' | 'disabled';
   must_change_password?: boolean;
   created_at?: string;
@@ -71,6 +82,8 @@ export type SessionBinding = {
 };
 
 export type SessionInfo = {
+  model_selection?: ExperimentalModel | null;
+  experimental_skills?: ExperimentalSkills | null;
   id: string;
   mode: Mode;
   status: 'ACTIVE' | 'DEGRADED' | 'CLOSED';
@@ -104,6 +117,8 @@ export type Asset = {
 };
 
 export type Job = {
+  model_selection?: ExperimentalModel | null;
+  experimental_skills?: ExperimentalSkills | null;
   id: string;
   session_id: string;
   mode: Mode;

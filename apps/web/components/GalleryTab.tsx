@@ -15,7 +15,7 @@ import { formatBytes, formatDuration } from '@/lib/format';
 import type { GalleryBrief, GalleryItem, GalleryUser } from '@/lib/types';
 
 const MODE_LABEL: Record<string, string> = {
-  coding_to_video: 'Coding→Video', blockout_3d: '3D Blockout',
+  coding_to_video: 'Coding→Video', blockout_3d: '3D Blockout', experimental: '实验模式',
 };
 
 export function GalleryTab() {

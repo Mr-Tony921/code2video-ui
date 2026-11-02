@@ -61,6 +61,7 @@ function publicView(u) {
   return {
     id: u.id, username: u.username, role: u.role,
     can_use_blockout_3d: u.can_use_blockout_3d,
+    can_use_experimental: u.can_use_experimental === true,
     status: u.status,
     must_change_password: u.must_change_password === true,
     invite_id: u.invite_id ?? null,
@@ -101,6 +102,7 @@ export async function create({
     password_hash: await hashPassword(password),
     role: role === 'admin' ? 'admin' : 'user',
     can_use_blockout_3d: canUseBlockout3d === true,
+    can_use_experimental: false,
     status: 'active',
     must_change_password: mustChangePassword === true,
     invite_id: inviteId ?? null,
@@ -203,6 +205,15 @@ export async function setBlockout3d(username, allowed) {
   const u = await readUser(id);
   if (!u) throw new UserError('NOT_FOUND', '用户不存在');
   u.can_use_blockout_3d = allowed === true;
+  u.permissions_changed_at = new Date().toISOString();
+  await writeUser(u);
+  return publicView(u);
+}
+
+export async function setExperimental(username, allowed) {
+  const u = await readUser(idOf(username));
+  if (!u) throw new UserError('NOT_FOUND', '用户不存在');
+  u.can_use_experimental = allowed === true;
   u.permissions_changed_at = new Date().toISOString();
   await writeUser(u);
   return publicView(u);
