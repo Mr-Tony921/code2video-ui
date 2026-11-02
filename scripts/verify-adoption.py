@@ -4,14 +4,16 @@ import json
 from pathlib import Path
 import subprocess
 import time
+import socket
 import urllib.request
 
 ROOT=Path(__file__).resolve().parents[1]
 subprocess.run(['python3',str(ROOT/'scripts/guard-isolation.py')],check=True)
 report=json.loads((ROOT/'runtime/validation/refactored/report.json').read_text())
 allowed={j['id'] for j in report['jobs']}
-worker='cvw-codex-360'
 cfg=json.loads((ROOT/'config/backend.json').read_text())
+local_ips=socket.gethostbyname_ex(socket.gethostname())[2]
+worker=next(w['worker_id'] for w in cfg['workers'] if w['bridge']['host'] in local_ips)
 port=next(w['bridge']['port'] for w in cfg['workers'] if w['worker_id']==worker)
 records=[]
 for f in (ROOT/'runtime/bridge'/worker/'running').glob('*.json'):

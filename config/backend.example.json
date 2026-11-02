@@ -11,7 +11,7 @@
   },
   "workers": [
     {
-      "worker_id": "cvw-codex-360",
+      "worker_id": "cvw-dev-360",
       "bridge": {
         "host": "10.120.3.60",
         "port": 18080,
@@ -31,7 +31,7 @@
       "enabled": true
     },
     {
-      "worker_id": "cvw-codex-350",
+      "worker_id": "cvw-dev-350",
       "bridge": {
         "host": "10.120.3.50",
         "port": 18080,
@@ -75,10 +75,10 @@
     "whitebox_skill_name": "whitebox-previs"
   },
   "storage": {
-    "root": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime",
+    "root": "/mnt/afs_if/codevideo/workspace/code2video-dev/runtime",
     "sessions_subdir": "sessions",
     "assets_subdir": "assets",
-    "sessions_root": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/data"
+    "sessions_root": "/mnt/afs_if/codevideo/workspace/session-dev"
   },
   "claude_cli": {
     "bin": "claude",
@@ -173,8 +173,8 @@
   },
   "session_store": {
     "driver": "file",
-    "root": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/data/sessions",
-    "index_file": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/data/session-index.jsonl",
+    "root": "/mnt/afs_if/codevideo/workspace/session-dev/sessions",
+    "index_file": "/mnt/afs_if/codevideo/workspace/session-dev/session-index.jsonl",
     "retain_days": null,
     "export": {
       "enabled": true,
@@ -183,7 +183,8 @@
         "json"
       ],
       "include_prompts": true,
-      "include_claude_logs": true
+      "include_claude_logs": true,
+      "$privacy_note": "导出含用户 Prompt 原文；对外分享前需脱敏"
     }
   },
   "prompt_enhancement": {

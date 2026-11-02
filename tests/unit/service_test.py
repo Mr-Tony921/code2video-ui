@@ -115,6 +115,9 @@ class HandoverGuardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='cvw-codex-guard-') as tmp:
             root=Path(tmp);(root/'config').mkdir();(root/'runtime/deployment').mkdir(parents=True)
             cfg=json.loads(json.dumps(original).replace(str(ROOT),str(root)))
+            cfg['storage'].update(root=str(root/'runtime'), sessions_root=str(root/'runtime/data'))
+            cfg['session_store'].update(root=str(root/'runtime/data/sessions'), index_file=str(root/'runtime/data/session-index.jsonl'))
+            for i,worker in enumerate(cfg['workers']):worker['worker_id']='cvw-codex-fixture-'+str(i)
             cfg['deployment']['web']['port']=8000;cfg['deployment']['gateway']['port']=9998
             for worker in cfg['workers']:worker['bridge']['port']=18080
             configs={}
@@ -136,6 +139,26 @@ class HandoverGuardTests(unittest.TestCase):
                 cfg['deployment']['gateway']['host']='10.120.7.0';save()
                 record['adopted_endpoints']=endpoints();marker.write_text(json.dumps(record))
                 with self.assertRaises(AssertionError):guard.check()
+
+
+class SharedDevDataTests(unittest.TestCase):
+    def test_shared_data_needs_authorization_and_rejects_production_paths(self):
+        spec=importlib.util.spec_from_file_location('data_guard',ROOT/'scripts/guard-isolation.py')
+        guard=importlib.util.module_from_spec(spec);spec.loader.exec_module(guard)
+        source=Path('/mnt/afs_if/codevideo/workspace/code2video-dev/config/backend.json')
+        old=json.loads(source.read_text());cfg=json.loads((ROOT/'config/backend.example.json').read_text())
+        cfg['storage']=old['storage'];cfg['session_store']=old['session_store'];cfg['workers']=old['workers']
+        with tempfile.TemporaryDirectory(prefix='cvw-codex-data-') as tmp:
+            root=Path(tmp);(root/'runtime/deployment').mkdir(parents=True)
+            marker=root/'runtime/deployment/dev-data-reuse.json'
+            with patch.object(guard,'ROOT',root):
+                with self.assertRaises(FileNotFoundError):guard.validate_data_scope(cfg)
+                marker.write_text(json.dumps({'scope':'reuse-cc-dev-data-only','source_config_sha256':hashlib.sha256(source.read_bytes()).hexdigest()}))
+                self.assertTrue(guard.validate_data_scope(cfg))
+                bad=copy.deepcopy(cfg);bad['storage']['sessions_root']='/mnt/afs_if/codevideo/workspace/session'
+                with self.assertRaisesRegex(AssertionError,'Only original dev'):guard.validate_data_scope(bad)
+                bad=copy.deepcopy(cfg);bad['workers'][0]['worker_id']='cvw-700'
+                with self.assertRaisesRegex(AssertionError,'original dev worker'):guard.validate_data_scope(bad)
 
 
 if __name__ == '__main__':
