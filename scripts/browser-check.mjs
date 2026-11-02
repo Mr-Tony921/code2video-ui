@@ -30,6 +30,8 @@ try {
   checks.push('first-visit explanation can be dismissed');
   const content = await page.evaluate(() => document.body.innerText);
   assert.ok(content.includes('Codex 开发环境'));
+  const version = (await readFile(join(root, 'VERSION'), 'utf8')).trim();
+  assert.ok(content.includes('v' + version), 'Frontend version differs from VERSION');
   assert.ok(!content.includes('管理后台'));
   checks.push('ordinary user logs in; no admin controls; environment label visible');
   // Login can restore an empty session; select a completed task through the actual history UI.

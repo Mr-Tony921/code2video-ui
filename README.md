@@ -1,6 +1,6 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本见 `VERSION`。代码、数据、Cookie、进程和端口独立；不复制用户数据，不修改原 dev 或线上 `coding-video-web`。
+基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本为 **1.5.0**，以 `VERSION` 为准。代码、数据、Cookie、进程和端口独立；不复制用户数据，不修改原 dev 或线上 `coding-video-web`。
 
 当前内网入口：**http://10.120.6.65:8002**。页面显示「Codex 开发环境」。未设置公网入口。
 
@@ -73,3 +73,14 @@ bash scripts/release-check.sh
 - `runtime`：本副本的依赖、私密配置、用户数据、任务和验证产物，整体忽略提交。
 
 接手理解、设计约束与验证范围见 [docs/TAKEOVER.md](docs/TAKEOVER.md)。其余旧文档、SYNC 记录和旧 CHANGELOG 是历史资料，不是本环境的部署指令。复制前的原始文件摘要见 `runtime/validation/baseline-manifest.json`；重构前独立副本快照见 `runtime/validation/before-refactor.tar.gz`。
+
+## Git 管理
+
+私有仓库：https://github.com/Mr-Tony921/code2video-ui 。默认分支为 `main`。
+`v1.4.6-codex.1` 保留首次重构基线，`v1.5.0` 对应当前版本。提交署名为 Tony，仅在本仓库设置。
+
+开发时创建功能分支、验证后提交并推送，完成评审再合并到 `main`；详细命令见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
+
+实际的 `config/backend.json` 保存在本地并被 Git 忽略；仓库提供 `config/backend.example.json`。
+新 clone 需要复制模板并配置自己的部署路径、主机和密钥，还需要独立准备 `runtime/` 的浏览器和渲染依赖。
+Git 管理代码版本，任务数据和运行凭据需单独备份。

@@ -251,7 +251,7 @@ export const activeSessions = {
   [Symbol.iterator]: () => activeSessionIds()[Symbol.iterator](),
 };
 export let PROCESS_INSTANCE_ID = null;
-export const BRIDGE_VERSION = '1.0.0';
+export const BRIDGE_VERSION = config.appVersion;
 export const STARTED_AT = new Date().toISOString();
 
 export function setProcessInstanceId(id) { PROCESS_INSTANCE_ID = id; }

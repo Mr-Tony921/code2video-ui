@@ -114,6 +114,7 @@ const streamBuf = new Map();
 const routes = {
   /** 探活。必须轻量，繁忙时也要秒回（P0-20）。 */
   'GET /health': async (req, res) => json(res, 200, {
+    version: config.appVersion,
     process_instance_id: PROCESS_INSTANCE_ID,
     status: sup.draining ? 'draining' : 'healthy',
     worker_id: config.worker.id,

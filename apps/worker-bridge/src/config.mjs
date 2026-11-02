@@ -56,6 +56,7 @@ export async function detectModelContext(log = console) {
 }
 
 export const config = {
+  appVersion: readFileSync(join(repoRoot, 'VERSION'), 'utf8').trim(),
   repoRoot,
   backendCfgPath,
   raw: backendCfg,   // 原始配置，供需要读新增节的模块使用
