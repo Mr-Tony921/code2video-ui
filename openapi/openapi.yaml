@@ -1,0 +1,1743 @@
+openapi: 3.1.0
+info:
+  title: SenseNova Coding Video & 3D Blockout — Gateway API
+  version: 1.0.0
+  description: |
+    试用平台 Gateway 接口协议。Phase 1 设计稿，供后端 review。
+
+    两套物理隔离的 API 面：
+      * `/api/*`      浏览器公开 API，Cookie 会话鉴权
+      * `/internal/*` Worker/Scheduler 内部 API，共享密钥或 mTLS，仅内网可达
+
+    核心语义（详见 docs/LONG_RUNNING_JOBS.md）：
+      * 生成任务可运行 1~2 小时以上，一律异步
+      * 浏览器关闭 / SSE 断开 / 登录过期 **不影响** 任务
+      * progress_percent 可为 null —— 客户端此时不得显示任何百分比
+      * 取消返回 CANCEL_REQUESTED，不是 CANCELLED
+  license:
+    name: Proprietary
+servers:
+  - url: http://localhost:9999
+    description: 本地 / 内网 Gateway
+
+tags:
+  - name: auth
+  - name: sessions
+  - name: workflows
+  - name: jobs
+  - name: recovery
+  - name: assets
+  - name: system
+  - name: admin
+  - name: internal
+    description: 后端 Worker 调用，普通用户不可达
+
+security:
+  - sessionCookie: []
+
+paths:
+  /api/auth/register:
+    post:
+      tags: [auth]
+      summary: 邀请码注册
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite_code, username, password]
+              properties:
+                invite_code: { type: string, minLength: 8, maxLength: 64 }
+                username:    { type: string, minLength: 3, maxLength: 64 }
+                password:    { type: string, minLength: 10, maxLength: 128 }
+                email:       { type: string, format: email, nullable: true }
+      responses:
+        '201':
+          description: 注册成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+        '422': { $ref: '#/components/responses/Unprocessable' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: 登录
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        '200':
+          description: 登录成功，设置 HttpOnly 会话 Cookie
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              description: 'cvw_session=...; HttpOnly; Secure; SameSite=Lax'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:        { $ref: '#/components/schemas/User' }
+                  server_time: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: 登出（对运行中 Job 零影响）
+      responses:
+        '204': { description: 已登出 }
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: 当前用户与权限（UI 权限的唯一依据）
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:        { $ref: '#/components/schemas/User' }
+                  permissions: { $ref: '#/components/schemas/Permissions' }
+                  server_time: { type: string, format: date-time }
+          description: OK
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/auth/change-password:
+    post:
+      tags: [auth]
+      summary: 修改密码（不影响运行中 Job）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password: { type: string }
+                new_password:     { type: string, minLength: 10 }
+      responses:
+        '204': { description: 已修改 }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/sessions:
+    post:
+      tags: [sessions]
+      summary: 创建会话并绑定后端进程（绑定后永不迁移）
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mode]
+              properties:
+                mode: { $ref: '#/components/schemas/Mode' }
+      responses:
+        '201':
+          description: 已创建
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:     { $ref: '#/components/schemas/Session' }
+                  binding:     { $ref: '#/components/schemas/SessionBinding' }
+                  server_time: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403':
+          description: 无该 mode 权限（BLOCKOUT_3D_FORBIDDEN）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '503':
+          description: 无健康进程可分配（PROCESS_UNAVAILABLE）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/sessions/{sessionId}:
+    get:
+      tags: [sessions]
+      summary: 会话恢复快照（浏览器重开后的核心接口）
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 一次返回恢复 UI 所需全部信息
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SessionSnapshot' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/sessions/{sessionId}/messages:
+    post:
+      tags: [sessions]
+      summary: 发送消息（异步，意图判定在后端）
+      description: |
+        V1 **无 attachments 字段**；请求体出现该字段返回 400。
+        mode 一律取 DB 中 Session 的值，忽略请求体中任何 mode。
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              additionalProperties: false
+              properties:
+                text:          { type: string, minLength: 1, maxLength: 8000 }
+                intent_hint:   { $ref: '#/components/schemas/Intent' }
+                base_asset_id: { type: string, nullable: true }
+      responses:
+        '202':
+          description: 已接受，结果经 SSE 推送
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { $ref: '#/components/schemas/Message' }
+                  processing:
+                    type: object
+                    properties:
+                      kind:       { type: string, example: intent_classification }
+                      events_url: { type: string }
+                  server_time: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: SESSION_NOT_ACTIVE 或 SESSION_BUSY
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '413':
+          description: PROMPT_TOO_LONG
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/sessions/{sessionId}/events:
+    get:
+      tags: [sessions]
+      summary: 会话级 SSE（支持 Last-Event-ID 断点续传）
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+        - $ref: '#/components/parameters/LastEventId'
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+
+  /api/sessions/{sessionId}/close:
+    post:
+      tags: [sessions]
+      summary: 关闭会话（不取消其下运行中的 Job）
+      parameters:
+        - $ref: '#/components/parameters/SessionId'
+      responses:
+        '200':
+          description: 已关闭；回传保留的运行中 Job
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/Session' }
+                  running_jobs_kept:
+                    type: array
+                    items: { type: string }
+
+  /api/workflows/{workflowId}:
+    get:
+      tags: [workflows]
+      summary: 获取 Prompt Workflow 与全部版本
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflow:  { $ref: '#/components/schemas/PromptWorkflow' }
+                  revisions:
+                    type: array
+                    items: { $ref: '#/components/schemas/PromptRevision' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/workflows/{workflowId}/revise:
+    post:
+      tags: [workflows]
+      summary: 提交修改意见，产生新 Prompt 版本
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [base_revision_id, note]
+              properties:
+                base_revision_id: { type: string }
+                note:             { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        '202':
+          description: 已接受，新版本经 SSE 推送
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflow:    { $ref: '#/components/schemas/PromptWorkflow' }
+                  server_time: { type: string, format: date-time }
+        '409':
+          description: REVISION_STALE 或 WORKFLOW_NOT_APPROVABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/workflows/{workflowId}/approve:
+    post:
+      tags: [workflows]
+      summary: 确认 Prompt 并创建生成 Job（必须快速返回，绝不等待生成）
+      description: |
+        **本协议最关键的接口。**
+        * 响应目标 < 500ms，硬上限 1s
+        * Idempotency-Key 必填；重复请求返回同一 job_id（HTTP 200 + idempotent_replay:true）
+        * revision_id 必须等于 latest_revision_id，否则 409 REVISION_STALE
+        * 幂等键应在 Prompt Review Card 首次渲染时生成并缓存，而非点击时生成
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+        - $ref: '#/components/parameters/IdempotencyKeyRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision_id]
+              properties:
+                revision_id: { type: string }
+      responses:
+        '202':
+          description: Job 已创建并入队
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApproveResult' }
+        '200':
+          description: 幂等重放，返回同一 Job
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApproveResult' }
+        '403':
+          description: 权限已变更（BLOCKOUT_3D_FORBIDDEN）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '409':
+          description: REVISION_STALE 或 WORKFLOW_NOT_APPROVABLE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/workflows/{workflowId}/cancel:
+    post:
+      tags: [workflows]
+      summary: 放弃尚未创建 Job 的 Workflow
+      parameters:
+        - $ref: '#/components/parameters/WorkflowId'
+      responses:
+        '200':
+          description: 已放弃
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  workflow: { $ref: '#/components/schemas/PromptWorkflow' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/jobs/{jobId}:
+    get:
+      tags: [jobs]
+      summary: Job 权威状态快照（前端的权威数据来源）
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job:         { $ref: '#/components/schemas/Job' }
+                  server_time: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/jobs/{jobId}/cancel:
+    post:
+      tags: [jobs]
+      summary: 请求取消（返回 CANCEL_REQUESTED，不是 CANCELLED）
+      description: |
+        步骤：校验归属 → 校验可取消 → **持久化取消意图** → 撤销租约 →
+        通知后端 → 后端实际停止 → 更新终态 → 释放并发槽。
+        幂等：重复调用只追加审计记录。
+        与 complete 并发时单事务裁决，**完成优先**（产物 READY 时）。
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/IdempotencyKeyOptional'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason_note: { type: string, maxLength: 500 }
+      responses:
+        '202':
+          description: 取消意图已持久化
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job:         { $ref: '#/components/schemas/Job' }
+                  server_time: { type: string, format: date-time }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: JOB_ALREADY_TERMINAL 或 JOB_NOT_CANCELLABLE（details 含真实状态）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/jobs/{jobId}/events:
+    get:
+      tags: [jobs]
+      summary: Job 级 SSE（id 即 job_events.seq，严格单调递增）
+      description: |
+        每个事件携带完整状态字段（非增量 diff），天然幂等、可乱序可重复。
+        客户端维护 maxSeenSeq 去重。
+        `: keepalive` 注释行仅表示连接可用，**不表示后端在计算**。
+        SSE 断开不触发任何 Job 状态变化。
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+        - $ref: '#/components/parameters/LastEventId'
+      responses:
+        '200':
+          description: text/event-stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/me/active-context:
+    get:
+      tags: [recovery]
+      summary: 恢复兜底（localStorage 丢失 / 换设备时使用）
+      description: 纯服务端恢复，不依赖任何浏览器缓存。只返回当前用户的数据。
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ActiveContext' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+
+  /api/me/jobs:
+    get:
+      tags: [recovery]
+      summary: 最小任务恢复入口的数据源
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [active, recent, all], default: active }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items: { $ref: '#/components/schemas/JobSummary' }
+                  next_cursor: { type: string, nullable: true }
+                  server_time: { type: string, format: date-time }
+
+  /api/assets/{assetId}:
+    get:
+      tags: [assets]
+      summary: 产物元数据（响应中永不含 storage_path）
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asset: { $ref: '#/components/schemas/Asset' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/assets/{assetId}/playback:
+    get:
+      tags: [assets]
+      summary: 流式播放（支持 Range）
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+        - name: Range
+          in: header
+          schema: { type: string }
+          example: bytes=0-1048575
+      responses:
+        '200':
+          description: 完整内容
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        '206':
+          description: 部分内容
+          content:
+            video/mp4:
+              schema: { type: string, format: binary }
+        '409':
+          description: ASSET_NOT_READY（绝不返回半写入文件）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/assets/{assetId}/download:
+    get:
+      tags: [assets]
+      summary: "下载（Content-Disposition: attachment，支持 Range，流式转发）"
+      parameters:
+        - $ref: '#/components/parameters/AssetId'
+        - name: Range
+          in: header
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          headers:
+            Content-Disposition:
+              schema: { type: string }
+              example: attachment; filename="cyberpunk-city.mp4"
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        '206': { description: 部分内容 }
+        '409':
+          description: ASSET_NOT_READY
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/system/capacity:
+    get:
+      tags: [system]
+      summary: 容量与并发（两模式共享，不可通过切 mode 突破）
+      responses:
+        '200':
+          description: 普通用户仅得 global；workers 细节仅管理员可见
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Capacity' }
+
+  /api/admin/invites:
+    get:
+      tags: [admin]
+      summary: 邀请码列表（只返回 code_prefix）
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [valid, exhausted, expired, revoked] }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invites:
+                    type: array
+                    items: { $ref: '#/components/schemas/InviteCode' }
+                  next_cursor: { type: string, nullable: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [admin]
+      summary: 生成邀请码（响应中一次性返回完整码，之后永不可查）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                max_uses:            { type: integer, minimum: 1, default: 1 }
+                expires_in_days:     { type: integer, minimum: 1, default: 7 }
+                grants_blockout_3d:  { type: boolean, default: false }
+                note:                { type: string, maxLength: 200 }
+      responses:
+        '201':
+          description: 已创建；code 仅此一次返回
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invite: { $ref: '#/components/schemas/InviteCode' }
+                  code:
+                    type: string
+                    description: 完整邀请码明文，仅此一次返回（服务端只存哈希）
+                    example: SNV-3F2A-9K1D-7X2M
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/invites/{inviteId}/revoke:
+    post:
+      tags: [admin]
+      summary: 撤销邀请码（幂等）
+      parameters:
+        - name: inviteId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 已撤销
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invite: { $ref: '#/components/schemas/InviteCode' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/users:
+    get:
+      tags: [admin]
+      summary: 用户列表（含各自运行中任务数）
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            running_jobs_count: { type: integer }
+                  next_cursor: { type: string, nullable: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/users/{userId}:
+    patch:
+      tags: [admin]
+      summary: 启用 / 禁用用户
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [active, disabled] }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/users/{userId}/permissions:
+    patch:
+      tags: [admin]
+      summary: 授予 / 撤销白模权限（不隐式取消任何 Job）
+      description: |
+        **权限管理与任务取消严格分离。**
+        撤权仅影响后续新建会话与新提交任务；已运行 Job 继续执行至完成。
+        如需终止，必须另调 POST /api/admin/jobs/{id}/terminate。
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [can_use_blockout_3d]
+              properties:
+                can_use_blockout_3d: { type: boolean }
+      responses:
+        '200':
+          description: 已更新；回传保留的运行中 Job 供 UI 提示
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+                  running_jobs_kept:
+                    type: array
+                    items: { type: string }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/users/{userId}/reset-password:
+    post:
+      tags: [admin]
+      summary: 重置密码（返回一次性临时密码，不影响运行中 Job）
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  temporary_password: { type: string }
+                  must_change:        { type: boolean, const: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/jobs:
+    get:
+      tags: [admin]
+      summary: 全局任务列表
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/JobStatus' }
+        - name: worker_id
+          in: query
+          schema: { type: string }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items: { $ref: '#/components/schemas/Job' }
+                  next_cursor: { type: string, nullable: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/admin/jobs/{jobId}/terminate:
+    post:
+      tags: [admin]
+      summary: 管理员显式终止任务（撤权之外的独立操作）
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason_note: { type: string, maxLength: 500 }
+      responses:
+        '202':
+          description: 走正常取消流程，reason='admin'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  job: { $ref: '#/components/schemas/Job' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/admin/processes/{processInstanceId}/drain:
+    patch:
+      tags: [admin]
+      summary: 请求进程优雅下线（不杀在跑任务）
+      parameters:
+        - name: processInstanceId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: 已标记 DRAINING
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  process: { $ref: '#/components/schemas/BackendProcess' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /internal/processes/register:
+    post:
+      tags: [internal]
+      summary: Worker 进程注册
+      description: |
+        `process_instance_id` 必须全局唯一、每次重启必变、**不得使用 OS PID**。
+        推荐格式 `{worker_id}:{uuid-v4 生成于进程启动时}`。
+      security:
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProcessRegister' }
+      responses:
+        '200':
+          description: 已接受，返回心跳与租约配置
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean }
+                  config:   { $ref: '#/components/schemas/WorkerConfig' }
+                  server_time: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/InternalAuthFailed' }
+
+  /internal/processes/heartbeat:
+    post:
+      tags: [internal]
+      summary: Worker 心跳（每 10~15s）
+      description: |
+        `running_job_ids` **必填**：Gateway 用它做反向对账。
+        若后端在跑 DB 不认识的 Job，Gateway 回带 `abort_not_owner` 指令，
+        防止幽灵计算长期占用 GPU。
+      security:
+        - internalToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProcessHeartbeat' }
+      responses:
+        '200':
+          description: 回带控制指令
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ack: { type: boolean }
+                  server_time: { type: string, format: date-time }
+                  directives:
+                    type: array
+                    items: { $ref: '#/components/schemas/Directive' }
+        '401': { $ref: '#/components/responses/InternalAuthFailed' }
+
+  /internal/jobs/{jobId}/heartbeat:
+    post:
+      tags: [internal]
+      summary: Job 心跳 / 租约续约（每 15~30s）
+      description: |
+        **必须跑在独立控制线程 / Supervisor / 独立进程中**，
+        不得被长时间阻塞的渲染或编码函数挡住，否则会被误判失联。
+
+        网络错误时 **不停止计算**，指数退避重试；
+        连续失败超 lease_ttl×3 才自保停止。
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/JobHeartbeat' }
+      responses:
+        '200':
+          description: 返回租约状态与控制指令
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JobHeartbeatAck' }
+        '401': { $ref: '#/components/responses/InternalAuthFailed' }
+        '404':
+          description: Job 不存在 → Worker 应停止并清理
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '409':
+          description: LEASE_INVALID → Worker 立即停止，放弃结果
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /internal/jobs/{jobId}/progress:
+    post:
+      tags: [internal]
+      summary: 阶段与进度上报
+      description: 租约校验失败返回 409，Gateway 丢弃该上报且不改变 Job 状态（fencing）。
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease_token, phase]
+              properties:
+                lease_token:      { type: string }
+                phase:            { $ref: '#/components/schemas/JobPhase' }
+                phase_changed:    { type: boolean, default: false }
+                progress_percent: { type: integer, minimum: 0, maximum: 100, nullable: true }
+                detail:           { type: object, additionalProperties: true }
+                reported_at:      { type: string, format: date-time }
+      responses:
+        '200':
+          description: 已记录
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted: { type: boolean }
+                  seq:      { type: integer }
+                  control:  { $ref: '#/components/schemas/JobControl' }
+                  server_time: { type: string, format: date-time }
+        '409':
+          description: LEASE_INVALID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /internal/jobs/{jobId}/complete:
+    post:
+      tags: [internal]
+      summary: 完成上报（Gateway 校验租约 + 产物完整性后才置 COMPLETED）
+      description: |
+        Gateway 校验顺序：
+        1. 租约有效 ∧ epoch 当前 ∧ 未撤销 → 否则 409 LEASE_INVALID，丢弃结果
+        2. Job 非终态（已 COMPLETED 且 asset 相同 → 200 幂等）
+        3. 若处于 CANCEL_REQUESTED/CANCELLING → 竞争裁决，**完成优先**
+        4. 产物完整性：完成标记存在 ∧ 可读 ∧ size>0 ∧ 大小匹配 ∧ checksum ∧ 可探测元数据
+        5. Job=COMPLETED，释放并发槽，广播 job.completed
+
+        **「共享目录出现文件」不构成完成依据**，必须有 completion_marker 或等效原子提交。
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease_token, asset]
+              properties:
+                lease_token: { type: string }
+                asset:       { $ref: '#/components/schemas/AssetReport' }
+                finished_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: 已接受
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:   { type: boolean }
+                  job_status: { $ref: '#/components/schemas/JobStatus' }
+                  asset_id:   { type: string }
+                  server_time: { type: string, format: date-time }
+        '409':
+          description: LEASE_INVALID 或 JOB_ALREADY_TERMINAL
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /internal/jobs/{jobId}/cancel-ack:
+    post:
+      tags: [internal]
+      summary: 取消确认（后端实际停止后回调）
+      description: |
+        若取消到达时任务已完成，**不调本接口**，改调 /complete；
+        Gateway 按「完成优先」裁决。
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease_token, stopped]
+              properties:
+                lease_token:        { type: string }
+                stopped:            { type: boolean }
+                stop_method:        { type: string, enum: [sigterm, sigkill, cooperative] }
+                resources_released: { type: boolean }
+                released:
+                  type: object
+                  properties:
+                    gpu:           { type: boolean }
+                    subprocesses:  { type: boolean }
+                    temp_files:    { type: boolean }
+                partial_artifacts:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      storage_path: { type: string }
+                      size_bytes:   { type: integer }
+                stopped_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: 已接受
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:   { type: boolean }
+                  job_status: { $ref: '#/components/schemas/JobStatus' }
+        '409':
+          description: LEASE_INVALID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /internal/jobs/{jobId}/fail:
+    post:
+      tags: [internal]
+      summary: 失败上报
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lease_token, failure]
+              properties:
+                lease_token: { type: string }
+                failure:
+                  type: object
+                  required: [code, message]
+                  properties:
+                    code:      { type: string, example: E_RENDER_OOM }
+                    message:   { type: string }
+                    phase:     { $ref: '#/components/schemas/JobPhase' }
+                    retryable: { type: boolean }
+                partial_artifacts:
+                  type: array
+                  items: { type: object, additionalProperties: true }
+                failed_at: { type: string, format: date-time }
+      responses:
+        '200':
+          description: 已接受
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accepted:   { type: boolean }
+                  job_status: { $ref: '#/components/schemas/JobStatus' }
+        '409':
+          description: LEASE_INVALID
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: cvw_session
+      description: HttpOnly + Secure + SameSite=Lax 服务端会话 Cookie
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: |
+        内部 API 共享密钥（或改用 mTLS 客户端证书）。
+        仅内网可达；Gateway 启动时校验长度 ≥ 32，否则拒绝启动。
+
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      schema: { type: string }
+    WorkflowId:
+      name: workflowId
+      in: path
+      required: true
+      schema: { type: string }
+    JobId:
+      name: jobId
+      in: path
+      required: true
+      schema: { type: string }
+    AssetId:
+      name: assetId
+      in: path
+      required: true
+      schema: { type: string }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema: { type: string }
+    IdempotencyKeyRequired:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+      description: |
+        必填。应在卡片首次渲染时生成并缓存，**而非点击时生成**——
+        否则双击会产生两个不同 Key，绕过幂等。
+    IdempotencyKeyOptional:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema: { type: string, format: uuid }
+    LastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      schema: { type: string }
+      description: 断线重连时携带已收到的最大 seq，服务端回放 seq > N 的持久化事件
+
+  responses:
+    Unauthenticated:
+      description: 未登录或会话过期。客户端**不得**因此发起任何取消请求。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Forbidden:
+      description: 已登录但无权限
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    NotFound:
+      description: 不存在或无权访问（不泄露存在性）
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Conflict:
+      description: 状态冲突
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Gone:
+      description: 资源已过期
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unprocessable:
+      description: 业务规则不满足
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    RateLimited:
+      description: 限流
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    InternalAuthFailed:
+      description: 内部 Token 无效。Worker 应检查配置，**不停止计算**，退避重试。
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:       { type: string, example: REVISION_STALE }
+            message:    { type: string }
+            details:    { type: object, additionalProperties: true }
+            request_id: { type: string }
+
+    Mode:
+      type: string
+      enum: [coding_to_video, blockout_3d]
+
+    Intent:
+      type: string
+      enum: [new_generation, edit_generation, prompt_revision, video_discussion, out_of_scope]
+
+    User:
+      type: object
+      properties:
+        id:                  { type: string }
+        username:            { type: string }
+        email:               { type: string, nullable: true }
+        role:                { type: string, enum: [admin, user] }
+        can_use_blockout_3d: { type: boolean }
+        status:              { type: string, enum: [active, disabled] }
+        created_at:          { type: string, format: date-time }
+
+    Permissions:
+      type: object
+      properties:
+        modes:
+          type: array
+          items: { $ref: '#/components/schemas/Mode' }
+          description: UI 权限的唯一依据（不读 localStorage）
+        is_admin: { type: boolean }
+
+    Session:
+      type: object
+      properties:
+        id:               { type: string }
+        mode:             { $ref: '#/components/schemas/Mode' }
+        status:           { type: string, enum: [ACTIVE, DEGRADED, CLOSED] }
+        title:            { type: string, nullable: true }
+        created_at:       { type: string, format: date-time }
+        last_activity_at: { type: string, format: date-time }
+
+    SessionBinding:
+      type: object
+      description: 绑定后 process_instance_id 永不变更；PROCESS_LOST 为终态，不迁移
+      properties:
+        worker_id:            { type: string }
+        process_instance_id:  { type: string }
+        status:
+          type: string
+          enum: [BOUND, SUSPECTED, PROCESS_LOST, RELEASED]
+        health_note: { type: string, nullable: true }
+        bound_at:    { type: string, format: date-time }
+
+    Message:
+      type: object
+      properties:
+        id:          { type: string }
+        seq:         { type: integer }
+        role:        { type: string, enum: [user, assistant, system] }
+        kind:        { type: string, enum: [text, prompt_review, job_card, notice] }
+        content:     { type: object, additionalProperties: true }
+        intent:      { $ref: '#/components/schemas/Intent' }
+        workflow_id: { type: string, nullable: true }
+        job_id:      { type: string, nullable: true }
+        created_at:  { type: string, format: date-time }
+
+    PromptWorkflow:
+      type: object
+      properties:
+        id:         { type: string }
+        session_id: { type: string }
+        mode:       { $ref: '#/components/schemas/Mode' }
+        intent:     { type: string, enum: [new_generation, edit_generation] }
+        status:
+          type: string
+          enum: [ENHANCING, AWAITING_APPROVAL, REVISING, ENHANCE_FAILED, APPROVED, JOB_CREATED, ABANDONED]
+        base_asset_id:        { type: string, nullable: true }
+        latest_revision_id:   { type: string, nullable: true }
+        approved_revision_id: { type: string, nullable: true }
+        job_id:               { type: string, nullable: true }
+        created_at:           { type: string, format: date-time }
+        updated_at:           { type: string, format: date-time }
+
+    PromptRevision:
+      type: object
+      properties:
+        id:              { type: string }
+        revision_no:     { type: integer }
+        enhanced_prompt: { type: string }
+        user_note:       { type: string, nullable: true }
+        is_stale:        { type: boolean }
+        created_at:      { type: string, format: date-time }
+
+    JobStatus:
+      type: string
+      enum:
+        - QUEUED
+        - ASSIGNED
+        - RUNNING
+        - CANCEL_REQUESTED
+        - CANCELLING
+        - CANCELLED
+        - COMPLETED
+        - FAILED
+        - UNKNOWN
+        - RECOVERING
+      description: |
+        终态：COMPLETED / FAILED / CANCELLED。
+        UNKNOWN / RECOVERING 不得当作失败，也不得作为自动重试信号。
+
+    JobPhase:
+      type: string
+      enum: [PREPARING, GENERATING, RENDERING, FINALIZING]
+      nullable: true
+
+    JobControl:
+      type: string
+      enum: [continue, cancel, abort_stale_lease, abort_max_runtime, abort_not_owner]
+      description: Worker **必须**响应这些控制指令
+
+    JobHealth:
+      type: object
+      properties:
+        worker_status:
+          type: string
+          enum: [HEALTHY, SUSPECTED_UNAVAILABLE, UNAVAILABLE, DRAINING]
+        job_heartbeat_age_ms: { type: integer }
+        progress_age_ms:      { type: integer }
+        stalled:
+          type: boolean
+          description: 心跳正常但长时间无业务进度 —— 绝不因此取消任务
+        assessment:
+          type: string
+          enum: [HEALTHY_RUNNING, HEALTHY_STALLED, HEARTBEAT_LOST, CONFIRMED_FAILED, STATE_UNKNOWN]
+          description: 前端据此选择文案，不自行推断
+
+    JobCancellation:
+      type: object
+      properties:
+        requested_at: { type: string, format: date-time, nullable: true }
+        requested_by: { type: string, nullable: true }
+        reason:
+          type: string
+          nullable: true
+          enum: [user, admin, max_runtime, lease_lost, duplicate, backend_unrecoverable]
+        acked_at:              { type: string, format: date-time, nullable: true }
+        effective:             { type: boolean, nullable: true }
+        resources_released_at: { type: string, format: date-time, nullable: true }
+
+    Job:
+      type: object
+      properties:
+        id:                 { type: string }
+        session_id:         { type: string }
+        workflow_id:        { type: string }
+        prompt_revision_id: { type: string }
+        mode:               { $ref: '#/components/schemas/Mode' }
+        base_asset_id:      { type: string, nullable: true }
+        status:             { $ref: '#/components/schemas/JobStatus' }
+        phase:              { $ref: '#/components/schemas/JobPhase' }
+        progress_percent:
+          type: integer
+          minimum: 0
+          maximum: 100
+          nullable: true
+          description: |
+            **可为 null**（后端不提供时）。
+            客户端在 null 时不得显示任何百分比，改用不确定进度动画。
+        created_at:        { type: string, format: date-time }
+        queued_at:         { type: string, format: date-time, nullable: true }
+        assigned_at:       { type: string, format: date-time, nullable: true }
+        started_at:        { type: string, format: date-time, nullable: true }
+        phase_started_at:  { type: string, format: date-time, nullable: true }
+        last_heartbeat_at: { type: string, format: date-time, nullable: true }
+        last_progress_at:  { type: string, format: date-time, nullable: true }
+        finished_at:       { type: string, format: date-time, nullable: true }
+        elapsed:
+          type: object
+          properties:
+            queued_ms:        { type: integer }
+            running_ms:       { type: integer }
+            current_phase_ms: { type: integer }
+        health:       { $ref: '#/components/schemas/JobHealth' }
+        queue:
+          type: object
+          properties:
+            position:        { type: integer, nullable: true }
+            global_used:     { type: integer }
+            global_capacity: { type: integer }
+        cancellation: { $ref: '#/components/schemas/JobCancellation' }
+        failure:
+          type: object
+          properties:
+            code:    { type: string, nullable: true }
+            message: { type: string, nullable: true }
+        result_asset_id:     { type: string, nullable: true }
+        attempt:             { type: integer }
+        max_runtime_seconds: { type: integer }
+        worker_id:           { type: string, nullable: true }
+        process_instance_id: { type: string, nullable: true }
+        poll_url:            { type: string }
+        events_url:          { type: string }
+
+    JobSummary:
+      type: object
+      properties:
+        id:               { type: string }
+        session_id:       { type: string }
+        mode:             { $ref: '#/components/schemas/Mode' }
+        status:           { $ref: '#/components/schemas/JobStatus' }
+        phase:            { $ref: '#/components/schemas/JobPhase' }
+        progress_percent: { type: integer, nullable: true }
+        started_at:       { type: string, format: date-time, nullable: true }
+        finished_at:      { type: string, format: date-time, nullable: true }
+        elapsed:
+          type: object
+          properties:
+            running_ms: { type: integer }
+        health:          { $ref: '#/components/schemas/JobHealth' }
+        prompt_summary:  { type: string }
+        result_asset_id: { type: string, nullable: true }
+        session_available:
+          type: boolean
+          description: false 表示原会话进程已失联，只能看产物不能回会话
+        asset: { $ref: '#/components/schemas/Asset' }
+
+    ApproveResult:
+      type: object
+      properties:
+        job:
+          type: object
+          properties:
+            id:                  { type: string }
+            status:              { $ref: '#/components/schemas/JobStatus' }
+            created_at:          { type: string, format: date-time }
+            queued_at:           { type: string, format: date-time }
+            queue:
+              type: object
+              properties:
+                position:        { type: integer, nullable: true }
+                global_used:     { type: integer }
+                global_capacity: { type: integer }
+            max_runtime_seconds: { type: integer }
+            poll_url:            { type: string }
+            events_url:          { type: string }
+        idempotent_replay:
+          type: boolean
+          description: true 表示这是幂等重放，返回的是已存在的 Job
+        server_time: { type: string, format: date-time }
+
+    AssetState:
+      type: string
+      enum: [PENDING, VERIFYING, READY, CORRUPT, ABANDONED]
+      description: 只有 READY 才允许 Job → COMPLETED，也只有 READY 才可播放/下载
+
+    Asset:
+      type: object
+      description: 响应中**永不包含 storage_path**
+      properties:
+        id:         { type: string }
+        job_id:     { type: string }
+        session_id: { type: string }
+        kind:       { type: string, enum: [video, preview_image, blockout_video] }
+        state:      { $ref: '#/components/schemas/AssetState' }
+        mime_type:  { type: string, nullable: true }
+        size_bytes: { type: integer, nullable: true }
+        duration_ms: { type: integer, nullable: true }
+        width:      { type: integer, nullable: true }
+        height:     { type: integer, nullable: true }
+        checksum:   { type: string, nullable: true }
+        playable:   { type: boolean }
+        derived_from_asset_id:
+          type: string
+          nullable: true
+          description: 旧视频修改链：B 指向 A，原文件不被覆盖
+        version_chain:
+          type: array
+          items: { type: string }
+        created_at:   { type: string, format: date-time }
+        ready_at:     { type: string, format: date-time, nullable: true }
+        playback_url: { type: string }
+        download_url: { type: string }
+
+    AssetReport:
+      type: object
+      description: Worker 完成时上报的产物信息（含共享存储绝对路径，仅内部可见）
+      required: [kind, storage_path]
+      properties:
+        kind:               { type: string, enum: [video, preview_image, blockout_video] }
+        storage_path:       { type: string, example: /mnt/shared/cvw/outputs/job_abc/final.mp4 }
+        completion_marker:
+          type: string
+          nullable: true
+          description: |
+            完成标记路径（如 .done 文件）。**具体约定待后端确认（阻塞项 B-5）**。
+            「共享目录出现文件」不构成完成依据。
+        mime_type:   { type: string }
+        size_bytes:  { type: integer }
+        duration_ms: { type: integer }
+        width:       { type: integer }
+        height:      { type: integer }
+        frame_rate:  { type: number }
+        checksum:    { type: string, description: 强烈建议提供 }
+        derived_from_asset_id: { type: string, nullable: true }
+
+    SessionSnapshot:
+      type: object
+      properties:
+        session:  { $ref: '#/components/schemas/Session' }
+        binding:  { $ref: '#/components/schemas/SessionBinding' }
+        messages:
+          type: array
+          items: { $ref: '#/components/schemas/Message' }
+        active_workflow:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/PromptWorkflow'
+            - type: object
+              properties:
+                latest_revision:  { $ref: '#/components/schemas/PromptRevision' }
+                revision_count:   { type: integer }
+                idempotency_hint: { type: string }
+        active_job:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Job' }]
+        assets:
+          type: array
+          items: { $ref: '#/components/schemas/Asset' }
+        server_time: { type: string, format: date-time }
+
+    ActiveContext:
+      type: object
+      description: 纯服务端恢复，不依赖任何浏览器缓存
+      properties:
+        active_session:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/Session' }]
+        running_jobs:
+          type: array
+          items: { $ref: '#/components/schemas/JobSummary' }
+        recent_completed_jobs:
+          type: array
+          items: { $ref: '#/components/schemas/JobSummary' }
+        limits:
+          type: object
+          properties:
+            recent_completed_limit: { type: integer }
+        server_time: { type: string, format: date-time }
+
+    Capacity:
+      type: object
+      properties:
+        global:
+          type: object
+          properties:
+            capacity: { type: integer }
+            used:     { type: integer }
+            queued:   { type: integer }
+        modes_share_capacity:
+          type: boolean
+          const: true
+          description: 两模式共享并发，不可通过切 mode 突破上限
+        workers:
+          type: array
+          description: 仅管理员可见
+          items:
+            type: object
+            properties:
+              worker_id:              { type: string }
+              status:                 { type: string }
+              last_heartbeat_age_ms:  { type: integer }
+              processes:
+                type: array
+                items: { $ref: '#/components/schemas/BackendProcess' }
+        server_time: { type: string, format: date-time }
+
+    BackendProcess:
+      type: object
+      properties:
+        process_instance_id: { type: string }
+        status:
+          type: string
+          enum: [REGISTERED, HEALTHY, SUSPECTED_UNAVAILABLE, UNAVAILABLE, DRAINING, OFFLINE]
+        supported_modes:
+          type: array
+          items: { $ref: '#/components/schemas/Mode' }
+        active_sessions:     { type: integer }
+        max_sessions:        { type: integer }
+        running_jobs:        { type: integer }
+        max_concurrent_jobs: { type: integer }
+        queued_jobs:         { type: integer }
+
+    InviteCode:
+      type: object
+      description: 只存哈希；完整码仅创建时返回一次
+      properties:
+        id:                 { type: string }
+        code_prefix:        { type: string, example: SNV-3F2A }
+        max_uses:           { type: integer }
+        used_count:         { type: integer }
+        grants_blockout_3d: { type: boolean }
+        expires_at:         { type: string, format: date-time }
+        revoked_at:         { type: string, format: date-time, nullable: true }
+        created_by:         { type: string }
+        created_at:         { type: string, format: date-time }
+        note:               { type: string, nullable: true }
+
+    ProcessRegister:
+      type: object
+      required: [worker_id, host, port, process_instance_id, supported_modes, max_sessions, max_concurrent_jobs]
+      properties:
+        worker_id: { type: string }
+        host:      { type: string }
+        port:      { type: integer }
+        process_instance_id:
+          type: string
+          description: |
+            必须全局唯一、每次重启必变、**不得使用 OS PID**（PID 会复用）。
+            推荐 `{worker_id}:{uuid-v4}`。
+        os_pid:    { type: integer, description: 仅诊断用，不可作为身份 }
+        supported_modes:
+          type: array
+          items: { $ref: '#/components/schemas/Mode' }
+        max_sessions:        { type: integer }
+        max_concurrent_jobs: { type: integer }
+        version:             { type: string }
+        started_at:          { type: string, format: date-time }
+
+    WorkerConfig:
+      type: object
+      properties:
+        heartbeat_interval_seconds:     { type: integer, example: 12 }
+        job_heartbeat_interval_seconds: { type: integer, example: 20 }
+        lease_ttl_seconds:              { type: integer, example: 120 }
+        cancel_grace_seconds:           { type: integer, example: 60 }
+
+    ProcessHeartbeat:
+      type: object
+      required: [worker_id, process_instance_id, status, running_job_ids]
+      properties:
+        worker_id:           { type: string }
+        process_instance_id: { type: string }
+        status:              { type: string, enum: [healthy, draining] }
+        active_sessions:     { type: integer }
+        running_jobs:        { type: integer }
+        running_job_ids:
+          type: array
+          items: { type: string }
+          description: |
+            **必填。** Gateway 用它做反向对账：
+            若后端在跑 DB 不认识的 Job，回带 abort_not_owner，防止幽灵计算占用 GPU。
+        max_sessions:        { type: integer }
+        max_concurrent_jobs: { type: integer }
+        resources:
+          type: object
+          properties:
+            gpu_util:          { type: number }
+            gpu_mem_used_mb:   { type: integer }
+            gpu_mem_total_mb:  { type: integer }
+            cpu_load:          { type: number }
+            disk_free_gb:      { type: number }
+        reported_at:
+          type: string
+          format: date-time
+          description: 仅供诊断；新鲜度以服务端时间为准
+
+    Directive:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [cancel_job, abort_not_owner, abort_stale_lease, drain]
+        job_id: { type: string, nullable: true }
+        reason: { type: string, nullable: true }
+
+    JobHeartbeat:
+      type: object
+      required: [session_id, worker_id, process_instance_id, lease_token, heartbeat_at]
+      properties:
+        session_id:          { type: string }
+        worker_id:           { type: string }
+        process_instance_id: { type: string }
+        lease_token:         { type: string, description: fencing 凭证，必填 }
+        attempt:             { type: integer }
+        phase:               { $ref: '#/components/schemas/JobPhase' }
+        progress_percent:
+          type: integer
+          nullable: true
+          description: 可选；后端无法提供则省略或 null
+        last_progress_at: { type: string, format: date-time, nullable: true }
+        heartbeat_at:     { type: string, format: date-time }
+
+    JobHeartbeatAck:
+      type: object
+      properties:
+        lease:
+          type: object
+          properties:
+            valid:      { type: boolean }
+            epoch:      { type: integer, description: 单调递增 fencing token }
+            expires_at: { type: string, format: date-time }
+        control:     { $ref: '#/components/schemas/JobControl' }
+        server_time: { type: string, format: date-time }

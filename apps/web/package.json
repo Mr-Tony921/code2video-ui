@@ -1,0 +1,24 @@
+{
+  "name": "cvw-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "前端：对话式视频创作 UI。只做 UI 与 BFF 转发，调度在 Gateway。",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "15.5.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.9",
+    "@types/react": "19.1.8",
+    "@types/react-dom": "19.1.6",
+    "typescript": "5.8.3"
+  }
+}

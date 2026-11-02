@@ -1,0 +1,15 @@
+{
+  "name": "cvw-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "\u8c03\u5ea6\u4e0e\u5bf9\u5916 API \u7684\u5e38\u9a7b\u670d\u52a1\u3002\u72ec\u7acb\u4e8e Next.js\uff0cWeb \u91cd\u542f\u4e0d\u5f71\u54cd\u957f\u4efb\u52a1\u3002",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "check": "node --check src/server.mjs && node --check src/config.mjs && node --check src/worker-pool.mjs && node --check src/dispatcher.mjs && node --check src/watchdog.mjs && node --check src/bridge-client.mjs && node --check src/stream-pump.mjs && node --check src/enhancer.mjs && node --check src/refs-proxy.mjs && node --check src/presence.mjs && node --check src/watchdog-prompts.mjs && node --check src/invites.mjs && node --check src/users.mjs && node --check src/store/job-store.mjs",
+    "admin:bootstrap": "node src/bootstrap-admin.mjs"
+  }
+}

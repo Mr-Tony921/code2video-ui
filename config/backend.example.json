@@ -1,0 +1,380 @@
+{
+  "concurrency": {
+    "global_max_concurrent_jobs": 8,
+    "per_machine_max_concurrent_jobs": 4
+  },
+  "preview": {
+    "max_height": 540,
+    "max_kbps": 600,
+    "audio_kbps": 96,
+    "generate_timeout_ms": 25000
+  },
+  "workers": [
+    {
+      "worker_id": "cvw-codex-360",
+      "bridge": {
+        "host": "10.120.3.60",
+        "port": 18082,
+        "scheme": "http"
+      },
+      "ssh": {
+        "host": "10.120.3.60",
+        "port": 8888,
+        "user": "codevideo"
+      },
+      "max_concurrent_jobs": 2,
+      "max_sessions": 4,
+      "supported_modes": [
+        "coding_to_video",
+        "blockout_3d"
+      ],
+      "enabled": true
+    },
+    {
+      "worker_id": "cvw-codex-350",
+      "bridge": {
+        "host": "10.120.3.50",
+        "port": 18082,
+        "scheme": "http"
+      },
+      "ssh": {
+        "host": "10.120.3.50",
+        "port": 8888,
+        "user": "codevideo"
+      },
+      "max_concurrent_jobs": 4,
+      "max_sessions": 8,
+      "supported_modes": [
+        "coding_to_video",
+        "blockout_3d"
+      ],
+      "enabled": true
+    }
+  ],
+  "model": {
+    "base_url": "http://app-b7ffd141119a40be9700fff26146ca04.ns-zuhu2026-c9929bca.svc.cluster.local:8000",
+    "api_key_env": "CVW_MODEL_API_KEY",
+    "model": "SenseNova-6.8-Code2Video",
+    "max_context_tokens": 524288,
+    "api_key": "",
+    "auto_detect_context": false,
+    "max_output_tokens": 64000,
+    "autocompact_pct": 80
+  },
+  "proxy": {
+    "http_proxy": "http://10.120.0.246:7890",
+    "no_proxy": "localhost,127.0.0.1,.svc.cluster.local,10.120.0.131,10.120.0.127,10.120.0.246,tokenhub.sensetime.com,.sensetime.com"
+  },
+  "skills": {
+    "skillsets_root": "assets/skillsets",
+    "by_mode": {
+      "coding_to_video": "coding_to_video",
+      "blockout_3d": "blockout_3d"
+    },
+    "target_dir_in_session": ".claude/skills",
+    "whitebox_skill_name": "whitebox-previs"
+  },
+  "storage": {
+    "root": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime",
+    "sessions_subdir": "sessions",
+    "assets_subdir": "assets",
+    "sessions_root": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/data"
+  },
+  "claude_cli": {
+    "bin": "claude",
+    "settings_file_name": "video_settings.json",
+    "permission_mode": "bypassPermissions",
+    "extra_args": [],
+    "verified": {
+      "version": "2.1.304",
+      "probe": "PROBE_OK 2026-10-23",
+      "known_warning": "[claude-code:unrecognized_model] 是 CLI 模型名白名单告警，不影响推理，可忽略"
+    },
+    "output_format": "stream-json",
+    "verbose": true,
+    "env": {
+      "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+      "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "${model.max_context_tokens}",
+      "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "${model.autocompact_pct}",
+      "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "${model.max_output_tokens}",
+      "CLAUDE_CODE_SUBAGENT_MODEL": "${model.model}",
+      "CLAUDE_CODE_TMPDIR": "/tmp",
+      "HF_HOME": "/opt/videokit/hf",
+      "HF_HUB_OFFLINE": "1",
+      "PYTHONDONTWRITEBYTECODE": "1"
+    }
+  },
+  "runtime_binaries": {
+    "node": "/usr/local/bin/node",
+    "python": "/usr/bin/python3",
+    "ffmpeg": "/usr/bin/ffmpeg",
+    "ffprobe": "/usr/bin/ffprobe",
+    "claude": "/usr/local/bin/claude",
+    "chrome_bin": "/srv/chrome-linux64/chrome",
+    "previs_dependency_root": "/media",
+    "chrome_version": "138.0.7204.168",
+    "chrome_flags": [
+      "--no-sandbox",
+      "--disable-gpu",
+      "--disable-dev-shm-usage"
+    ],
+    "videokit_root": "/opt/videokit",
+    "videokit_node_modules": "/opt/videokit/node_modules",
+    "videokit_venv_python": "/opt/videokit/venv/bin/python",
+    "chrome_bin_host": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/browser/chrome-linux64/chrome",
+    "previs_dependency_root_host": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/previs-deps"
+  },
+  "ssh": {
+    "key_path": "~/.ssh/id_rsa",
+    "port": 8888,
+    "user": "codevideo"
+  },
+  "aux_models": {
+    "enabled": false,
+    "vision_review": {
+      "base_url": "",
+      "api_key": "",
+      "model": "claude-opus-5-5",
+      "api_key_env": "CVW_AUX_VISION_API_KEY"
+    },
+    "fallback": {
+      "base_url": "",
+      "api_key": "",
+      "model": "claude-sonnet-5-5",
+      "api_key_env": "CVW_AUX_FALLBACK_API_KEY"
+    }
+  },
+  "skill_dependencies": {
+    "edge_tts": {
+      "endpoint": "speech.platform.bing.com",
+      "needs_proxy": true,
+      "note": "集群内需走 HTTP_PROXY 才能访问"
+    },
+    "faster_whisper": {
+      "models": [
+        "Systran/faster-whisper-base.en",
+        "Systran/faster-whisper-small"
+      ],
+      "needs_proxy": true,
+      "note": "首次使用需预下载模型；建议预置到共享目录避免每次下载",
+      "cache_dir": null
+    },
+    "python_packages": {
+      "packages": [
+        "numpy",
+        "scipy",
+        "soundfile",
+        "librosa",
+        "edge-tts",
+        "faster-whisper"
+      ],
+      "installed": "TO_CONFIRM — 需在后端机器核实"
+    }
+  },
+  "session_store": {
+    "driver": "file",
+    "root": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/data/sessions",
+    "index_file": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/data/session-index.jsonl",
+    "retain_days": null,
+    "export": {
+      "enabled": true,
+      "formats": [
+        "jsonl",
+        "json"
+      ],
+      "include_prompts": true,
+      "include_claude_logs": true
+    }
+  },
+  "prompt_enhancement": {
+    "enabled": true,
+    "provider": "aux_model",
+    "aux_model": {
+      "base_url": "https://tokenhub.sensetime.com",
+      "api_key": "",
+      "model": "claude-opus-5-5/ccmax/sfa",
+      "api_key_env": "CVW_AUX_ENHANCE_API_KEY",
+      "base_url_env": "CVW_AUX_ENHANCE_BASE_URL",
+      "model_env": "CVW_AUX_ENHANCE_MODEL",
+      "timeout_ms": 300000,
+      "max_tokens": 32000
+    },
+    "skip_for_revision": true,
+    "agent": {
+      "enabled": true,
+      "bin": "claude",
+      "allowed_tools": "ToolSearch,WebSearch,WebFetch",
+      "timeout_ms": 420000,
+      "sigterm_grace_ms": 5000,
+      "max_concurrent": 6
+    }
+  },
+  "references": {
+    "enabled": true,
+    "max_per_session": 10,
+    "subdir": "references",
+    "manifest_file": "manifest.json",
+    "allowed_types": {
+      "image": [
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".webp",
+        ".gif",
+        ".bmp"
+      ],
+      "video": [
+        ".mp4",
+        ".mov",
+        ".webm",
+        ".mkv",
+        ".avi"
+      ],
+      "audio": [
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".aac",
+        ".flac",
+        ".ogg"
+      ]
+    },
+    "max_file_bytes": 524288000,
+    "freeze_after_submit": true
+  },
+  "production": {
+    "allow_steering_during_job": false,
+    "max_runtime_seconds": 43200,
+    "allow_retry_on_failure": true,
+    "allow_prompt_revision_after_complete": true,
+    "recent_completed_limit": 200
+  },
+  "process_stream": {
+    "enabled": true,
+    "claude_output_format": "stream-json",
+    "claude_verbose": true,
+    "include_partial_messages": false,
+    "forward": {
+      "tool_use": true,
+      "tool_result": true,
+      "thinking": true,
+      "assistant_text": true,
+      "thinking_tokens": false
+    },
+    "tool_result_truncate_bytes": 2000,
+    "max_buffered_events": 2000
+  },
+  "presence": {
+    "enabled": true,
+    "heartbeat_interval_seconds": 30,
+    "timeout_seconds": 43200,
+    "timeout_action": "stop",
+    "hidden_page_keeps_alive": true
+  },
+  "invites": {
+    "default_max_uses": 1,
+    "default_valid_days": 7,
+    "return_expires_at_on_create": true,
+    "invalidate_after_use": true
+  },
+  "watchdog_prompts": {
+    "enabled": true,
+    "prompts": [
+      {
+        "trigger": "completed_without_artifact",
+        "text": "任务已报告完成，但未找到成品视频文件。请确认产物的确切路径。"
+      },
+      {
+        "trigger": "no_events_seconds",
+        "threshold_seconds": 300,
+        "text": "当前仍在执行吗？请报告当前阶段与已完成的步骤。"
+      },
+      {
+        "trigger": "consecutive_tool_failures",
+        "threshold": 3,
+        "text": "检测到工具连续失败。请说明当前阻塞点。"
+      },
+      {
+        "trigger": "approaching_max_runtime",
+        "threshold_seconds": 39600,
+        "text": "即将达到最长执行时间，请优先产出当前可用版本并写入成品目录。"
+      }
+    ]
+  },
+  "isolation": {
+    "enabled": true,
+    "unshare_args": [
+      "--user",
+      "--map-root-user",
+      "--mount",
+      "--propagation",
+      "private"
+    ],
+    "fallback_to_soft": false,
+    "hide_paths": [
+      "/mnt"
+    ],
+    "workspace_mount": "/workspace",
+    "bind_paths": [
+      {
+        "src": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/browser",
+        "dst": "/srv"
+      },
+      {
+        "src": "/mnt/afs_if/codevideo/workspace/code2video-dev-codex/runtime/previs-deps",
+        "dst": "/media"
+      }
+    ]
+  },
+  "deployment": {
+    "web": {
+      "host": "10.120.6.65",
+      "port": 8002,
+      "bind": "0.0.0.0",
+      "base_path": "",
+      "public_url": ""
+    },
+    "gateway": {
+      "host": "10.120.3.60",
+      "port": 9996,
+      "bind": "0.0.0.0"
+    },
+    "bridge": {
+      "port": 18082,
+      "bind": "0.0.0.0"
+    },
+    "internal_allowed_cidrs": [
+      "10.120.0.0/16",
+      "127.0.0.1/32"
+    ]
+  },
+  "users": {
+    "channels": [
+      "test",
+      "external",
+      "internal",
+      "demo"
+    ],
+    "default_channel": "test"
+  },
+  "branding": {
+    "model_display_name": "SenseNova 6.8 Code2Video",
+    "product_name": "SenseNova Coding Video"
+  },
+  "environment": {
+    "name": "dev",
+    "display": "Codex 开发环境"
+  },
+  "limits": {
+    "early_harvest_idle_ms": 600000,
+    "early_harvest_agent_silent_ms": 900000
+  },
+  "shared_caches": {},
+  "maintenance": {
+    "max_window_seconds": 900,
+    "poll_interval_seconds": 10
+  },
+  "auth": {
+    "session_cookie_name": "cvw_codex_session"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "cvw-worker-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "\u540e\u7aef\u673a\u5668\u4e0a\u7684\u5e38\u9a7b HTTP \u670d\u52a1\uff1aGateway \u7684\u751f\u4ea7\u6570\u636e\u901a\u8def\u3002SSH \u4ec5\u7528\u4e8e\u90e8\u7f72\u8c03\u8bd5\u3002",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "check": "node --check src/server.mjs && node --check src/job-runner.mjs && node --check src/job-workspace.mjs && node --check src/stream-parser.mjs && node --check src/references.mjs && node --check src/supervisor.mjs && node --check src/gateway-client.mjs && node --check src/session-workspace.mjs && node --check src/session-store.mjs && node --check src/config.mjs"
+  }
+}

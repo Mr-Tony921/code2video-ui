@@ -1,0 +1,13 @@
+{
+  "name": "whitebox-previs-runtime",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "three": "0.178.0",
+    "puppeteer-core": "24.15.0"
+  }
+}

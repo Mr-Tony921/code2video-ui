@@ -1,0 +1,26 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://app-e6e20e71bb8a47d396c65a15b33464c8.ns-zuhu2026-c9929bca.svc.cluster.local:8000",
+    "ANTHROPIC_API_KEY": "sk-local-proxy",
+    "ANTHROPIC_MODEL": "Qwen3.8-27B-video-generation-v4",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "Qwen3.8-27B-video-generation-v4",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "Qwen3.8-27B-video-generation-v4",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "Qwen3.8-27B-video-generation-v4",
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "HTTP_PROXY": "http://10.120.0.246:7890",
+    "HTTPS_PROXY": "http://10.120.0.246:7890",
+    "http_proxy": "http://10.120.0.246:7890",
+    "https_proxy": "http://10.120.0.246:7890",
+    "NO_PROXY": "localhost,127.0.0.1,tokenhub.sensetime.com,.sensetime.com,app-ef8652aa0e794c32b6d1800a99923bcb,app-ef8652aa0e794c32b6d1800a99923bcb.ns-zuhu2026-c9929bca.svc.cluster.local,10.111.147.215,app-8d84ce21ced440199e10eadacadec953,app-20888415d6b141a3965a740febef7621,.svc.cluster.local,10.210.0.46,app-c7e93f5ddafe48acad8c63d7c6f43ede.ns-zuhu2026-c9929bca.svc.cluster.local,app-790147ee6550497b8341fe054c14374e.ns-zuhu2026-c9929bca.svc.cluster.local",
+    "no_proxy": "localhost,127.0.0.1,tokenhub.sensetime.com,.sensetime.com,app-ef8652aa0e794c32b6d1800a99923bcb,app-ef8652aa0e794c32b6d1800a99923bcb.ns-zuhu2026-c9929bca.svc.cluster.local,10.111.147.215,app-8d84ce21ced440199e10eadacadec953,app-20888415d6b141a3965a740febef7621,.svc.cluster.local,10.210.0.46,app-c7e93f5ddafe48acad8c63d7c6f43ede.ns-zuhu2026-c9929bca.svc.cluster.local,app-790147ee6550497b8341fe054c14374e.ns-zuhu2026-c9929bca.svc.cluster.local",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION": "Qwen3.8-27B-video-generation-v4",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME": "Video v4 (Qwen3.8-27B)",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION": "Internal video model via Anthropic-compatible proxy",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS": "262144"
+  },
+  "model": "Qwen3.8-27B-video-generation-v4",
+  "permissions": {
+    "defaultMode": "default"
+  },
+  "tui": "fullscreen"
+}
