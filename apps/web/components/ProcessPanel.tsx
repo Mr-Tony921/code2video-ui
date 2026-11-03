@@ -2,7 +2,7 @@
 /**
  * 过程窗口（V2 需求 4）：滚动显示 cc 的工具调用与中间返回。
  *
- * 固定在右侧，【独立滚动】—— 不触发整页滚动（用户明确要求）。
+ * 位于输入框下方，独立滚动；顶部把手跟随指针调整高度。
  * thinking_tokens 已在后端过滤；这里显示 thinking 内容（可折叠）。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -34,7 +34,7 @@ function summarize(ev: ProcessEvent): string {
 
 export function ProcessPanel({
   events, prompts, phase, running, ccSessionId, sessionId, onHeight,
-  open, onOpenChange, loadingEvents,
+  open, onOpenChange, loadingEvents, height = 240,
 }: {
   events: ProcessEvent[];
   prompts: WatchdogPrompt[];
@@ -45,6 +45,7 @@ export function ProcessPanel({
   sessionId?: string | null;
   /** 拖动改变高度时回传给父布局 */
   onHeight?: (px: number) => void;
+  height?: number;
   /**
    * 是否展开。**受控** —— 由父组件决定默认值。
    *
@@ -60,24 +61,57 @@ export function ProcessPanel({
   loadingEvents?: boolean;
 }) {
   const boxRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const heightRef = useRef(height);
+  heightRef.current = height;
   const [autoScroll, setAutoScroll] = useState(true);
   const [showThinking, setShowThinking] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   // 拖动把手调高度：过程多的时候想看更多，不该被固定死
   const drag = useRef<{ y: number; h: number } | null>(null);
-  const onGripDown = useCallback((e: React.PointerEvent) => {
-    const el = boxRef.current?.parentElement;
-    if (!el) return;
-    drag.current = { y: e.clientY, h: el.getBoundingClientRect().height };
-    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  const clampHeight = useCallback((requested: number) => {
+    const main = panelRef.current?.parentElement;
+    const composer = main?.querySelector<HTMLElement>(':scope > .composer');
+    const available = Math.max(0, (main?.clientHeight ?? window.innerHeight) - (composer?.getBoundingClientRect().height ?? 0));
+    // Keep at least half the available space for the conversation, including after
+    // viewport changes, textarea resizing or restoring an oversized old preference.
+    const max = Math.max(48, Math.floor(available / 2));
+    return Math.max(Math.min(120, max), Math.min(Math.round(requested), max));
   }, []);
+  useEffect(() => {
+    if (!open) return;
+    const next = clampHeight(height);
+    if (next !== height) onHeight?.(next);
+  }, [height, open, clampHeight, onHeight]);
+  useEffect(() => {
+    if (!open) return;
+    const main = panelRef.current?.parentElement;
+    if (!main) return;
+    const resize = () => {
+      const next = clampHeight(heightRef.current);
+      if (next !== heightRef.current) onHeight?.(next);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(main);
+    const composer = main.querySelector(':scope > .composer');
+    if (composer) observer.observe(composer);
+    resize();
+    return () => observer.disconnect();
+  }, [open, clampHeight, onHeight]);
+  const onGripDown = useCallback((e: React.PointerEvent) => {
+    const el = panelRef.current;
+    if (!el || !open || e.button !== 0) return;
+    e.preventDefault();
+    drag.current = { y: e.clientY, h: el.getBoundingClientRect().height };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }, [open]);
   const onGripMove = useCallback((e: React.PointerEvent) => {
     if (!drag.current) return;
     // 往上拖 → 变高
     const next = Math.round(drag.current.h + (drag.current.y - e.clientY));
-    onHeight?.(Math.max(120, Math.min(next, Math.round(window.innerHeight * 0.7))));
-  }, [onHeight]);
+    onHeight?.(clampHeight(next));
+  }, [onHeight, clampHeight]);
   const onGripUp = useCallback(() => { drag.current = null; }, []);
 
   const shown = useMemo(
@@ -99,11 +133,12 @@ export function ProcessPanel({
   }, [events]);
 
   return (
-    <aside className="procpanel">
+    <aside className="procpanel" ref={panelRef}>
       {/* 拖动条：把过程区往上拉可以看更多 */}
-      <div className="proc-grip" onPointerDown={onGripDown}
+      <div className="proc-grip" hidden={!open} onPointerDown={onGripDown}
            onPointerMove={onGripMove} onPointerUp={onGripUp}
-           role="separator" aria-label="拖动调整执行过程区高度" />
+           onPointerCancel={onGripUp} onLostPointerCapture={onGripUp}
+           role="separator" aria-orientation="horizontal" aria-label="拖动调整执行过程区高度" />
       <div className="procpanel-head">
         <strong>执行过程</strong>
         {running && <span className="dot-live" aria-label="进行中" />}

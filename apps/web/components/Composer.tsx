@@ -8,12 +8,13 @@
  *  · 服务端 (user_id, key) UNIQUE 兜底
  */
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { loadDraft, saveDraft } from '@/lib/local-state';
 import { uuid } from '@/lib/uuid';
 
 export function Composer({
   sessionId, disabled, disabledReason, onSubmit, injected, onInjected,
-  enhance, onEnhanceChange, basedOn, enhanceLocked, experimental,
+  enhance, onEnhanceChange, basedOn, enhanceLocked, experimental, tools,
 }: {
   sessionId: string | null;
   disabled: boolean;
@@ -35,6 +36,7 @@ export function Composer({
    */
   enhanceLocked?: string | null;
   experimental?: boolean;
+  tools?: ReactNode;
   onSubmit: (text: string, idempotencyKey: string) => Promise<void>;
   /** 是否做 prompt 增强（默认开）。点击示例会自动关闭 —— 示例本身已是增强结果 */
   enhance: boolean;
@@ -108,6 +110,7 @@ export function Composer({
               ? '会先把你的描述扩写成详细制作方案（约半分钟）'
               : '直接按你写的内容制作，不做改写'}
         </span>
+        {tools}
       </div>
 
       {/* 续跑提示：放输入框【上方】，紧贴着它 —— 用户是在这里打字的，

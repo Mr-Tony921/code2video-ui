@@ -556,7 +556,7 @@ export default function Workspace() {
           />
         </Sidebar>
 
-        <main className={boot.session ? 'main' : 'main no-proc'}
+        <main className={boot.session ? `main${procOpen ? '' : ' proc-closed'}` : 'main no-proc'}
               style={{ ['--proc-h' as string]: `${procH}px` }}>
           <div className="stream">
             {!boot.session && (
@@ -619,11 +619,11 @@ export default function Workspace() {
             )}
           </div>
 
-          {boot.session?.mode === 'experimental' && <ExperimentSkills value={experimentSkills}
-            onChange={setExperimentSkills} disabled={degraded || sessionBusy || locked}
-            archiveName={boot.session.experimental_skills?.archive_name}
-            canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} />}
           <Composer
+            tools={boot.session?.mode === 'experimental' ? <ExperimentSkills value={experimentSkills}
+              onChange={setExperimentSkills} disabled={degraded || sessionBusy || locked}
+              archiveName={boot.session.experimental_skills?.archive_name}
+              canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} /> : undefined}
             experimental={boot.session?.mode === 'experimental'}
             sessionId={boot.session?.id ?? null}
             disabled={!boot.session || degraded || sessionBusy || locked}
@@ -652,6 +652,7 @@ export default function Workspace() {
               ccSessionId={ccSessionId}
               sessionId={boot.session.id}
               onHeight={setProcH}
+              height={procH}
               open={procOpen}
               onOpenChange={toggleProc}
               loadingEvents={loadingEvents}

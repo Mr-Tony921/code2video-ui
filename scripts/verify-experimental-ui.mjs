@@ -50,18 +50,20 @@ try {
   await own.page.click('dialog[open] button.btn.primary');
   const expectedName = cfg.experimental.models[0].name;
   await own.page.waitForFunction(name => document.querySelector('.topbar .pill')?.textContent === name, {}, expectedName);
-  await own.page.waitForFunction(() => [...document.querySelectorAll('summary')].some(el => el.textContent.includes('实验 skill 设置')));
-  await own.page.evaluate(() => [...document.querySelectorAll('summary')].find(el => el.textContent.includes('实验 skill 设置')).click());
+  await own.page.waitForSelector('.composer button[aria-label="实验 skill 设置"]');
+  await own.page.click('.composer button[aria-label="实验 skill 设置"]');
+  await own.page.waitForSelector('dialog[open][aria-label="实验 skill 设置"]');
   await own.page.waitForSelector('textarea[placeholder^="粘贴你的 skill"]');
   const state = await own.page.$eval('.composer input[type="checkbox"]', el => ({ checked: el.checked, disabled: el.disabled }));
   assert.deepEqual(state, { checked: false, disabled: true });
   assert.ok(await own.page.$('input[type="file"][accept=".zip,application/zip"]'));
-  await own.page.$eval('.composer textarea', el => {
+  await own.page.click('button[aria-label="关闭实验 skill 设置"]');
+  await own.page.$eval('.composer-row > textarea', el => {
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, 'x'.repeat(9000));
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });
   await own.page.waitForFunction(() => document.querySelector('.composer-side .tiny')?.textContent === '9000');
-  await own.page.$eval('.composer textarea', el => {
+  await own.page.$eval('.composer-row > textarea', el => {
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, '');
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });

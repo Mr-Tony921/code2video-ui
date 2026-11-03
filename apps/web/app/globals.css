@@ -100,14 +100,19 @@ input, textarea { font: inherit; color: inherit; }
    用 grid 而不是 flex，才能让"剩余空间全给上面"这件事确定成立。 */
 .main {
   display: grid; grid-template-rows: minmax(0, 1fr) auto minmax(0, var(--proc-h, 240px));
+  grid-template-areas: "stream" "composer" "process";
+  overflow: hidden;
   min-height: 0; min-width: 0;
 }
-.main.no-proc { grid-template-rows: minmax(0, 1fr) auto; }
+.main.no-proc { grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "stream" "composer"; }
+.main.proc-closed { grid-template-rows: minmax(0, 1fr) auto auto; }
 .stream {
+  grid-area: stream;
   overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px;
   min-height: 0; overscroll-behavior: contain;
 }
 .composer {
+  grid-area: composer;
   border-top: 1px solid var(--line); background: var(--card); padding: 9px 24px 10px;
   min-height: 0;
 }
@@ -192,26 +197,37 @@ dialog::backdrop { background: rgba(15,23,42,.45); }
 /* 位于主区下方（上中下三段的"下"），独立滚动 —— 不触发整页滚动。
    不再占右侧整列：那样会挤压聊天区，视频出来了都看不见。 */
 .procpanel {
+  grid-area: process;
+  overflow: hidden;
   background: var(--card); border-top: 1px solid var(--line);
   display: flex; flex-direction: column; min-height: 0; min-width: 0;
 }
 /* 可拖动高度：用户想多看过程就往上拉 */
 .procpanel.resizing { user-select: none; }
 .proc-grip {
-  height: 6px; cursor: ns-resize; background: transparent;
+  height: 8px; flex: 0 0 8px; cursor: ns-resize; background: transparent;
+  touch-action: none; user-select: none;
   border-bottom: 1px solid var(--line);
 }
 .proc-grip:hover { background: #e2e8f0; }
 .procpanel-head {
+  flex-shrink: 0;
   display: flex; align-items: center; gap: 8px;
   padding: 11px 14px; border-bottom: 1px solid var(--line); font-size: 13px;
 }
 .procpanel-head label { display: flex; align-items: center; gap: 3px; }
 .procpanel-body {
+  min-height: 0;
   flex: 1; overflow-y: auto; overflow-x: hidden;   /* ★ 只有这里滚动 */
   padding: 8px; display: flex; flex-direction: column; gap: 4px;
   overscroll-behavior: contain;                     /* 滚到底不带动页面 */
 }
+.experiment-skills-dialog {
+  width: min(680px, calc(100vw - 32px)); max-width: none;
+  max-height: 80vh; overflow-y: auto; padding: 20px;
+}
+.experiment-skills-dialog .tinput { display: block; width: 100%; margin-top: 6px; }
+.experiment-skills-dialog textarea.input { display: block; margin-top: 6px; min-height: 140px; max-height: 40vh; }
 /* 执行过程的加载态：不定长进度条（总条数未知，不能装成百分比） */
 .procloading { padding: 12px 14px; }
 .procbar {
