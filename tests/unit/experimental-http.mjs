@@ -35,7 +35,8 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
   raw.auth.session_cookie_name = 'cvw_fixture_session';
   raw.deployment.internal_allowed_cidrs = ['127.0.0.0/8'];
   raw.experimental = { enabled: true, models: [{ id: 'fixture', name: 'Fixture model', model: 'fixture-opus',
-    endpoint: 'https://models.example.test', api_key: 'fixture-key' }] };
+    endpoint: 'https://models.example.test', api_key: 'fixture-key' }, { id: 'intranet-default', source: 'primary' }] };
+  raw.model = { ...raw.model, model: 'fixture-intranet', base_url: 'http://127.0.0.1:1', api_key_env: 'FIXTURE_PRIMARY_KEY' };
   raw.workers = [{ ...raw.workers[0], bridge: { host: '127.0.0.1', port: worker.address().port } }];
   const configFile = join(TEST_TMP_ROOT, 'backend.json'); await writeFile(configFile, JSON.stringify(raw));
   let logs = '';
@@ -69,6 +70,7 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     assert.equal(granted.user.role, 'user');
     const me = await req('/api/auth/me'); assert.ok(me.permissions.modes.includes('experimental'));
     const models = await req('/api/experimental/models'); assert.equal(models.models[0].model, 'fixture-opus');
+    assert.equal(models.models[1].model, 'fixture-intranet');
     assert.ok(!JSON.stringify(models).includes('fixture-key'));
     const wid = raw.workers[0].worker_id;
     await req('/internal/processes/register', { internal: true, body: { worker_id: wid, process_instance_id: wid + ':fixture',
@@ -84,6 +86,18 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     for (let i = 0; i < 100 && !delivered; i++) await sleep(30);
     assert.equal(delivered.prompt, 'exact user prompt'); assert.equal(delivered.model_selection.model, 'fixture-opus');
     assert.equal(delivered.experimental_skills.builtin, 'none');
+    delivered = null;
+    const localSession = (await req('/api/sessions', { body: { mode: 'experimental', model_id: 'intranet-default', builtin_skills: 'none' }, expected: 201 })).session;
+    assert.equal(localSession.model_selection.model, 'fixture-intranet');
+    const localJob = (await req(`/api/sessions/${localSession.id}/jobs`, { body: { prompt: 'raw local prompt', enhance: true,
+      idempotency_key: 'fixture-local-job' }, expected: 202 })).job;
+    assert.equal(localJob.enhancement.reason, 'experimental');
+    assert.equal(localJob.experimental_skills.builtin, 'none');
+    assert.deepEqual(localJob.experimental_skills.skills, []);
+    for (let i = 0; i < 160 && !delivered; i++) await sleep(30);
+    assert.equal(delivered.model_selection.model, 'fixture-intranet');
+    assert.equal(delivered.prompt, 'raw local prompt');
+    assert.deepEqual(delivered.experimental_skills.skills, []);
     await req(`/api/sessions/${session.id}`, { as: 'test-peer', expected: 404 });
     await req(`/api/sessions/${session.id}/archive`, { as: 'test-peer', expected: 404 });
     const revoked = await req('/api/admin/users/test/permissions', { method: 'PATCH', as: 'fixture-admin', role: 'admin',

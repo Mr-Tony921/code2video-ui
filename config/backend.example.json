@@ -391,6 +391,10 @@
         "max_context_tokens": null,
         "max_output_tokens": null,
         "autocompact_pct": 80
+      },
+      {
+        "id": "intranet-default",
+        "source": "primary"
       }
     ]
   }

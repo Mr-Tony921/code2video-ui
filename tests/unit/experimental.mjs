@@ -24,6 +24,33 @@ test('profiles are dev-only, contain no credentials, and reject changes within a
   const rotated = structuredClone(raw); rotated.experimental.models[0].api_key = 'rotated';
   assert.equal(resolveExperimentalModel(rotated, selection).apiKey, 'rotated');
 });
+test('intranet option inherits the primary model without changing existing API conversations', t => {
+  const names = ['CVW_MODEL', 'CVW_MODEL_BASE_URL', 'CVW_MAX_OUTPUT_TOKENS', 'CVW_AUTOCOMPACT_PCT', 'FIXTURE_PRIMARY_KEY'];
+  const saved = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  for (const name of names) delete process.env[name];
+  t.after(() => { for (const name of names) saved[name] === undefined ? delete process.env[name] : process.env[name] = saved[name]; });
+  const config = structuredClone(raw);
+  config.model = { base_url: 'http://intranet.example.test:8000', model: 'fixture-local',
+    api_key_env: 'FIXTURE_PRIMARY_KEY', max_context_tokens: 524288, max_output_tokens: 64000, autocompact_pct: 80 };
+  const original = experimentalModels(config)[0];
+  config.experimental.models.push({ id: 'intranet-default', source: 'primary' });
+  const [api, local] = experimentalModels(config);
+  assert.deepEqual(api, original);
+  assert.equal(resolveExperimentalModel(config, original).apiKey, 'fixture-key');
+  assert.equal(local.name, 'fixture-local（内网）'); assert.equal(local.endpoint, config.model.base_url);
+  assert.equal(local.model, config.model.model); assert.equal(local.max_context_tokens, 524288);
+  assert.equal(local.max_output_tokens, 64000);
+  assert.equal(resolveExperimentalModel(config, local).apiKey, 'sk-local-proxy');
+  process.env.FIXTURE_PRIMARY_KEY = 'rotated-primary-fixture-key';
+  assert.equal(resolveExperimentalModel(config, local).apiKey, 'rotated-primary-fixture-key');
+  assert.deepEqual(experimentalModels(config)[1], local);
+  process.env.CVW_MODEL_BASE_URL = 'http://another-intranet.example.test';
+  process.env.CVW_MODEL = 'fixture-local-v2'; process.env.CVW_MAX_OUTPUT_TOKENS = '32000';
+  const changed = experimentalModels(config)[1];
+  assert.equal(changed.model, 'fixture-local-v2'); assert.equal(changed.max_output_tokens, 32000);
+  assert.throws(() => resolveExperimentalModel(config, local), /配置已变更/);
+  assert.deepEqual(experimentalModels(config)[0], api);
+});
 test('pasted skill revisions are immutable, mounted without builtins, and retain original bytes', async () => {
   const root = join(TEST_TMP_ROOT, 'skills');
   const a = await prepareSkillRevision(root, sid, { text: 'Use only my custom process.\n', builtin: 'none' });

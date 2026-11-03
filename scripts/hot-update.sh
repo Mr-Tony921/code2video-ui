@@ -100,11 +100,11 @@ except: print('')" 2>/dev/null)
     #   却拿到当前这台机器上去 [ -d /proc/<pid> ] —— 别台机器的 pid 在这里当然不存在，
     #   于是误报「cc 进程已消失」并中止整次热更新（线上 1.3.6 实测踩到，任务其实好好的）。
     #   dev 也有两台 worker，同样会触发。（从线上拉回）
-    pids=$(python3 - "$R" "$id" <<'PY'
+    pids=$(python3 - "$(j "['storage']['root']")" "$id" <<'PY'
 import json,sys,glob,os
 root,wid=sys.argv[1],sys.argv[2]
 out=[]
-for f in glob.glob(os.path.join(root,'runtime','bridge',wid,'running','*.json')):
+for f in glob.glob(os.path.join(root,'bridge',wid,'running','*.json')):
     try:
         idx=json.load(open(f))
         sc=json.load(open(os.path.join(idx['job_dir'],'.running.json')))

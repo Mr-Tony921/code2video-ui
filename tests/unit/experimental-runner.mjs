@@ -2,7 +2,7 @@ import '../fixtures.mjs';
 import { TEST_TMP_ROOT } from '../fixtures.mjs';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { writeFile, readFile, chmod } from 'node:fs/promises';
+import { writeFile, readFile, chmod, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 process.env.CVW_INTERNAL_TOKEN = 'experimental-runner-fixture-token';
@@ -55,6 +55,48 @@ time.sleep(30)
     const raw = await readFile(join(ws, 'claude.jsonl'), 'utf8'); assert.match(raw, /opaque-reasoning-signature/);
     const native = await readFile(join(ws, '.home/.claude/projects/-workspace/session.jsonl'), 'utf8');
     assert.match(native, /opaque\+signature==/);
+  } finally {
+    await runner.cancelJob(jid, 'fixture finished', 0.01);
+    await Promise.race([done, sleep(5000)]);
+  }
+});
+
+test('primary experimental child uses the intranet model with its limits and no skills', async t => {
+  const previous = process.env.FIXTURE_PRIMARY_KEY;
+  process.env.FIXTURE_PRIMARY_KEY = 'fixture-primary-key';
+  t.after(() => { if (previous === undefined) delete process.env.FIXTURE_PRIMARY_KEY; else process.env.FIXTURE_PRIMARY_KEY = previous; });
+  config.raw.model = { model: 'fixture-intranet', base_url: 'http://127.0.0.1:1', api_key_env: 'FIXTURE_PRIMARY_KEY',
+    max_context_tokens: 524288, max_output_tokens: 64000, autocompact_pct: 80 };
+  config.raw.experimental = { enabled: true, models: [{ id: 'intranet-default', source: 'primary' }] };
+  config.isolation = { enabled: false };
+  const bin = join(TEST_TMP_ROOT, 'fake-primary-claude');
+  await writeFile(bin, `#!/usr/bin/env python3
+import json,os,pathlib,time,sys
+keys=['ANTHROPIC_MODEL','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','CLAUDE_CODE_MAX_CONTEXT_TOKENS','CLAUDE_CODE_MAX_OUTPUT_TOKENS','CLAUDE_CODE_SUBAGENT_MODEL','CVW_INTERNAL_TOKEN']
+pathlib.Path('fixture-env.json').write_text(json.dumps({k:os.environ.get(k) for k in keys}))
+sys.stdin.read()
+time.sleep(30)
+`);
+  await chmod(bin, 0o755); config.claudeCli.bin = bin;
+  const sid = 'sess_' + randomUUID(), jid = 'job_' + randomUUID();
+  const ws = join(config.storage.sessionsRoot, config.storage.sessionsSubdir, sid, 'workspace');
+  let settled; const done = new Promise(resolve => { settled = resolve; });
+  try {
+    await runner.startJob({ sessionId: sid, jobId: jid, mode: 'experimental', prompt: 'Render directly.',
+      modelSelection: experimentalModels(config.raw)[0], leaseToken: 'fixture-lease', maxRuntimeSeconds: 60,
+      hooks: { onCancelled: settled, onLeaseLostExit: settled, onFail: settled } });
+    let env;
+    for (let i = 0; i < 100; i++) {
+      try { env = JSON.parse(await readFile(join(ws, 'fixture-env.json'))); break; } catch { await sleep(30); }
+    }
+    assert.ok(env); assert.equal(env.ANTHROPIC_MODEL, 'fixture-intranet');
+    assert.equal(env.ANTHROPIC_BASE_URL, 'http://127.0.0.1:1');
+    assert.equal(env.ANTHROPIC_API_KEY, 'fixture-primary-key');
+    assert.equal(env.CLAUDE_CODE_MAX_CONTEXT_TOKENS, '524288');
+    assert.equal(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '64000');
+    assert.equal(env.CLAUDE_CODE_SUBAGENT_MODEL, 'fixture-intranet');
+    assert.equal(env.CVW_INTERNAL_TOKEN, null);
+    assert.deepEqual(await readdir(join(ws, '.claude/skills')), []);
   } finally {
     await runner.cancelJob(jid, 'fixture finished', 0.01);
     await Promise.race([done, sleep(5000)]);

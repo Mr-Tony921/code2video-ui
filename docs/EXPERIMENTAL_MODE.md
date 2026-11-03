@@ -4,7 +4,9 @@
 
 模型由本机忽略提交的 `config/backend.json` 中 `experimental.models` 管理。初始配置复制当前增强模型的 endpoint、key 和 model，此后独立维护，不会随增强模型设置自动漂移。脱敏格式见 `config/backend.example.json`。
 
-每项配置包含稳定 `id`、显示 `name`、请求用 `model`、`endpoint`、`api_key_env` 或 `api_key`，可选 `max_context_tokens`、`max_output_tokens`、`autocompact_pct`。`endpoint_env` 与 `model_env` 可覆盖相应字段。环境变量优先于文件值；密钥只在服务端配置，模型列表不返回密钥。首版沿用现有 Claude CLI 的 Messages 兼容协议。未设上下文/输出限制时使用 CLI 对该 API 模型的默认值，不继承内网模型的 512K/64K。
+实验模式还提供「内网」选项：`{"id":"intranet-default","source":"primary"}`。它直接引用普通模式 `model` 配置及对应环境变量，沿用当前内网模型的地址、名称、上下文/输出上限与认证方式，无需另配增强渠道 key。名称默认显示为实际模型名加「（内网）」，也可通过 `name` 自定义。新增实验对话时选择该模型，并将内置 skill 保持为「不使用任何内置 skill」，即可直接用内网模型处理原始 prompt；不上传、不粘贴自定义 skill 时工作区中没有任何平台 skill。既有增强渠道继续保留，添加这个选项不会改变旧会话的模型配置版本。
+
+每项 API 配置包含稳定 `id`、显示 `name`、请求用 `model`、`endpoint`、`api_key_env` 或 `api_key`，可选 `max_context_tokens`、`max_output_tokens`、`autocompact_pct`。`endpoint_env` 与 `model_env` 可覆盖相应字段。环境变量优先于文件值；密钥只在服务端配置，模型列表不返回密钥。首版沿用现有 Claude CLI 的 Messages 兼容协议。未设上下文/输出限制时使用 CLI 对该 API 模型的默认值，不继承内网模型的 512K/64K。
 
 修改模型配置后通过 `scripts/hot-update.sh` 滚动更新 dev 服务。增加模型可增加配置项；停用用 `enabled:false`。每个会话固定模型描述与配置 revision；endpoint、模型或参数变化后须新建对话，旧对话保留历史且不会悄悄换模型。仅轮换 API key 不改变 revision。
 
@@ -19,3 +21,5 @@
 验证：`node --test tests/unit/*.mjs`、`bash tests/risk/run-all.sh`；真实验收使用已获得权限的普通 test 账号运行 `node scripts/verify-experimental.mjs`，报告放在 `runtime/validation/v1.5.2/`。不得使用管理员账号冒烟。
 
 浏览器验收在安装 videokit/Chrome 的 dev Worker 上运行 `node scripts/verify-experimental-ui.mjs`，检查授权入口、模型选择、9000 字输入和 skill 编辑页；通过配置中的隔离挂载映射找到宿主 Chrome。
+
+内网零 skill 真实验收：`node scripts/verify-intranet-experimental.mjs`。CLI 自带能力可能仍出现在 init 列表中，验收同时检查平台 skill 目录为空及实际 Skill 工具调用为 0；它们与平台挂载的 skillset 分开记录。
