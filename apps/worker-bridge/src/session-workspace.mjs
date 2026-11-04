@@ -51,7 +51,7 @@ function buildSettings(model = config.model) {
       https_proxy: proxy.http_proxy,
       NO_PROXY: proxy.no_proxy,
       no_proxy: proxy.no_proxy,
-      ...(config.runtimeBinaries.chromeBin ? { CHROME_BIN: config.runtimeBinaries.chromeBin } : {}),
+      ...(config.runtimeBinaries.chromeBin ? { CHROME_BIN: config.runtimeBinaries.chromeBin, CHROME_PATH: config.runtimeBinaries.chromeBin } : {}),
       ...(config.runtimeBinaries.previsDependencyRoot
         ? { PREVIS_DEPENDENCY_ROOT: config.runtimeBinaries.previsDependencyRoot }
         : {}),

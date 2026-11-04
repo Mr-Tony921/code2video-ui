@@ -154,7 +154,7 @@ function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
     //   上一轮残留的进程会被认成本轮的。所以带上 jobId（见 job-paths.jobToken）。
     CVW_JOB_TOKEN: jobId ? jobToken(jobWs, jobId) : jobWs,
     IS_SANDBOX: '1',
-    ...(runtimeBinaries.chromeBin ? { CHROME_BIN: runtimeBinaries.chromeBin } : {}),
+    ...(runtimeBinaries.chromeBin ? { CHROME_BIN: runtimeBinaries.chromeBin, CHROME_PATH: runtimeBinaries.chromeBin } : {}),
     ...(runtimeBinaries.previsDependencyRoot
       ? { PREVIS_DEPENDENCY_ROOT: runtimeBinaries.previsDependencyRoot } : {}),
     ...(videokit?.nodeModules ? { NODE_PATH: videokit.nodeModules } : {}),

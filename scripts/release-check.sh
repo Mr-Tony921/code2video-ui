@@ -44,7 +44,16 @@ case " $MY_IPS " in
 esac
 
 echo "── B. 构建与线上一致 ──"
-DISK=$(ls apps/web/.next/static/chunks/app/ 2>/dev/null | grep '^page-' | head -1)
+# Previous static chunks are retained for already-open tabs; use the active
+# build manifest instead of choosing the alphabetically first file on disk.
+DISK=$(python3 - <<'PY_BUILD'
+import json, pathlib
+try:
+    chunks=json.load(open('apps/web/.next/app-build-manifest.json'))['pages']['/page']
+    print(next(pathlib.PurePosixPath(p).name for p in chunks if p.startswith('static/chunks/app/page-')))
+except (OSError, ValueError, KeyError, StopIteration): pass
+PY_BUILD
+)
 SERVED=$("${C[@]}" "$LAN/" 2>/dev/null | grep -oE 'page-[a-f0-9]+\.js' | head -1)
 [ -n "$DISK" ] && [ "$DISK" = "$SERVED" ] && ok "线上服务的是最新构建" "$DISK" \
   || no "线上跑的是旧构建" "disk=$DISK served=$SERVED → 重启前端"

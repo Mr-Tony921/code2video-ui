@@ -72,7 +72,7 @@ test('primary experimental child uses the intranet model with its limits and no 
   const bin = join(TEST_TMP_ROOT, 'fake-primary-claude');
   await writeFile(bin, `#!/usr/bin/env python3
 import json,os,pathlib,time,sys
-keys=['ANTHROPIC_MODEL','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','CLAUDE_CODE_MAX_CONTEXT_TOKENS','CLAUDE_CODE_MAX_OUTPUT_TOKENS','CLAUDE_CODE_SUBAGENT_MODEL','CVW_INTERNAL_TOKEN']
+keys=['ANTHROPIC_MODEL','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','CLAUDE_CODE_MAX_CONTEXT_TOKENS','CLAUDE_CODE_MAX_OUTPUT_TOKENS','CLAUDE_CODE_SUBAGENT_MODEL','CVW_INTERNAL_TOKEN','CHROME_BIN','CHROME_PATH']
 pathlib.Path('fixture-env.json').write_text(json.dumps({k:os.environ.get(k) for k in keys}))
 sys.stdin.read()
 time.sleep(30)
@@ -96,6 +96,8 @@ time.sleep(30)
     assert.equal(env.CLAUDE_CODE_MAX_OUTPUT_TOKENS, '64000');
     assert.equal(env.CLAUDE_CODE_SUBAGENT_MODEL, 'fixture-intranet');
     assert.equal(env.CVW_INTERNAL_TOKEN, null);
+    assert.equal(env.CHROME_PATH, config.runtimeBinaries.chromeBin);
+    assert.equal(env.CHROME_PATH, env.CHROME_BIN);
     assert.deepEqual(await readdir(join(ws, '.claude/skills')), []);
   } finally {
     await runner.cancelJob(jid, 'fixture finished', 0.01);

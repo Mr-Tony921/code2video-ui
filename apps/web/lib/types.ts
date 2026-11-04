@@ -4,8 +4,12 @@ export type Mode = 'coding_to_video' | 'blockout_3d' | 'experimental';
 export type ExperimentalModel = {
   profile_id: string; name: string; model: string; revision: string;
 };
+export type ConfiguredSkill = {
+  id: string; name: string; version: string; archive_sha256: string; description?: string; source?: unknown;
+};
 export type ExperimentalSkillsInput = {
   builtin: 'none' | 'coding_to_video' | 'blockout_3d'; text?: string;
+  configured?: ConfiguredSkill[];
   archive_base64?: string; archive_name?: string; clear_archive?: boolean;
 };
 export type ExperimentalSkills = ExperimentalSkillsInput & { revision?: string; skills?: string[] };

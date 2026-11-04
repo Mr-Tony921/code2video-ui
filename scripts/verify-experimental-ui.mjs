@@ -2,7 +2,7 @@
 /** Browser acceptance on a dev worker with videokit/Chrome installed; ordinary users only. */
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -20,6 +20,8 @@ for (const bind of cfg.isolation?.bind_paths ?? []) {
 }
 const browser = await puppeteer.launch({ executablePath: chrome, headless: true,
   args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage', '--no-proxy-server'] });
+const out = process.env.CVW_TEST_REPORT_DIR || join(root, 'runtime/validation/v1.5.2');
+await mkdir(out, { recursive: true });
 const report = { base, checks: [], errors: [] };
 async function login(filename) {
   const context = await browser.createBrowserContext();
@@ -50,7 +52,7 @@ try {
   assert.ok(selections[0].options.some(option => option.value === requested));
   await own.page.select('dialog[open] select', requested);
   report.checks.push('ordinary authorized user sees experimental mode and configured model selector; builtin skills default to none');
-  await own.page.screenshot({ path: join(root, 'runtime/validation/v1.5.2/experimental-model-dialog.png'), fullPage: true });
+  await own.page.screenshot({ path: join(out, 'experimental-model-dialog.png'), fullPage: true });
   await own.page.click('dialog[open] button.btn.primary');
   const expectedName = experimentalModels(cfg).find(model => model.profile_id === requested)?.name;
   await own.page.waitForFunction(name => document.querySelector('.topbar .pill')?.textContent === name, {}, expectedName);
@@ -61,7 +63,19 @@ try {
   const state = await own.page.$eval('.composer input[type="checkbox"]', el => ({ checked: el.checked, disabled: el.disabled }));
   assert.deepEqual(state, { checked: false, disabled: true });
   assert.ok(await own.page.$('input[type="file"][accept=".zip,application/zip"]'));
+  if (process.env.CVW_TEST_ANATOMY === '1') {
+    await own.page.waitForSelector('input[aria-label="启用 Anatomy"]');
+    assert.equal(await own.page.$eval('input[aria-label="启用 Anatomy"]', el => el.checked), false);
+    await own.page.select('dialog[open] select', 'coding_to_video');
+    await own.page.click('input[aria-label="启用 Anatomy"]');
+    assert.equal(await own.page.$eval('input[aria-label="启用 Anatomy"]', el => el.checked), true);
+    assert.equal(await own.page.$eval('dialog[open] select', el => el.value), 'coding_to_video');
+    await own.page.screenshot({ path: join(out, 'anatomy-skill-selection.png'), fullPage: true });
+    report.checks.push('Anatomy defaults off; explicit selection composes with Coding to Video, upload and pasted skills remain available');
+  }
   await own.page.click('button[aria-label="关闭实验 skill 设置"]');
+  const streamHeight = await own.page.$eval('.stream', el => el.getBoundingClientRect().height);
+  assert.ok(streamHeight > 150, `conversation height ${streamHeight}`);
   await own.page.$eval('.composer-row > textarea', el => {
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(el, 'x'.repeat(9000));
     el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -72,7 +86,7 @@ try {
     el.dispatchEvent(new Event('input', { bubbles: true }));
   });
   report.checks.push('created conversation displays its model; custom skill editor/upload present; enhancement disabled');
-  await own.page.screenshot({ path: join(root, 'runtime/validation/v1.5.2/experimental-workspace.png'), fullPage: true });
+  await own.page.screenshot({ path: join(out, 'experimental-workspace.png'), fullPage: true });
   await own.context.close();
   const peer = await login('test-peer-account.json');
   assert.equal(await peer.page.$('button[data-mode="experimental"]'), null);
@@ -82,5 +96,5 @@ try {
   console.log('PASS browser experimental mode selection and permission visibility');
 } finally {
   await browser.close();
-  await writeFile(join(root, 'runtime/validation/v1.5.2/ui-report.json'), JSON.stringify(report, null, 2) + '\n');
+  await writeFile(join(out, 'ui-report.json'), JSON.stringify(report, null, 2) + '\n');
 }

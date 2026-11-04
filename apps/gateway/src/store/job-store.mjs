@@ -151,6 +151,14 @@ export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId,
   if (!existsSync(sessDir())) return { rebound: [], degraded: [] };
   const rebound = [];
   const degraded = [];
+  // Registration must finish before the Bridge's request timeout. Read the job
+  // index once, instead of rescanning every historical job for every session.
+  // Re-read this session's jobs below so terminal transitions remain current.
+  const jobsBySession = new Map();
+  for (const j of await listJobs({})) {
+    const ids = jobsBySession.get(j.session_id) ?? [];
+    ids.push(j.id); jobsBySession.set(j.session_id, ids);
+  }
   for (const f of await readdir(sessDir())) {
     if (!f.endsWith('.json')) continue;
     let s;
@@ -163,7 +171,10 @@ export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId,
     // 该会话还有非终态任务吗？有就不能当作"无痛改绑"
     let live = [];
     try {
-      live = (await listJobs({ sessionId: s.id })).filter((j) => !isTerminal(j.status));
+      for (const id of jobsBySession.get(s.id) ?? []) {
+        const j = await getJob(id);
+        if (j && !isTerminal(j.status)) live.push(j);
+      }
     } catch { live = []; }
 
     if (live.length) {

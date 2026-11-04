@@ -36,6 +36,8 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
   raw.deployment.internal_allowed_cidrs = ['127.0.0.0/8'];
   raw.experimental = { enabled: true, models: [{ id: 'fixture', name: 'Fixture model', model: 'fixture-opus',
     endpoint: 'https://models.example.test', api_key: 'fixture-key' }, { id: 'intranet-default', source: 'primary' }] };
+  const anatomy = JSON.parse(await readFile(join(TEST_REPO_ROOT, 'config/backend.example.json'))).experimental.skills[0];
+  raw.experimental.skills = [anatomy];
   raw.model = { ...raw.model, model: 'fixture-intranet', base_url: 'http://127.0.0.1:1', api_key_env: 'FIXTURE_PRIMARY_KEY' };
   raw.workers = [{ ...raw.workers[0], bridge: { host: '127.0.0.1', port: worker.address().port } }];
   const configFile = join(TEST_TMP_ROOT, 'backend.json'); await writeFile(configFile, JSON.stringify(raw));
@@ -62,6 +64,7 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     }
     assert.ok(ready, logs);
     await req('/api/experimental/models', { expected: 403 });
+    await req('/api/experimental/skills', { expected: 403 });
     await req('/api/sessions', { body: { mode: 'experimental', model_id: 'fixture' }, expected: 403 });
     // Change permission after cookie issue: creation must read current user storage.
     await req('/api/admin/users/test/permissions', { method: 'PATCH', body: { can_use_experimental: true }, expected: 403 });
@@ -87,6 +90,9 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     assert.equal(delivered.prompt, 'exact user prompt'); assert.equal(delivered.model_selection.model, 'fixture-opus');
     assert.equal(delivered.experimental_skills.builtin, 'none');
     delivered = null;
+    const catalog = (await req('/api/experimental/skills')).skills;
+    assert.equal(catalog[0].id, 'anatomy'); assert.equal(catalog[0].archive, undefined);
+    await req('/api/experimental/skills', { as: 'test-peer', expected: 403 });
     const localSession = (await req('/api/sessions', { body: { mode: 'experimental', model_id: 'intranet-default', builtin_skills: 'none' }, expected: 201 })).session;
     assert.equal(localSession.model_selection.model, 'fixture-intranet');
     const localJob = (await req(`/api/sessions/${localSession.id}/jobs`, { body: { prompt: 'raw local prompt', enhance: true,
@@ -98,12 +104,21 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     assert.equal(delivered.model_selection.model, 'fixture-intranet');
     assert.equal(delivered.prompt, 'raw local prompt');
     assert.deepEqual(delivered.experimental_skills.skills, []);
+    const anatomySession = (await req('/api/sessions', { body: { mode: 'experimental', model_id: 'fixture', builtin_skills: 'coding_to_video' }, expected: 201 })).session;
+    await req(`/api/sessions/${anatomySession.id}/jobs`, { body: { prompt: 'conflict', idempotency_key: 'conflict', experimental_skills: {
+      configured: catalog, text: '---\nname: anatomy\n---\npasted duplicate' } }, expected: 400 });
+    const anatomyJob = (await req(`/api/sessions/${anatomySession.id}/jobs`, { body: { prompt: 'use anatomy and core', idempotency_key: 'anatomy-job',
+      experimental_skills: { configured: catalog } }, expected: 202 })).job;
+    assert.equal(anatomyJob.experimental_skills.builtin, 'coding_to_video');
+    assert.equal(anatomyJob.experimental_skills.configured[0].version, anatomy.version);
+    assert.deepEqual(anatomyJob.experimental_skills.skills, ['anatomy']);
     await req(`/api/sessions/${session.id}`, { as: 'test-peer', expected: 404 });
     await req(`/api/sessions/${session.id}/archive`, { as: 'test-peer', expected: 404 });
     const revoked = await req('/api/admin/users/test/permissions', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
       body: { can_use_experimental: false } });
     assert.ok(revoked.running_jobs_kept.includes(submitted.job.id));
     await req('/api/experimental/models', { expected: 403 });
+    await req('/api/experimental/skills', { expected: 403 });
     await req(`/api/sessions/${session.id}/jobs`, { body: { prompt: 'new request', idempotency_key: 'another' }, expected: 403 });
     await req(`/api/sessions/${session.id}`); // Existing owned history remains readable.
     assert.equal((await store.getJob(submitted.job.id)).status, 'ASSIGNED'); // Revocation never cancels existing execution.

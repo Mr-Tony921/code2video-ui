@@ -396,6 +396,22 @@
         "id": "intranet-default",
         "source": "primary"
       }
+    ],
+    "skills": [
+      {
+        "id": "anatomy",
+        "name": "Anatomy",
+        "enabled": true,
+        "version": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+        "archive": "assets/experimental-skills/anatomy/1482e8469b0a9e0d8cc18ea2740a01423d29ae80.zip",
+        "archive_sha256": "d7c3b72c54099de6d333745c385a287613d220e13236a2bd9dbe17b1ae5675a0",
+        "description": "精密机械与等轴造型；建议搭配 Coding to Video 生成视频。",
+        "source": {
+          "repository": "https://github.com/wheresryan22/anatomy",
+          "commit": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+          "license": "MIT"
+        }
+      }
     ]
   }
 }

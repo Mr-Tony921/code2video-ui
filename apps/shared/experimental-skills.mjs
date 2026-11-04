@@ -1,10 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, readFile, writeFile, rename, rm, cp } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, rename, rm, cp, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
+import { configuredSkills } from './experimental-catalog.mjs';
 import { validateBuiltinSkills } from './experimental.mjs';
 
 const exec = promisify(execFile);
@@ -14,7 +15,7 @@ function revisionDir(sessionRoot, sid, revision) {
 }
 
 /** Immutable per-session snapshots; uploads are never copied into control-plane jobs. */
-export async function prepareSkillRevision(sessionRoot, sid, input = {}, previous = null) {
+export async function prepareSkillRevision(sessionRoot, sid, input = {}, previous = null, options = {}) {
   const builtin = validateBuiltinSkills(input.builtin ?? previous?.builtin ?? 'none');
   const text = String(input.text ?? previous?.text ?? '');
   if (Buffer.byteLength(text) > 256 * 1024) throw new Error('skill 文本不能超过 256 KiB');
@@ -29,8 +30,21 @@ export async function prepareSkillRevision(sessionRoot, sid, input = {}, previou
     archive = await readFile(join(revisionDir(sessionRoot, sid, previous.revision), 'uploaded.zip'));
     archiveName = previous.archive_name;
   }
+  const requested = input.configured ?? previous?.configured ?? [];
+  if (!Array.isArray(requested) || requested.length > 16) throw new Error('配置 skill 选择无效');
+  const catalog = requested.length ? configuredSkills(options.raw ?? {}) : [];
+  const selectedIds = new Set();
+  const configured = requested.map(ref => {
+    const entry = catalog.find(p => p.id === ref?.id);
+    if (!entry) throw new Error(`配置 skill ${ref?.id ?? ''} 未配置或已停用，请取消选择`);
+    if (selectedIds.has(entry.id)) throw new Error('配置 skill 不能重复选择');
+    selectedIds.add(entry.id);
+    if (ref.version !== entry.version || ref.archive_sha256 !== entry.archive_sha256)
+      throw new Error(`配置 skill ${entry.name} 版本已变更，请在设置中重新选择`);
+    return entry;
+  }).sort((a, b) => a.id.localeCompare(b.id));
   const archiveHash = archive ? createHash('sha256').update(archive).digest('hex') : null;
-  const revision = createHash('sha256').update(JSON.stringify({ builtin, text, archiveHash })).digest('hex');
+  const revision = createHash('sha256').update(JSON.stringify({ builtin, text, archiveHash, ...(configured.length ? { configured } : {}) })).digest('hex');
   const dest = revisionDir(sessionRoot, sid, revision);
   if (existsSync(join(dest, 'manifest.json'))) return JSON.parse(await readFile(join(dest, 'manifest.json'), 'utf8'));
   const stage = dest + '.' + randomUUID() + '.tmp';
@@ -49,9 +63,31 @@ export async function prepareSkillRevision(sessionRoot, sid, input = {}, previou
       await writeFile(join(skillDir, 'SKILL.md'), text.startsWith('---') ? text :
         `---\nname: ${name}\ndescription: User supplied instructions for this video experiment.\n---\n\n${text}`);
     }
-    const { readdir } = await import('node:fs/promises');
+    for (const entry of configured) {
+      const profile = options.raw.experimental.skills.find(p => p.id === entry.id);
+      const bytes = await readFile(join(options.repoRoot, profile.archive));
+      if (bytes.length > 8 * 1024 * 1024 || createHash('sha256').update(bytes).digest('hex') !== entry.archive_sha256)
+        throw new Error(`配置 skill ${entry.name} 包大小或 SHA256 校验失败`);
+      const packageDir = join(stage, 'configured-packages', entry.id);
+      await mkdir(join(packageDir, 'skills'), { recursive: true });
+      await writeFile(join(packageDir, 'uploaded.zip'), bytes);
+      await exec('python3', [fileURLToPath(new URL('./skill-zip.py', import.meta.url)), packageDir], { timeout: 20_000, maxBuffer: 4096 });
+      for (const name of await readdir(join(packageDir, 'skills'))) {
+        const dest = join(stage, 'skills', name);
+        if (existsSync(dest)) throw new Error(`skill 名称冲突：${name}（配置 skill、ZIP 或粘贴内容重复）`);
+        await rename(join(packageDir, 'skills', name), dest);
+      }
+      await rm(join(packageDir, 'skills'), { recursive: true });
+    }
+    if (builtin !== 'none' && options.raw?.skills && options.repoRoot) {
+      const skills = options.raw.skills;
+      const root = skills.skillsets_root.startsWith('/') ? skills.skillsets_root : join(options.repoRoot, skills.skillsets_root);
+      const reserved = await readdir(join(root, skills.by_mode[builtin]));
+      for (const name of await readdir(join(stage, 'skills')))
+        if (reserved.includes(name)) throw new Error(`skill 名称冲突：${name} 与内置 skill 重复`);
+    }
     const skills = await readdir(join(stage, 'skills'));
-    const manifest = { revision, builtin, text, archive_name: archiveName, archive_sha256: archiveHash, skills };
+    const manifest = { revision, builtin, text, archive_name: archiveName, archive_sha256: archiveHash, skills, ...(configured.length ? { configured } : {}) };
     await writeFile(join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2));
     try { await rename(stage, dest); }
     catch (e) { if (!existsSync(join(dest, 'manifest.json'))) throw e; }
@@ -64,5 +100,8 @@ export async function mountCustomSkills(sessionRoot, sid, spec, target) {
   const dir = revisionDir(sessionRoot, sid, spec.revision);
   const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8'));
   if (manifest.revision !== spec.revision) throw new Error('skill 版本不匹配');
-  await cp(join(dir, 'skills'), target, { recursive: true });
+  for (const name of await readdir(join(dir, 'skills')))
+    if (existsSync(join(target, name))) throw new Error(`skill 名称冲突：${name}，拒绝覆盖工作区 skill`);
+  for (const name of await readdir(join(dir, 'skills')))
+    await cp(join(dir, 'skills', name), join(target, name), { recursive: true, force: false, errorOnExist: true });
 }

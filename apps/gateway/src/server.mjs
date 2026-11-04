@@ -33,6 +33,7 @@ import { ensurePreview, previewPathFor, previewIsFresh, initPreviews } from './a
 import * as users from './users.mjs';
 import { bridgeRefs } from './refs-proxy.mjs';
 import { experimentalEnabled, experimentalModels, resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
+import { configuredSkills } from '../../shared/experimental-catalog.mjs';
 import { prepareSkillRevision } from '../../shared/experimental-skills.mjs';
 import { streamSessionArchive } from '../../shared/session-archive.mjs';
 
@@ -757,6 +758,11 @@ const routes = {
     return json(res, 200, { models: experimentalModels(config.raw).map(({ endpoint, ...p }) => p) });
   },
 
+  'GET /api/experimental/skills': async (req, res) => {
+    await experimentalUser(req);
+    return json(res, 200, { skills: configuredSkills(config.raw) });
+  },
+
   'GET /api/sessions/:id/archive': async (req, res, { id }) => {
     const u = currentUser(req);
     if (!u) return err(res, 401, 'UNAUTHENTICATED', '未登录');
@@ -925,7 +931,7 @@ const routes = {
       try {
         experimentalSkills = await prepareSkillRevision(
           join(config.storage.sessionsRoot, config.raw.storage.sessions_subdir), id,
-          b.experimental_skills ?? {}, s.experimental_skills);
+          b.experimental_skills ?? {}, s.experimental_skills, { raw: config.raw, repoRoot: config.repoRoot });
       } catch (e) { return err(res, 400, 'SKILL_INVALID', e.message); }
     }
     const isRevision = b.is_revision === true;

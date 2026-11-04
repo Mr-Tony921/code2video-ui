@@ -259,7 +259,8 @@ export default function Workspace() {
   }, [boot.user?.can_use_experimental]);
   useEffect(() => {
     setExperimentSkills({ builtin: boot.session?.experimental_skills?.builtin ?? 'none',
-      text: boot.session?.experimental_skills?.text ?? '' });
+      text: boot.session?.experimental_skills?.text ?? '',
+      configured: boot.session?.experimental_skills?.configured ?? [] });
   }, [boot.session?.id]);
 
   const submit = useCallback(async (text: string, idemKey: string) => {
