@@ -131,10 +131,16 @@ t('非 HEALTHY 的机器不被选中', pool5.pickForSession('coding_to_video') =
 
 /* ───── 7. 真实配置自检 ───── */
 const real = JSON.parse((await import('node:fs')).readFileSync(join(R, 'config/backend.json'), 'utf8'));
-for (const w of real.workers) {
-  const ratio = (w.max_sessions ?? 0) / (w.max_concurrent_jobs ?? 1);
-  t(`${w.worker_id} 的 max_sessions:并发 比例合理（${w.max_sessions}:${w.max_concurrent_jobs}）`,
-    ratio <= 4, `比例=${ratio}`);
+// Session quota is independently configurable (dev permits a 50-task batch).
+// Verify registered session quota and execution ceilings independently.
+const realPool = new WorkerPool({ repoRoot: R, log: { warn() {} } });
+for (const w of real.workers.filter(w => w.enabled !== false)) {
+  realPool.register({ worker_id: w.worker_id, process_instance_id: w.worker_id + ':quota-fixture',
+    max_sessions: w.max_sessions, max_concurrent_jobs: 99999, supported_modes: w.supported_modes });
+  const st = realPool.processes.get(w.worker_id + ':quota-fixture');
+  t(`${w.worker_id} 会话配额按配置注册，独立于执行并发`, st.max_sessions === w.max_sessions);
+  t(`${w.worker_id} 放大会话配额不会放大运行并发`, st.max_concurrent_jobs ===
+    Math.min(w.max_concurrent_jobs, real.concurrency.per_machine_max_concurrent_jobs));
 }
 
 rmSync(SANDBOX, { recursive: true, force: true });

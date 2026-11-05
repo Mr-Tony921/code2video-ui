@@ -7,13 +7,14 @@
  * 生成计算在【子进程】里跑，天然不阻塞本进程的心跳。
  */
 import { config } from './config.mjs';
-import * as maintenance from './maintenance.mjs';
 import { gateway, withRetry, LeaseInvalidError, JobNotFoundError } from './gateway-client.mjs';
 import * as runner from './job-runner.mjs';
 
 let processTimer = null;
 let jobTimer = null;
 let registered = false;
+const heartbeatInFlight = new Set();
+let processHeartbeatInFlight = false;
 const failureStreak = new Map();   // jobId → 连续心跳失败次数
 
 function nowIso() { return new Date().toISOString(); }
@@ -51,6 +52,11 @@ export async function register({ adoptedJobIds = [] } = {}) {
 }
 
 async function sendProcessHeartbeat() {
+  if (processHeartbeatInFlight) return;
+  processHeartbeatInFlight = true;
+  try { await processHeartbeatOnce(); } finally { processHeartbeatInFlight = false; }
+}
+async function processHeartbeatOnce() {
   const payload = {
     worker_id: config.worker.id,
     process_instance_id: PROCESS_INSTANCE_ID,
@@ -93,7 +99,7 @@ async function applyDirective(d) {
       // 必须重注册，且【不触碰正在运行的任务】。
       console.warn('[supervisor] Gateway 要求重新注册（它可能刚重启）');
       try {
-        await register();
+        await register({ adoptedJobIds: runner.listRunningJobIds() });
         console.log('[supervisor] 重新注册成功，运行中的任务不受影响');
       } catch (e) {
         console.error(`[supervisor] 重新注册失败，将在下次心跳重试: ${e.message}`);
@@ -105,68 +111,61 @@ async function applyDirective(d) {
   }
 }
 
-async function sendJobHeartbeats() {
-  for (const jobId of runner.listRunningJobIds()) {
-    const st = runner.getJob(jobId);
-    if (!st) continue;
-
-    // 超最大运行时间：交给 Gateway 走取消流程，Bridge 不自行判死
-    const ranMs = Date.now() - new Date(st.startedAt).getTime();
-    const overRuntime = st.maxRuntimeSeconds && ranMs > st.maxRuntimeSeconds * 1000;
-
-    const payload = {
-      session_id: st.sessionId,
-      worker_id: config.worker.id,
-      process_instance_id: PROCESS_INSTANCE_ID,
-      lease_token: st.leaseToken,
-      attempt: 1,
-      phase: st.phase,
-      progress_percent: null,     // 后端暂无真实百分比；绝不编造
-      last_progress_at: st.lastProgressAt,
-      heartbeat_at: nowIso(),
-      ...(overRuntime ? { over_max_runtime: true } : {}),
-    };
-
+export async function sendJobHeartbeats({ executor = runner, client = gateway } = {}) {
+  const live = executor.listRunningJobIds();
+  for (const jobId of failureStreak.keys()) if (!live.includes(jobId)) failureStreak.delete(jobId);
+  await Promise.all(live.map(async (jobId) => {
+    if (heartbeatInFlight.has(jobId)) return;
+    heartbeatInFlight.add(jobId);
     try {
-      const res = await gateway.jobHeartbeat(jobId, payload);
-      failureStreak.delete(jobId);
-      const ctrl = res?.control ?? 'continue';
-      if (ctrl === 'cancel' || ctrl === 'abort_max_runtime') {
-        await doCancel(jobId, ctrl === 'cancel' ? 'user' : 'max_runtime');
-      } else if (ctrl === 'abort_stale_lease' || ctrl === 'abort_not_owner') {
-        await runner.abortForLease(jobId, ctrl);
-      }
-    } catch (e) {
-      if (e instanceof LeaseInvalidError) {
-        console.warn(`[supervisor] job ${jobId} 租约失效 → 立即停止且不提交结果`);
-        await runner.abortForLease(jobId, 'abort_stale_lease');
-      } else if (e instanceof JobNotFoundError) {
-        console.warn(`[supervisor] job ${jobId} Gateway 不认识 → 停止并清理`);
-        await runner.abortForLease(jobId, 'abort_not_owner');
-      } else {
-        // 网络/5xx：绝不停止计算，只累计失败
-        const n = (failureStreak.get(jobId) ?? 0) + 1;
-        failureStreak.set(jobId, n);
-        const lostMs = n * config.timing.jobHeartbeatSeconds * 1000;
-        console.warn(`[supervisor] job ${jobId} 心跳连续失败 ${n} 次（${e.message}），计算继续`);
-        if (lostMs >= config.timing.leaseTtlSeconds * 3000) {
-          // ★ 热更新期间 Gateway 本来就是停的，心跳失败是预期内的。
-          // 不加这个判断，Gateway 重启超过 6 分钟就会把所有在跑的任务杀光 ——
-          // 而这正是热更新要保住的东西。维护结束后该安全网自动恢复。
-          if (maintenance.isActive()) {
-            console.warn(`[supervisor] job ${jobId} 心跳失联 ${Math.round(lostMs / 1000)}s，` +
-              '但系统正在更新 → 不自保停止，继续计算');
-          } else {
-            console.error(`[supervisor] job ${jobId} 失联超过 lease_ttl×3 → 自保停止，避免成为孤儿`);
-            await runner.abortForLease(jobId, 'self_preservation');
-            failureStreak.delete(jobId);
-          }
+      const st = executor.getJob(jobId);
+      if (!st) return;
+
+      // 超最大运行时间：交给 Gateway 走取消流程，Bridge 不自行判死
+      const ranMs = Date.now() - new Date(st.startedAt).getTime();
+      const overRuntime = st.maxRuntimeSeconds && ranMs > st.maxRuntimeSeconds * 1000;
+
+      const payload = {
+        session_id: st.sessionId,
+        worker_id: config.worker.id,
+        process_instance_id: PROCESS_INSTANCE_ID,
+        lease_token: st.leaseToken,
+        attempt: 1,
+        phase: st.phase,
+        progress_percent: null,     // 后端暂无真实百分比；绝不编造
+        last_progress_at: st.lastProgressAt,
+        heartbeat_at: nowIso(),
+        ...(overRuntime ? { over_max_runtime: true } : {}),
+      };
+
+      try {
+        const res = await client.jobHeartbeat(jobId, payload);
+        failureStreak.delete(jobId);
+        const ctrl = res?.control ?? 'continue';
+        if (ctrl === 'cancel' || ctrl === 'abort_max_runtime') {
+          await executor.cancelJob(jobId, ctrl === 'cancel' ? 'user' : 'max_runtime', config.timing.cancelGraceSeconds);
+        } else if (ctrl === 'abort_stale_lease' || ctrl === 'abort_not_owner') {
+          await executor.abortForLease(jobId, ctrl);
+        }
+      } catch (e) {
+        if (e instanceof LeaseInvalidError) {
+          console.warn(`[supervisor] job ${jobId} 租约失效 → 立即停止且不提交结果`);
+          await executor.abortForLease(jobId, 'abort_stale_lease');
+        } else if (e instanceof JobNotFoundError) {
+          console.warn(`[supervisor] job ${jobId} Gateway 不认识 → 停止并清理`);
+          await executor.abortForLease(jobId, 'abort_not_owner');
+        } else {
+          // 网络/5xx：绝不停止计算，只累计失败
+          const n = (failureStreak.get(jobId) ?? 0) + 1;
+          failureStreak.set(jobId, n);
+          // A timeout says nothing about whether Gateway already renewed the
+          // lease. Only an explicit ownership/cancellation response may stop it.
+          console.warn(`[supervisor] job ${jobId} 心跳连续失败 ${n} 次（${e.message}），计算继续，等待明确的租约指令`);
         }
       }
-    }
-  }
+    } finally { heartbeatInFlight.delete(jobId); }
+  }));
 }
-
 async function doCancel(jobId, reason) {
   const st = runner.getJob(jobId);
   if (!st) return;

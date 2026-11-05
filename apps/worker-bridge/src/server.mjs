@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { validateVideo } from '../../shared/video-validation.mjs';
 import { json, err, readJsonStrict as readJson, matchRoute } from '../../shared/http.mjs';
 /**
  * Worker Bridge —— 后端机器上的常驻 HTTP 服务。
@@ -270,6 +271,14 @@ const routes = {
       if (existsSync(p)) {
         const meta = JSON.parse(await readFile(p, 'utf8'));
         if (status === 'completed') {
+          try {
+            const verified = await validateVideo(meta.storage_path, {
+              expectedSize: meta.size_bytes, fullDecode: meta.validation?.full_decode !== true,
+            });
+            Object.assign(meta, verified);
+          } catch (e) {
+            return json(res, 200, { status: 'failed', failure: { code: 'E_INVALID_VIDEO', message: e.message } });
+          }
           return json(res, 200, {
             status,
             asset: {

@@ -222,10 +222,16 @@ export class WorkerPool {
    * 能否为某 Session 的 Job 取得并发槽。
    * Session 固定进程 ⇒ 只能用它绑定的那个进程的槽，不可换机（任务 10.2）。
    */
+  markBusy(processInstanceId) {
+    const st = this.processes.get(processInstanceId);
+    if (st) st.admissionBlockedUntil = this.now() + 15_000;
+  }
+
   canAdmit(processInstanceId) {
     const st = this.processes.get(processInstanceId);
     if (!st) return { ok: false, reason: 'PROCESS_UNKNOWN' };
     if (st.status !== 'HEALTHY') return { ok: false, reason: `PROCESS_${st.status}` };
+    if (st.admissionBlockedUntil > this.now()) return { ok: false, reason: 'BRIDGE_BUSY_BACKOFF' };
     if (this.globalUsed >= this.globalMax)
       return { ok: false, reason: 'GLOBAL_CAPACITY', global_used: this.globalUsed, global_capacity: this.globalMax };
     const used = st.running_jobs + this.reservedOn(processInstanceId);

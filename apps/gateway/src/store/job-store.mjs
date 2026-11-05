@@ -464,6 +464,19 @@ export async function transition(id, to, patch = {}, { force = false } = {}) {
   });
 }
 
+/** Roll back only this unstarted dispatch attempt, never a newer lease or RUNNING. */
+export async function requeueUnstarted(id, expectedLeaseToken) {
+  return withJobWrite(id, async () => {
+    const j = await getJob(id);
+    if (!j || j.status !== 'ASSIGNED' || j.started_at || j.cancellation?.requested_at ||
+        j.lease?.token !== expectedLeaseToken) return { ok: false, reason: 'DISPATCH_CHANGED' };
+    const next = { ...j, status: 'QUEUED', assigned_at: null,
+      lease: j.lease ? { ...j.lease, revoked_at: j.lease.revoked_at ?? nowIso() } : j.lease };
+    await writeJob(next);
+    return { ok: true, job: next };
+  });
+}
+
 /** Metadata only; state and fencing changes go through transition/lease APIs. */
 export async function patchJob(id, patch) {
   return withJobWrite(id, async () => {

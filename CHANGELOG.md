@@ -10,6 +10,11 @@
 
 ## Unreleased
 
+- Dev: validate and fully decode video before archiving completion; retain executor ownership throughout finalization and reject invalid completion/probe assets.
+- Prevent heartbeat transport timeouts from killing valid executions; serialize per-job heartbeats while sending different jobs concurrently, and retain adopted jobs on Gateway re-registration.
+- Atomically fence rejected dispatch attempts, back off busy workers, reconcile unstarted assignments and allow a grace period for missing completion markers.
+- Correct reconciled asset readiness and queued-job listing; preserve the configured session quotas independently of execution concurrency.
+
 - 修复历史会话较多时滚动更新注册超时：会话改绑复用一次任务索引，并重新读取对应任务的最新状态，避免逐会话扫描全部历史任务。
 
 - 实验模式新增服务端配置的 Anatomy 可选 skill，默认关闭，可与 Coding to Video 组合；完整资源固定版本留存、同名冲突提示，支持配置更新和停用。

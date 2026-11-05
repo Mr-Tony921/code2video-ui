@@ -73,7 +73,7 @@ t('其他接口仍有 120s 超时（别把兜底一起去掉）', /AbortSignal\.
 
 /* ───── 3. 钉住成片：faststart 必须【绝对安全】 ───── */
 const jr = strip(read('apps/worker-bridge/src/job-runner.mjs'));
-const pin = jr.slice(jr.indexOf('async function pinArtifact'), jr.indexOf('async function probeAssetMeta'));
+const pin = jr.slice(jr.indexOf('async function pinArtifact'), jr.indexOf('async function maybeHarvestEarly'));
 t('★★ 先 copyFile 落地、再尝试 faststart（顺序反了就有丢片风险）',
   pin.indexOf('copyFile(art.path, dst)') < pin.indexOf('faststartInPlace'));
 t('★★ remux 写临时文件，不直接写目标', /\.fs\.tmp/.test(pin));
@@ -89,9 +89,8 @@ t('★ remux 有超时兜底', /timeout:\s*180_?000/.test(pin));
 t('★ 只对 mp4 做（其他容器别乱动）', /ext === 'mp4'/.test(pin));
 
 /* ───── 4. 元信息要真的流到前端 ───── */
-t('job-runner 探测画面元信息', /async function probeAssetMeta/.test(jr));
-t('★ probeAssetMeta 读不到就返回空对象（不能挡住收尾）',
-  /catch \{ return \{\}; \}/.test(jr.slice(jr.indexOf('async function probeAssetMeta'))));
+t('job-runner 完成前强制校验视频并取得元信息', /await validateVideo\(pinned/.test(jr));
+t('★ 无效成片使收尾失败，不再把缺失元信息静默当作成功', /await failJob\(st, e.code/.test(jr));
 t('★★ size_bytes 取【钉住后】文件的实际大小（faststart 会改字节数）',
   /pinnedSize = \(await stat\(pinned\)\)\.size/.test(jr) && /size_bytes: pinnedSize/.test(jr));
 t('.done 里带上元信息', /\.\.\.vmeta/.test(jr));

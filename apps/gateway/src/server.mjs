@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { validateVideo } from '../../shared/video-validation.mjs';
 /**
  * Gateway —— 调度与对外 API 的常驻服务。默认端口 9999。
  *
@@ -1215,7 +1216,7 @@ const routes = {
       })(),
       running_jobs: running.map((j) => publicJob(j, qids)),
       // brief 模式不带这个键 —— 前端据此知道"这趟没有历史，别拿空数组去覆盖"
-      ...(brief ? {} : { recent_completed_jobs: done.map(publicJob) }),
+      ...(brief ? {} : { recent_completed_jobs: done.map(j => publicJob(j)) }),
       limits: { recent_completed_limit: doneLimit },
       brief,
       // 前端的「正在更新」横幅搭这趟车，不额外开轮询
@@ -1258,7 +1259,7 @@ const routes = {
       : kind === 'recent' ? all.filter((j) => store.isTerminal(j.status))
       : all;
     return json(res, 200, {
-      jobs: jobs.slice(0, Number(q.get('limit') ?? 20)).map(publicJob), server_time: nowIso(),
+      jobs: jobs.slice(0, Number(q.get('limit') ?? 20)).map(j => publicJob(j)), server_time: nowIso(),
     });
   },
 
@@ -1584,6 +1585,10 @@ const routes = {
     const asset = b.asset ?? {};
     if (!asset.storage_path || !(asset.size_bytes > 0))
       return err(res, 400, 'VALIDATION_FAILED', '产物信息不完整（需 storage_path 与 size_bytes>0）');
+
+    try {
+      Object.assign(asset, await validateVideo(asset.storage_path, { fullDecode: false, expectedSize: asset.size_bytes }));
+    } catch (e) { return err(res, 400, 'INVALID_VIDEO', e.message); }
 
     const t = await store.transition(id, 'COMPLETED', {
       result_asset: { ...asset, state: 'READY', ready_at: nowIso() },

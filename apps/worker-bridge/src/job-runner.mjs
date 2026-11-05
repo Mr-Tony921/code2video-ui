@@ -13,6 +13,7 @@
  *  · 每个 Job 一个 process group，可整树终止，绝不影响其他 Job 或 Bridge 自身
  *  · 失去租约的 Job 不得提交产物
  */
+import { validateVideo } from '../../shared/video-validation.mjs';
 import { resolveExperimentalModel } from '../../shared/experimental.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile, readdir, stat, appendFile, open, copyFile, rename, rm } from 'node:fs/promises';
@@ -583,7 +584,7 @@ async function confirmStable(path, waitMs = 1500) {
  * 落点在簿记目录（rounds/<jobId>/），它是 workspace/ 的兄弟目录、
  * 不在 findArtifact 的扫描范围内 —— 否则下一轮会把上一轮的归档当成本轮产物挑走。
  *
- * 钉不住就返回原路径 —— 宁可退化成旧行为，也不能让已经跑完的任务判失败。
+ * 归档失败必须报错：不能把可被下一轮覆盖的工作区路径当作历史成片。
  */
 async function pinArtifact(st, art) {
   if (!art?.path) return art?.path ?? null;
@@ -597,8 +598,7 @@ async function pinArtifact(st, art) {
     if (ext === 'mp4') await faststartInPlace(st, dst);
     return dst;
   } catch (e) {
-    console.warn(`[runner] job ${st.jobId} 成片钉住失败，退回原路径（下一轮可能覆盖它）: ${e.message}`);
-    return art.path;
+    throw Object.assign(new Error(`成片归档失败: ${e.message}`), { code: 'E_ASSET_PIN_FAILED' });
   }
 }
 
@@ -644,35 +644,8 @@ async function faststartInPlace(st, dst) {
   }
 }
 
-/**
- * 读成片的画面元信息。读不到就返回空对象 —— 这些字段只用于界面显示
- * （分辨率 / 时长），缺了只是少显示两行，绝不能让它挡住任务收尾。
- *
- * 之前完全没做，于是 `result_asset` 的 width/height/duration_ms **全是 null**，
- * 界面上那两项一直不显示（实测 12 个成片无一例外）。
- */
-async function probeAssetMeta(path) {
-  try {
-    const { execFile } = await import('node:child_process');
-    const { promisify } = await import('node:util');
-    const run = promisify(execFile);
-    const { stdout } = await run('ffprobe', ['-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height', '-show_entries', 'format=duration',
-      '-of', 'json', path], { timeout: 30_000, maxBuffer: 1 << 20 });
-    const info = JSON.parse(stdout);
-    const vs = (info.streams ?? [])[0] ?? {};
-    const dur = Number(info.format?.duration);
-    const out = {};
-    if (Number(vs.width) > 0) out.width = Number(vs.width);
-    if (Number(vs.height) > 0) out.height = Number(vs.height);
-    if (dur > 0) out.duration_ms = Math.round(dur * 1000);
-    return out;
-  } catch { return {}; }
-}
-
 async function maybeHarvestEarly(st) {
-  if (st.settled || st.cancelRequested || !st.leaseValid) return false;
+  if (st.settled || st.settling || st.cancelRequested || !st.leaseValid) return false;
   const art = await findArtifact(st);
   if (!art) return false;
   const idleMs = Date.now() - art.mtime;
@@ -683,6 +656,7 @@ async function maybeHarvestEarly(st) {
   if (silentMs < EARLY_HARVEST_AGENT_SILENT_MS) return false;
 
   if (!(await confirmStable(art.path, 2000))) return false;
+  try { await validateVideo(art.path); } catch { return false; }
   console.warn(`[runner] job ${st.jobId} 成品静置 ${Math.round(idleMs / 1000)}s ` +
     `且 agent 静默 ${Math.round(silentMs / 1000)}s → 判定卡死，提前收尾`);
   st.earlyHarvest = true;
@@ -693,14 +667,36 @@ async function maybeHarvestEarly(st) {
 }
 
 async function settle(st, code, signal) {
-  if (st.settled) return;
-  st.settled = true;
+  if (st.settled || st.settling) return;
+  st.settling = true;
+  st.phase = 'FINALIZING';
+  // Retain both in-memory ownership and the adoption sidecar until a durable
+  // terminal marker exists. Otherwise watchdog sees not_found during slow I/O.
+  try {
+    await settleResult(st, code, signal);
+  } catch (e) {
+    if (!existsSync(join(st.jobDir, '.done'))) {
+      if (!st.leaseValid || st.cancelRequested) await settleResult(st, code, signal);
+      else await failJob(st, e.code ?? 'E_SETTLEMENT_FAILED', e.message, code, true);
+    }
+  } finally {
+    st.settling = false;
+    const durable = ['.done', '.failed', '.cancelled', '.aborted'].some(m => existsSync(join(st.jobDir, m)));
+    if (durable) {
+      st.settled = true;
+      running.delete(st.jobId);
+      await clearRunningSidecar(st).catch(() => {});
+    } else {
+      // Storage failure must not erase the last discoverable executor record.
+      setTimeout(() => settle(st, code, signal).catch(console.error), 10_000).unref?.();
+    }
+  }
+}
+
+async function settleResult(st, code, signal) {
   if (st.fsTimer) clearInterval(st.fsTimer);
   stopReaper(st);
   st.tailer?.stop();
-  running.delete(st.jobId);
-  await clearRunningSidecar(st).catch(() => {});
-
   if (!st.leaseValid) {
     await writeFile(join(st.jobDir, '.aborted'), JSON.stringify({
       reason: st.cancelReason ?? 'lease_lost', at: nowIso(),
@@ -750,7 +746,10 @@ async function settle(st, code, signal) {
      */
     let pinnedSize = size;
     try { pinnedSize = (await stat(pinned)).size || size; } catch { /* 用 size */ }
-    const vmeta = await probeAssetMeta(pinned);
+    const vmeta = await validateVideo(pinned, { expectedSize: pinnedSize });
+    // A cancellation or lease directive can arrive during a long decode/copy.
+    // Re-enter the terminal intent checks before publishing a result.
+    if (!st.leaseValid || st.cancelRequested) return settleResult(st, code, signal);
     const marker = join(st.jobDir, '.done');
     const meta = {
       storage_path: pinned, size_bytes: pinnedSize, finished_at: nowIso(),
@@ -759,7 +758,10 @@ async function settle(st, code, signal) {
       cc_session_id: st.ccSessionId,
       last_assistant_text: st.lastAssistantText,
     };
-    await writeFile(marker, JSON.stringify(meta, null, 2), 'utf8');
+    const markerTmp = `${marker}.${process.pid}.tmp`;
+    await writeFile(markerTmp, JSON.stringify(meta, null, 2), 'utf8');
+    await rename(markerTmp, marker);
+    if (!st.leaseValid) { await rm(marker, { force: true }); return settleResult(st, code, signal); }
     await appendTrace(st.sessionId, {
       kind: 'job_completed', job_id: st.jobId, phase: st.phase,
       storage_path: pinned, size_bytes: pinnedSize,

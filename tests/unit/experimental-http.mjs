@@ -89,6 +89,13 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     for (let i = 0; i < 100 && !delivered; i++) await sleep(30);
     assert.equal(delivered.prompt, 'exact user prompt'); assert.equal(delivered.model_selection.model, 'fixture-opus');
     assert.equal(delivered.experimental_skills.builtin, 'none');
+    const headerOnly = join(TEST_TMP_ROOT, 'header-only.mp4');
+    await writeFile(headerOnly, Buffer.alloc(48));
+    const invalid = await req(`/internal/jobs/${submitted.job.id}/complete`, { internal: true,
+      body: { lease_token: (await store.getJob(submitted.job.id)).lease.token,
+        asset: { storage_path: headerOnly, size_bytes: 48 } }, expected: 400 });
+    assert.equal(invalid.error.code, 'INVALID_VIDEO');
+    assert.equal((await store.getJob(submitted.job.id)).status, 'ASSIGNED');
     delivered = null;
     const catalog = (await req('/api/experimental/skills')).skills;
     assert.equal(catalog[0].id, 'anatomy'); assert.equal(catalog[0].archive, undefined);
@@ -112,6 +119,8 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     assert.equal(anatomyJob.experimental_skills.builtin, 'coding_to_video');
     assert.equal(anatomyJob.experimental_skills.configured[0].version, anatomy.version);
     assert.deepEqual(anatomyJob.experimental_skills.skills, ['anatomy']);
+    const listed = await req('/api/me/jobs?kind=all&limit=50');
+    assert.ok(listed.jobs.some(j => j.id === anatomyJob.id));
     await req(`/api/sessions/${session.id}`, { as: 'test-peer', expected: 404 });
     await req(`/api/sessions/${session.id}/archive`, { as: 'test-peer', expected: 404 });
     const revoked = await req('/api/admin/users/test/permissions', { method: 'PATCH', as: 'fixture-admin', role: 'admin',

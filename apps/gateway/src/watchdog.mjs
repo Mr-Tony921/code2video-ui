@@ -24,6 +24,8 @@ export class Watchdog {
     /** 槽位释放后的回调（用来立刻唤醒 dispatcher 出队）。 */
     this.onSlotFreed = onSlotFreed;
     this.timer = null;
+    this.sweeping = false;
+    this.missingSince = new Map();
     this.probeBackoff = new Map();   // jobId → 下次 probe 时间
     /**
      * jobId → 已重发取消的次数。
@@ -53,8 +55,10 @@ export class Watchdog {
     // 立刻对账会把一批健康任务刷成 UNKNOWN（前端显示「状态不明」）。
     // 等够一轮注册 + 心跳再说。
     if (process.uptime() * 1000 < 90_000) return;
-    await this.sweepProcesses();
-    await this.sweepJobs();
+    if (this.sweeping) return;
+    this.sweeping = true;
+    try { await this.sweepProcesses(); await this.sweepJobs(); }
+    finally { this.sweeping = false; }
   }
 
   /** 进程健康：HEALTHY ⇄ SUSPECTED（可逆）→ UNAVAILABLE。 */
@@ -92,6 +96,30 @@ export class Watchdog {
       for (const id of tracked.keys()) if (!cancelling.has(id)) tracked.delete(id);
     }
     for (const j of jobs) {
+      // An admission rollback can be lost before the worker ever starts a job.
+      // A stale assignment alone is insufficient: probe that same worker first.
+      if (j.status === 'ASSIGNED' && !j.started_at &&
+          now - Date.parse(j.assigned_at ?? j.created_at) > 120_000) {
+        const base = this.pool.bridgeUrlFor(j.process_instance_id, j.worker_id);
+        if (base) {
+          try {
+            const sess = await store.getSession(j.session_id);
+            const truth = await bridge.probeJob(base, j.id, sess?.binding?.backend_session_ref ?? j.session_id);
+            if (truth.status === 'not_found') {
+              const queued = await store.requeueUnstarted(j.id, j.lease?.token);
+              if (queued.ok) {
+                this.pool.release(j.id);
+                await store.appendEvent(j.id, 'job.queued', { status: 'QUEUED', reason: 'UNSTARTED_ASSIGNMENT_RECOVERED' });
+                this.onSlotFreed?.();
+              }
+            } else {
+              await this.reconcile(j, 'ASSIGNMENT_ACK_LOST');
+            }
+          } catch (e) { this.log.warn(`[watchdog] ${j.id} 未启动任务核对失败，保持原状态: ${e.message}`); }
+        }
+        continue;
+      }
+
       // 1) 超最大运行时间 → 走取消流程（不是直接 FAILED）
       if (j.started_at && (j.status === 'RUNNING' || j.status === 'ASSIGNED')) {
         const ran = now - new Date(j.started_at).getTime();
@@ -278,7 +306,7 @@ export class Watchdog {
      * 用户点了停止但成片已经出来了，丢掉产物才是真的损失。
      */
     if (truth?.status === 'completed' && truth.asset?.storage_path) {
-      const t = await store.transition(job.id, 'COMPLETED', { result_asset: truth.asset });
+      const t = await store.transition(job.id, 'COMPLETED', { result_asset: { ...truth.asset, state: 'READY', ready_at: new Date().toISOString() } });
       if (t.ok) {
         await store.releaseLease(job.id);
         this.releaseSlot(job);
@@ -382,11 +410,13 @@ export class Watchdog {
     await store.appendEvent(job.id, 'job.recovering', { status: 'RECOVERING', probe: truth.status });
 
     if (truth.status === 'running') {
-      const t = await store.transition(job.id, 'RUNNING', { last_heartbeat_at: new Date().toISOString() });
+      this.missingSince.delete(job.id);
+      const t = await store.transition(job.id, 'RUNNING', { last_heartbeat_at: new Date().toISOString(),
+        ...(job.started_at ? {} : { started_at: truth.started_at ?? new Date().toISOString() }) });
       if (t.ok) this.log.log(`[watchdog] ${job.id} 对账确认仍在运行，恢复 RUNNING`);
     } else if (truth.status === 'completed' && truth.asset?.storage_path) {
       // 弥补「产物已写但完成事件丢失」
-      const t = await store.transition(job.id, 'COMPLETED', { result_asset: truth.asset });
+      const t = await store.transition(job.id, 'COMPLETED', { result_asset: { ...truth.asset, state: 'READY', ready_at: new Date().toISOString() } });
       if (t.ok) {
         await store.releaseLease(job.id);
         this.releaseSlot(job);
@@ -410,7 +440,12 @@ export class Watchdog {
         await store.appendEvent(job.id, 'job.failed', { status: 'FAILED', failure: truth.failure });
       }
     } else {
-      // not_found：后端不认识 → 孤儿 Job
+      // A marker may still be copying to shared storage. Require repeated
+      // not_found over a grace period before declaring a lost executor.
+      const missingAt = this.missingSince.get(job.id) ?? Date.now();
+      this.missingSince.set(job.id, missingAt);
+      if (Date.now() - missingAt < 300_000) { this.bump(job.id); return; }
+      this.missingSince.delete(job.id);
       const t = await store.transition(job.id, 'FAILED', {
         failure: { code: 'ORPHAN_NO_EXECUTOR', message: '后端查无此任务' },
       });
