@@ -1,8 +1,8 @@
-# dev 实验模式（1.5.2）
+# dev 实验模式
 
 仅 `environment.name=dev` 且 `experimental.enabled=true` 时可用。在管理后台的用户页勾选「实验模式」后，该用户才看得到入口；管理员自己也需要显式开启。权限撤销立即阻止新会话和新任务，不中止已运行任务，不删除历史。
 
-模型由本机忽略提交的 `config/backend.json` 中 `experimental.models` 管理。初始配置复制当前增强模型的 endpoint、key 和 model，此后独立维护，不会随增强模型设置自动漂移。脱敏格式见 `config/backend.example.json`。
+本机 `config/backend.json` 的 `experimental.models` 配置 Opus 55、内网和 Fable 5.2（`claude-fable-5-2/anthropic_L/sfo`）。Opus 55 和 Fable 的模板分别从 `CVW_EXPERIMENTAL_MODEL_API_KEY` 和 `CVW_EXPERIMENTAL_FABLE_API_KEY` 读取密钥。Fable 的 `allowed_user_ids` 为 `["test"]`，账号同时需要实验模式权限。脱敏格式见 `config/backend.example.json`。
 
 实验模式还提供「内网」选项：`{"id":"intranet-default","source":"primary"}`。它直接引用普通模式 `model` 配置及对应环境变量，沿用当前内网模型的地址、名称、上下文/输出上限与认证方式，无需另配增强渠道 key。名称默认显示为实际模型名加「（内网）」，也可通过 `name` 自定义。新增实验对话时选择该模型，并将内置 skill 保持为「不使用任何内置 skill」，即可直接用内网模型处理原始 prompt；不上传、不粘贴自定义 skill 时工作区中没有任何平台 skill。既有增强渠道继续保留，添加这个选项不会改变旧会话的模型配置版本。
 

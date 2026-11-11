@@ -1,8 +1,8 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前版本为 **1.5.2**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
+基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前代码版本为 **1.5.3**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
 
-当前内网入口：**http://10.210.9.14:30543**（内网直连 `http://10.120.6.65:8000`）。页面显示「Codex 开发环境」。已接管原 cc dev 的 30543 入口。
+当前内网入口：**http://10.210.9.14:32062**（内网直连 `http://10.120.6.65:8000`）。页面显示「Codex 开发环境」。
 
 | 服务 | 主机与端口 | 启动目标 |
 | --- | --- | --- |
@@ -114,6 +114,6 @@ tmux -L cvw-codex attach -t cvw-codex-gateway
 复用授权记录位于 `runtime/deployment/dev-data-reuse.json`；守卫只放行这组明确的 dev 路径，生产目录始终禁止。
 首次切换采用的独立测试数据留作验证证据；未完成的原数据复制目录已清理，不保留重复的 16GB 工作区。
 
-## dev 实验模式（1.5.2）
+## dev 实验模式
 
 管理员在用户页显式授予实验权限，用户可选择服务端配置的模型，关闭内置 skill 并粘贴或上传自定义 skill。模型配置、工作区留存和验收入口见 [EXPERIMENTAL_MODE.md](docs/EXPERIMENTAL_MODE.md)。所有模式支持下载完整会话。

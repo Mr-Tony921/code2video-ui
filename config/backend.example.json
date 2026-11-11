@@ -333,7 +333,7 @@
       "port": 8000,
       "bind": "0.0.0.0",
       "base_path": "",
-      "public_url": "http://10.210.9.14:30543"
+      "public_url": "http://10.210.9.14:32062"
     },
     "gateway": {
       "host": "10.120.3.60",
@@ -383,7 +383,7 @@
     "models": [
       {
         "id": "enhancement-default",
-        "name": "实验模型",
+        "name": "claude-opus-5-5/ccmax/sfa",
         "endpoint": "https://tokenhub.sensetime.com",
         "model": "claude-opus-5-5/ccmax/sfa",
         "api_key_env": "CVW_EXPERIMENTAL_MODEL_API_KEY",
@@ -395,6 +395,17 @@
       {
         "id": "intranet-default",
         "source": "primary"
+      },
+      {
+        "id": "tokenhub-fable-52-sfo-test",
+        "name": "claude-fable-5-2/anthropic_L/sfo",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "model": "claude-fable-5-2/anthropic_L/sfo",
+        "api_key_env": "CVW_EXPERIMENTAL_FABLE_API_KEY",
+        "allowed_user_ids": ["test"],
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80
       }
     ],
     "skills": [

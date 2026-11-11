@@ -8,7 +8,11 @@
 > 当前为 Codex 独立副本，源为 dev 1.4.6；历史记录中的部署状态只代表当时状态。
 > 自 1.5.0 起使用常规语义版本号；版本发布指本独立开发环境。
 
-## Unreleased
+## 1.5.3 — 2026-11-11
+
+- 实验模式保留 Opus 55、内网模型和 Fable 5.2（anthropic_L/sfo）。Fable 配置仅对 test 开放，模型凭据保存在本机。
+- 恢复按入队时间和后端容量派发，去掉 Fable 批测期间的 test 并发例外。
+- 更新 dev 前端入口为 32062。
 
 - Dev: validate and fully decode video before archiving completion; retain executor ownership throughout finalization and reject invalid completion/probe assets.
 - Prevent heartbeat transport timeouts from killing valid executions; serialize per-job heartbeats while sending different jobs concurrently, and retain adopted jobs on Gateway re-registration.

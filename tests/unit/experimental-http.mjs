@@ -35,7 +35,10 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
   raw.auth.session_cookie_name = 'cvw_fixture_session';
   raw.deployment.internal_allowed_cidrs = ['127.0.0.0/8'];
   raw.experimental = { enabled: true, models: [{ id: 'fixture', name: 'Fixture model', model: 'fixture-opus',
-    endpoint: 'https://models.example.test', api_key: 'fixture-key' }, { id: 'intranet-default', source: 'primary' }] };
+    endpoint: 'https://models.example.test', api_key: 'fixture-key' }, { id: 'intranet-default', source: 'primary' }, {
+    id: 'fable', name: 'Fable', model: 'fixture-fable', endpoint: 'https://models.example.test',
+    api_key: 'fixture-fable-key', allowed_user_ids: ['test'],
+  }] };
   const anatomy = JSON.parse(await readFile(join(TEST_REPO_ROOT, 'config/backend.example.json'))).experimental.skills[0];
   raw.experimental.skills = [anatomy];
   raw.model = { ...raw.model, model: 'fixture-intranet', base_url: 'http://127.0.0.1:1', api_key_env: 'FIXTURE_PRIMARY_KEY' };
@@ -73,8 +76,10 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     assert.equal(granted.user.role, 'user');
     const me = await req('/api/auth/me'); assert.ok(me.permissions.modes.includes('experimental'));
     const models = await req('/api/experimental/models'); assert.equal(models.models[0].model, 'fixture-opus');
-    assert.equal(models.models[1].model, 'fixture-intranet');
+    assert.deepEqual(models.models.map(m => m.model), ['fixture-opus', 'fixture-intranet', 'fixture-fable']);
     assert.ok(!JSON.stringify(models).includes('fixture-key'));
+    assert.ok(!JSON.stringify(models).includes('fixture-fable-key'));
+    assert.ok(!JSON.stringify(models).includes('allowed_user_ids'));
     const wid = raw.workers[0].worker_id;
     await req('/internal/processes/register', { internal: true, body: { worker_id: wid, process_instance_id: wid + ':fixture',
       host: '127.0.0.1', port: worker.address().port, supported_modes: ['coding_to_video', 'experimental'],
@@ -123,6 +128,22 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     assert.ok(listed.jobs.some(j => j.id === anatomyJob.id));
     await req(`/api/sessions/${session.id}`, { as: 'test-peer', expected: 404 });
     await req(`/api/sessions/${session.id}/archive`, { as: 'test-peer', expected: 404 });
+    await req('/api/admin/users/test-peer/permissions', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
+      body: { can_use_experimental: true } });
+    const peerModels = await req('/api/experimental/models', { as: 'test-peer' });
+    assert.deepEqual(peerModels.models.map(m => m.profile_id), ['fixture', 'intranet-default']);
+    for (const modelId of ['fable', { profile_id: 'fable' }]) {
+      const denied = await req('/api/sessions', { as: 'test-peer', body: { mode: 'experimental', model_id: modelId }, expected: 403 });
+      assert.equal(denied.error.code, 'EXPERIMENTAL_MODEL_FORBIDDEN');
+    }
+    const fable = (await req('/api/sessions', { body: { mode: 'experimental', model_id: 'fable' }, expected: 201 })).session;
+    assert.equal(fable.model_selection.model, 'fixture-fable');
+    const previousPeerSession = await store.createSession({ userId: 'test-peer', mode: 'experimental',
+      workerId: wid, processInstanceId: wid + ':fixture', modelSelection: fable.model_selection });
+    const deniedJob = await req(`/api/sessions/${previousPeerSession.id}/jobs`, { as: 'test-peer',
+      body: { prompt: 'blocked', idempotency_key: 'blocked-fable' }, expected: 403 });
+    assert.equal(deniedJob.error.code, 'EXPERIMENTAL_MODEL_FORBIDDEN');
+    await req(`/api/sessions/${previousPeerSession.id}`, { as: 'test-peer' });
     const revoked = await req('/api/admin/users/test/permissions', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
       body: { can_use_experimental: false } });
     assert.ok(revoked.running_jobs_kept.includes(submitted.job.id));

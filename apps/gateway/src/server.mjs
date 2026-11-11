@@ -51,6 +51,18 @@ function builtinPermission(user, builtin) {
     throw Object.assign(new Error('加载白模内置 skill 还需白模权限'), { status: 403, code: 'BLOCKOUT_3D_FORBIDDEN' });
 }
 
+function canUseExperimentalModel(user, selection) {
+  const profileId = selection?.profile_id ?? selection;
+  const profile = config.raw.experimental.models?.find(p => p.id === profileId && p.enabled !== false);
+  if (!profile || !Object.hasOwn(profile, 'allowed_user_ids')) return true;
+  return Array.isArray(profile.allowed_user_ids) && profile.allowed_user_ids.includes(user.id);
+}
+
+function requireExperimentalModel(user, selection) {
+  if (!canUseExperimentalModel(user, selection))
+    throw Object.assign(new Error('该账号无权使用此实验模型'), { status: 403, code: 'EXPERIMENTAL_MODEL_FORBIDDEN' });
+}
+
 
 const pool = new WorkerPool({ repoRoot: config.repoRoot });
 const dispatcher = new Dispatcher({ pool });
@@ -755,8 +767,10 @@ const routes = {
   },
 
   'GET /api/experimental/models': async (req, res) => {
-    await experimentalUser(req);
-    return json(res, 200, { models: experimentalModels(config.raw).map(({ endpoint, ...p }) => p) });
+    const user = await experimentalUser(req);
+    const models = experimentalModels(config.raw).filter(p => canUseExperimentalModel(user, p.profile_id))
+      .map(({ endpoint, ...p }) => p);
+    return json(res, 200, { models });
   },
 
   'GET /api/experimental/skills': async (req, res) => {
@@ -791,6 +805,7 @@ const routes = {
     let modelSelection = null, experimentalSkills = null;
     if (mode === 'experimental') {
       const liveUser = await experimentalUser(req);
+      requireExperimentalModel(liveUser, b.model_id);
       modelSelection = resolveExperimentalModel(config.raw, b.model_id).snapshot;
       const builtin = validateBuiltinSkills(b.builtin_skills);
       builtinPermission(liveUser, builtin);
@@ -886,6 +901,7 @@ const routes = {
     let liveExperimentalUser = null;
     if (s.mode === 'experimental') {
       liveExperimentalUser = await experimentalUser(req);
+      requireExperimentalModel(liveExperimentalUser, s.model_selection);
       resolveExperimentalModel(config.raw, s.model_selection);
     }
     const b = await readJson(req);
