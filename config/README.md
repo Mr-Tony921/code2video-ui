@@ -80,6 +80,8 @@ Bridge 启动时校验必填项，**缺失直接拒绝启动**，不会半配置
 - 单机限制由 Bridge 自己执行（`WORKER_AT_CAPACITY`）
 - 全局限制由 Gateway 的信号量执行
 
+仅在 dev 的 Worker 共享会话存储、运行依赖与 `/workspace` 隔离时，可在 `concurrency.shared_workspace_workers` 列出已核验的 Worker ID。会话绑定的 Worker 满载时，尚未派发的任务可使用列表中另一台有空槽的 Worker。续写需要共享工作区中的原生对话记录，任务租约和回调使用实际执行实例。
+
 ## skill 映射（白模权限）
 
 ```json

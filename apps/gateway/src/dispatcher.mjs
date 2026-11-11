@@ -2,17 +2,26 @@
  * Dispatcher：亲和性队列出队 → 取并发槽 → 取租约 → 调 Bridge 启动。
  *
  * 关键约束：
- *  · Session 固定进程 ⇒ Job 只能在其绑定进程上跑，不可换机（任务 10.2）
+ *  · 优先使用会话绑定的进程。dev 可为共享工作区配置备用执行进程。
  *  · 全局 8 / 单机 4 双层并发，两种 mode 共享（任务 10.3）
  *  · 投递后立即返回，绝不等待 1~2 小时的生成（任务 7.1）
  */
+import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import * as store from './store/job-store.mjs';
+import { config } from './config.mjs';
 import { bridge } from './bridge-client.mjs';
 import * as maintenance from './maintenance.mjs';
 
 export class Dispatcher {
   constructor({ pool, log = console }) {
     this.pool = pool;
+    const workers = config.concurrency?.shared_workspace_workers;
+    const isolation = config.raw.isolation;
+    this.sharedWorkers = new Set(config.environment === 'dev' &&
+      config.raw.production?.allow_steering_during_job === false &&
+      isolation?.enabled && isolation.fallback_to_soft === false && isolation.workspace_mount === '/workspace' &&
+      Array.isArray(workers) ? workers : []);
     this.log = log;
     this.timer = null;
     this.running = false;
@@ -35,9 +44,22 @@ export class Dispatcher {
     if (maintenance.isActive()) return;
     this.running = true;
     try {
-      const queued = (await store.listJobs({ statuses: ['QUEUED'] }))
+      const shared = this.sharedWorkers.size > 1;
+      const jobs = await store.listJobs(shared ? {} : { statuses: ['QUEUED'] });
+      const queued = jobs.filter(j => j.status === 'QUEUED')
         .sort((a, b) => String(a.queued_at).localeCompare(String(b.queued_at)));
+      const activeSessions = new Set();
+      const sessionJobs = new Map();
+      if (shared) {
+        for (const j of jobs) {
+          const siblings = sessionJobs.get(j.session_id) ?? [];
+          siblings.push(j);
+          sessionJobs.set(j.session_id, siblings);
+          if (j.status !== 'QUEUED' && !store.isTerminal(j.status)) activeSessions.add(j.session_id);
+        }
+      }
       for (const job of queued) {
+        if (activeSessions.has(job.session_id)) continue;
         let admit = this.pool.canAdmit(job.process_instance_id);
 
         // 自愈：绑定的进程实例已不存在，但同一台机器有健康的新实例。
@@ -66,19 +88,56 @@ export class Dispatcher {
           }
         }
 
-        if (!admit.ok) continue;            // 容量不足或进程不健康 → 留在队列
-        await this.dispatch(job);
+        let target;
+        if (!admit.ok && shared && ['PROCESS_CAPACITY', 'BRIDGE_BUSY_BACKOFF'].includes(admit.reason)) {
+          target = await this.findSharedExecutor(job, sessionJobs.get(job.session_id));
+        }
+        if (!admit.ok && !target) continue;
+        // A tick can spend time reading storage while a maintenance window starts.
+        if (maintenance.isActive()) break;
+        if (shared) activeSessions.add(job.session_id);
+        await this.dispatch(job, target);
       }
     } finally { this.running = false; }
   }
 
-  async dispatch(job) {
-    // 原子迁移 QUEUED → ASSIGNED，失败说明已被别处处理
-    const t = await store.transition(job.id, 'ASSIGNED', {
-      assigned_at: new Date().toISOString(),
-      attempt: (job.attempt ?? 0) + 1,
-    });
-    if (!t.ok) { this.log.warn(`[dispatcher] ${job.id} 迁移被拒: ${t.reason}`); return; }
+  async findSharedExecutor(job, siblings) {
+    if (!this.sharedWorkers.has(job.worker_id) || job.attempt !== 0 || job.lease || job.started_at ||
+        siblings.some(other => other.id !== job.id && !store.isTerminal(other.status))) return null;
+    const target = [...this.pool.processes.values()].find(p =>
+      p.worker_id !== job.worker_id && this.sharedWorkers.has(p.worker_id) &&
+      p.supported_modes.includes(job.mode) && p.active_sessions < p.max_sessions &&
+      this.pool.canAdmit(p.process_instance_id).ok);
+    if (!target) return null;
+
+    const session = await store.getSession(job.session_id);
+    if (!session || session.status !== 'ACTIVE' || session.user_id !== job.user_id || session.mode !== job.mode ||
+        session.binding.status !== 'BOUND' || session.binding.worker_id !== job.worker_id ||
+        session.binding.process_instance_id !== job.process_instance_id ||
+        session.binding.backend_session_ref !== session.id ||
+        !/^sess_[0-9a-f-]{36}$/.test(session.id)) return null;
+    const ws = join(config.storage.sessionsRoot, config.storage.sessions_subdir, session.id, 'workspace');
+    try {
+      const dir = await stat(ws);
+      if (!dir.isDirectory()) return null;
+    } catch (e) {
+      // An unstarted first round has no native workspace. Older layouts keep their original executor.
+      return e.code === 'ENOENT' && siblings.length === 1 && !job.is_revision ? target : null;
+    }
+    try {
+      const cc = await stat(join(ws, '.home', '.claude', 'projects', '-workspace', session.id.slice(5) + '.jsonl'));
+      return cc.isFile() && cc.size > 0 ? target : null;
+    } catch { return null; }
+  }
+
+  async dispatch(job, target) {
+    const execution = target ?? job;
+    if (!this.pool.canAdmit(execution.process_instance_id).ok) return;
+    // Assignment and executor selection share the same locked job write.
+    const boundWorker = job.worker_id;
+    const assigned = await store.assignQueuedJob(job, execution);
+    if (!assigned) return;
+    job = assigned;
 
     const lease = await store.acquireLease(job.id, job.process_instance_id);
     if (!lease) return; // Cancellation/terminal settlement won after assignment.
@@ -87,6 +146,7 @@ export class Dispatcher {
       worker_id: job.worker_id,
       process_instance_id: job.process_instance_id,
       lease_epoch: lease.epoch,
+      ...(target ? { session_worker_id: boundWorker, shared_workspace: true } : {}),
     });
 
     const base = this.pool.bridgeUrlFor(job.process_instance_id, job.worker_id);

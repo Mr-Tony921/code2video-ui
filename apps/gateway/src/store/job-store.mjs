@@ -55,9 +55,11 @@ export async function createSession({ userId, mode, workerId, processInstanceId,
 
 export async function getSession(id) {
   const p = join(sessDir(), `${id}.json`);
-  if (!existsSync(p)) return null;
-  const txt = await readFile(p, 'utf8');
-  try { return JSON.parse(txt); } catch { return null; }   // 会话读失败可降级，不致误杀任务
+  try { return JSON.parse(await readFile(p, 'utf8')); }
+  catch (e) {
+    if (e.code === 'ENOENT' || e instanceof SyntaxError) return null;
+    throw e;
+  }
 }
 
 export async function updateSession(id, patch) {
@@ -115,12 +117,19 @@ export async function rebindJobsToNewProcess(workerId, newProcessInstanceId, { a
     if (isTerminal(j.status)) continue;
     if (j.worker_id !== workerId) continue;
     if (j.process_instance_id === newProcessInstanceId) continue;
-    await patchJob(j.id, {
-      process_instance_id: newProcessInstanceId,
-      rebound_at: nowIso(),
+    const adopted = adoptedJobIds.includes(j.id);
+    const changed = await withJobWrite(j.id, async () => {
+      const current = await getJob(j.id);
+      if (!current || isTerminal(current.status) || current.worker_id !== workerId ||
+          current.process_instance_id === newProcessInstanceId) return false;
+      const at = nowIso();
+      const lease = adopted && current.lease ? { ...current.lease, holder_process_instance_id: newProcessInstanceId,
+        reassigned_at: at } : current.lease;
+      await writeJob({ ...current, process_instance_id: newProcessInstanceId, rebound_at: at, lease });
+      return true;
     });
-    if (adoptedJobIds.includes(j.id)) {
-      await reassignLeaseHolder(j.id, newProcessInstanceId);
+    if (!changed) continue;
+    if (adopted) {
       rebound.push(j.id);
     } else {
       // 没被认领：可能是排队中（改绑即可派发），也可能执行者已经没了
@@ -148,34 +157,30 @@ export async function rebindJobsToNewProcess(workerId, newProcessInstanceId, { a
  * （前端 degraded ⇒ Composer disabled，只能新建对话）。
  */
 export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId, { adoptedJobIds = [] } = {}) {
-  if (!existsSync(sessDir())) return { rebound: [], degraded: [] };
   const rebound = [];
   const degraded = [];
-  // Registration must finish before the Bridge's request timeout. Read the job
-  // index once, instead of rescanning every historical job for every session.
-  // Re-read this session's jobs below so terminal transitions remain current.
+  const sessions = (await readRecords(sessDir(), getSession)).filter(s =>
+    s.status !== 'CLOSED' && s.binding?.worker_id === workerId &&
+    s.binding.process_instance_id !== newProcessInstanceId);
+  if (!sessions.length) return { rebound, degraded };
+
+  // Inspect jobs only when a session actually needs rebinding.
   const jobsBySession = new Map();
   for (const j of await listJobs({})) {
     const ids = jobsBySession.get(j.session_id) ?? [];
     ids.push(j.id); jobsBySession.set(j.session_id, ids);
   }
-  for (const f of await readdir(sessDir())) {
-    if (!f.endsWith('.json')) continue;
-    let s;
-    try { s = await getSession(f.replace(/\.json$/, '')); } catch { continue; }
-    if (!s || s.status === 'CLOSED') continue;
-    const b = s.binding ?? {};
-    if (b.worker_id !== workerId) continue;
-    if (b.process_instance_id === newProcessInstanceId) continue;
-
-    // 该会话还有非终态任务吗？有就不能当作"无痛改绑"
-    let live = [];
+  for (const s of sessions) {
+    const b = s.binding;
+    const live = [];
     try {
       for (const id of jobsBySession.get(s.id) ?? []) {
         const j = await getJob(id);
-        if (j && !isTerminal(j.status)) live.push(j);
+        // A queued job has no executor, and a job on another shared worker has a different owner.
+        if (j?.worker_id === workerId && !isTerminal(j.status) &&
+            j.status !== 'QUEUED' && j.status !== 'ENHANCING') live.push(j);
       }
-    } catch { live = []; }
+    } catch { continue; }
 
     if (live.length) {
       // 活着的任务是否【全部】被新实例认领下来了？是则执行者仍在，照常改绑。
@@ -222,14 +227,10 @@ export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId,
  * 标 DEGRADED 后前端会明确提示「请新建对话」，已完成产物仍可访问。
  */
 export async function degradeSessionsOnRetiredWorkers(activeWorkerIds) {
-  if (!existsSync(sessDir())) return [];
   const live = new Set(activeWorkerIds);
   const out = [];
-  for (const f of await readdir(sessDir())) {
-    if (!f.endsWith('.json')) continue;
-    let s;
-    try { s = await getSession(f.replace(/\.json$/, '')); } catch { continue; }
-    if (!s || s.status === 'CLOSED' || s.status === 'DEGRADED') continue;
+  for (const s of await readRecords(sessDir(), getSession)) {
+    if (s.status === 'CLOSED' || s.status === 'DEGRADED') continue;
     const wid = s.binding?.worker_id;
     if (!wid || live.has(wid)) continue;
     out.push(await updateSession(s.id, {
@@ -269,9 +270,12 @@ function jobPath(id) { return join(jobsDir(), `${id}.json`); }
  * 一次瞬时读失败误判成「任务不存在」，进而杀掉正在跑的任务。
  */
 export async function getJob(id) {
-  const p = jobPath(id);
-  if (!existsSync(p)) return null;
-  const txt = await readFile(p, 'utf8');
+  let txt;
+  try { txt = await readFile(jobPath(id), 'utf8'); }
+  catch (e) {
+    if (e.code === 'ENOENT') return null;
+    throw e;
+  }
   try {
     return JSON.parse(txt);
   } catch (e) {
@@ -464,6 +468,18 @@ export async function transition(id, to, patch = {}, { force = false } = {}) {
   });
 }
 
+/** Claim a queued job with its chosen executor before acquiring the lease. */
+export async function assignQueuedJob(expected, executor) {
+  return withJobWrite(expected.id, async () => {
+    const j = await getJob(expected.id);
+    if (!j || j.status !== 'QUEUED' || j.cancellation?.requested_at || j.started_at ||
+        j.process_instance_id !== expected.process_instance_id || j.worker_id !== expected.worker_id ||
+        (executor.worker_id !== j.worker_id && (j.attempt !== 0 || j.lease))) return null;
+    return writeJob({ ...j, status: 'ASSIGNED', worker_id: executor.worker_id,
+      process_instance_id: executor.process_instance_id, assigned_at: nowIso(), attempt: (j.attempt ?? 0) + 1 });
+  });
+}
+
 /** Roll back only this unstarted dispatch attempt, never a newer lease or RUNNING. */
 export async function requeueUnstarted(id, expectedLeaseToken) {
   return withJobWrite(id, async () => {
@@ -486,21 +502,26 @@ export async function patchJob(id, patch) {
   });
 }
 
-export async function listJobs({ userId, sessionId, statuses } = {}) {
-  if (!existsSync(jobsDir())) return [];
-  const out = [];
-  for (const f of await readdir(jobsDir())) {
-    if (!f.endsWith('.json')) continue;
-    let j;
-    try { j = await getJob(f.replace(/\.json$/, '')); } catch { continue; }  // 正在写入，下轮再看
-    if (!j) continue;
-    if (userId && j.user_id !== userId) continue;
-    if (sessionId && j.session_id !== sessionId) continue;
-    if (statuses && !statuses.includes(j.status)) continue;
-    out.push(j);
+async function readRecords(dir, get) {
+  const files = await readdir(dir).catch(e => {
+    if (e.code === 'ENOENT') return [];
+    throw e;
+  });
+  const ids = files.filter(f => f.endsWith('.json')).map(f => f.slice(0, -5));
+  const records = [];
+  const batchSize = 16;
+  for (let i = 0; i < ids.length; i += batchSize) {
+    const batch = await Promise.all(ids.slice(i, i + batchSize).map(id => get(id).catch(() => null)));
+    records.push(...batch.filter(Boolean));
   }
-  out.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-  return out;
+  return records;
+}
+
+export async function listJobs({ userId, sessionId, statuses } = {}) {
+  return (await readRecords(jobsDir(), getJob))
+    .filter(j => (!userId || j.user_id === userId) && (!sessionId || j.session_id === sessionId) &&
+      (!statuses || statuses.includes(j.status)))
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 }
 
 /* ───────────────────────── Lease（fencing） ───────────────────────── */

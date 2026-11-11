@@ -1890,6 +1890,10 @@ async function maybeReleaseIdleSession(job) {
     const base = pool.bridgeUrlFor(job.process_instance_id, job.worker_id);
     if (!base) return;
     await bridge.releaseSession(base, sid).catch(() => {});
+    const session = await store.getSession(sid);
+    if (session?.binding && session.binding.worker_id !== job.worker_id) {
+      releaseSessionSlots(session.binding.process_instance_id, [sid], session.binding.worker_id);
+    }
     dbg('session.slot_released', { sid, job: job.id, reason: 'all_jobs_terminal' });
   } catch { /* 释放失败不要紧：TTL 还会兜底，且绝不能影响任务收尾 */ }
 }
