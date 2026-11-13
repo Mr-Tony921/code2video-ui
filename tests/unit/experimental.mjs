@@ -97,13 +97,18 @@ test('archive preserves opaque reasoning fields and nested native sessions witho
   assert.ok(!('workspace/outside-link' in result));
 });
 
-test('enhancement audit retains raw reasoning signatures and native sessions after successful cleanup', async () => {
+test('enhancement agent applies its private proxy and retains raw audit and native sessions', async t => {
   process.env.CVW_INTERNAL_TOKEN = 'enhancement-audit-fixture-token';
   const { config } = await import('../../apps/gateway/src/config.mjs');
   const { runEnhanceAgent } = await import('../../apps/gateway/src/enhance-agent.mjs');
   const bin = join(TEST_TMP_ROOT, 'audit-fixture-claude');
   await writeFile(bin, `#!/usr/bin/env python3
 import json,os,pathlib
+for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
+    assert os.environ[key] == 'http://fixture-proxy.test:7914'
+for key in ('NO_PROXY', 'no_proxy'):
+    assert os.environ[key] == 'localhost,models.example.test'
+assert all(key not in os.environ for key in ('ALL_PROXY', 'all_proxy', 'CVW_CLAUDE_HTTP_PROXY'))
 p=pathlib.Path(os.environ['HOME'])/'.claude/projects/fixture/native.jsonl'
 p.parent.mkdir(parents=True,exist_ok=True)
 r={'type':'assistant','message':{'content':[{'type':'thinking','thinking':'fixture','signature':'opaque-audit-signature'},{'type':'text','text':'fixture response'}],'reasoning_signature':'opaque-audit-reasoning'}}
@@ -114,6 +119,15 @@ print(json.dumps({'type':'result','result':'fixture response','is_error':False})
   await chmod(bin, 0o755);
   config.raw.prompt_enhancement = { aux_model: { base_url: 'http://127.0.0.1:1', api_key: 'fixture-key', model: 'fixture' },
     agent: { enabled: true, bin, timeout_ms: 2000, max_concurrent: 1 } };
+  const originalProxy = process.env.CVW_CLAUDE_HTTP_PROXY;
+  const originalConfig = config.raw.proxy;
+  t.after(() => {
+    if (originalProxy === undefined) delete process.env.CVW_CLAUDE_HTTP_PROXY;
+    else process.env.CVW_CLAUDE_HTTP_PROXY = originalProxy;
+    config.raw.proxy = originalConfig;
+  });
+  process.env.CVW_CLAUDE_HTTP_PROXY = 'http://fixture-proxy.test:7914';
+  config.raw.proxy = { no_proxy: 'localhost,models.example.test' };
   const auditDir = join(TEST_TMP_ROOT, 'enhancement-audit');
   const result = await runEnhanceAgent('fixture prompt', { auditDir });
   assert.equal(result.text, 'fixture response');

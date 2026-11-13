@@ -23,6 +23,22 @@ fallback() {
     exec "$@"
 }
 
+# Read the current private proxy before the mount namespace hides the checkout.
+if [[ ${IS_SANDBOX:-} == 1 && -n ${CVW_REPO_ROOT:-} && -r "$CVW_REPO_ROOT/runtime/.secrets" ]]; then
+    proxy_url=
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        case "$line" in
+            CVW_CLAUDE_HTTP_PROXY=*) proxy_url=${line#*=} ;;
+        esac
+    done < "$CVW_REPO_ROOT/runtime/.secrets"
+    if [[ -n "$proxy_url" ]]; then
+        export HTTP_PROXY="$proxy_url" HTTPS_PROXY="$proxy_url"
+        export http_proxy="$proxy_url" https_proxy="$proxy_url"
+        unset ALL_PROXY all_proxy
+    fi
+    unset proxy_url line
+fi
+
 mount --make-rprivate / 2>/dev/null || true
 
 # 1) 暂存：把工作区先 bind 到 /tmp 下。

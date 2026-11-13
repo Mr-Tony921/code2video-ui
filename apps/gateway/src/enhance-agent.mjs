@@ -92,20 +92,26 @@ export async function runEnhanceAgent(promptText, { log = console, auditDir } = 
 
     // ★ 独立环境：只给 tokenhub 的 base_url/key/model，不带 codevideo 那套。
     // 显式清掉可能从 Gateway 继承下来的变量，避免串到生成用的模型。
+    const proxy = process.env.CVW_CLAUDE_HTTP_PROXY;
+    const noProxy = proxy ? config.raw.proxy?.no_proxy ?? '' : '';
     const env = {
       ...process.env,
+      ...(proxy ? { HTTP_PROXY: proxy, HTTPS_PROXY: proxy, http_proxy: proxy, https_proxy: proxy } : {}),
       ...(auditDir ? { HOME: join(dir, '.home'), CLAUDE_CONFIG_DIR: join(dir, '.home/.claude') } : {}),
       ANTHROPIC_BASE_URL: a.baseUrl,
       ANTHROPIC_API_KEY: a.apiKey,
       ANTHROPIC_MODEL: a.model,
-      // tokenhub 在外网：Gateway 的 NO_PROXY 是给内网 worker 用的，这里不能带
-      NO_PROXY: '', no_proxy: '',
+      NO_PROXY: noProxy, no_proxy: noProxy,
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
     };
     for (const k of ['ANTHROPIC_DEFAULT_OPUS_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL',
                      'ANTHROPIC_DEFAULT_HAIKU_MODEL', 'ANTHROPIC_AUTH_TOKEN',
-                     'CVW_JOB_TOKEN', 'CLAUDE_CODE_SUBAGENT_MODEL']) {
+                     'CVW_JOB_TOKEN', 'CLAUDE_CODE_SUBAGENT_MODEL', 'CVW_CLAUDE_HTTP_PROXY']) {
       delete env[k];
+    }
+    if (proxy) {
+      delete env.ALL_PROXY;
+      delete env.all_proxy;
     }
 
     const args = [

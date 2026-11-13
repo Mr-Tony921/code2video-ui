@@ -8,6 +8,7 @@
 `backend.json` 含本环境部署信息和密钥，已被 Git 忽略。仓库只提交 `backend.example.json` 脱敏模板；不要把真实密钥写进模板。
 新 clone 中先复制模板为 `backend.json`，再按自己的独立部署补全路径、主机和模型配置。
 增强密钥可通过 `runtime/.secrets` 的 `CVW_AUX_ENHANCE_API_KEY` 配置，启动器会加载它。
+Claude Code 的代理可在同一文件中设置 `CVW_CLAUDE_HTTP_PROXY`，值为代理 URL，直连列表由 `backend.json` 的 `proxy.no_proxy` 提供。隔离生成会在每个新进程启动时读取，增强和软隔离生成会在对应服务重启后读取。
 现有环境保留本地 `backend.json`，正常切换代码分支不会覆盖该文件。依赖、账号、视频和凭据需要单独备份，不随 Git 克隆。
 当前模型和地址以实际 `backend.json` 为准；下面早期配置记录仅作历史参考。
 

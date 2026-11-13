@@ -96,6 +96,13 @@ function resolveClaudeEnv(model = config.model) {
 function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
   const { proxy, runtimeBinaries, videokit } = config;
   const inherited = { ...process.env };
+  const configuredProxy = inherited.CVW_CLAUDE_HTTP_PROXY;
+  const httpProxy = configuredProxy || proxy.http_proxy;
+  delete inherited.CVW_CLAUDE_HTTP_PROXY;
+  if (configuredProxy) {
+    delete inherited.ALL_PROXY;
+    delete inherited.all_proxy;
+  }
   if (model !== config.model) {
     // API profiles use their own limits, never the intranet model's process defaults.
     for (const key of ['CLAUDE_CODE_MAX_CONTEXT_TOKENS', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
@@ -143,10 +150,10 @@ function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
     ...resolveClaudeEnv(model),
     CLAUDE_CODE_SUBAGENT_MODEL: model.model,
     ANTHROPIC_AUTH_TOKEN: '',
-    HTTP_PROXY: proxy.http_proxy,
-    HTTPS_PROXY: proxy.http_proxy,
-    http_proxy: proxy.http_proxy,
-    https_proxy: proxy.http_proxy,
+    HTTP_PROXY: httpProxy,
+    HTTPS_PROXY: httpProxy,
+    http_proxy: httpProxy,
+    https_proxy: httpProxy,
     NO_PROXY: proxy.no_proxy,
     no_proxy: proxy.no_proxy,
     // 清残留靠它精确匹配本 job 的进程
