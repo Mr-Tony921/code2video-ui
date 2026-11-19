@@ -1,0 +1,95 @@
+import '../fixtures.mjs';
+import { TEST_TMP_ROOT } from '../fixtures.mjs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import http from 'node:http';
+import { spawn } from 'node:child_process';
+import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { randomUUID, createHash } from 'node:crypto';
+import { join } from 'node:path';
+import { saveSekoModel,sekoSelection } from '../../apps/shared/seko-model.mjs';
+process.env.CVW_GATEWAY_BASE_URL='http://127.0.0.1:1';process.env.CVW_INTERNAL_TOKEN='fixture-seko';
+const {config}=await import('../../apps/worker-bridge/src/config.mjs');
+const runner=await import('../../apps/worker-bridge/src/job-runner.mjs');
+const source=readFileSync(new URL('./fixtures/seko-source.mjs',import.meta.url),'utf8');
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const prompt=JSON.stringify({version:2,duration:4,work_prompt:'人物A向右移动并停下。',segments:[{id:'a',title:'移动',start:0,end:2,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A向右移动。'},{id:'b',title:'停下',start:2,end:4,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A停下。'}]});
+test('new whitebox harness uses shared execution slots, cancels only its own process and retains immutable artifacts', {timeout:180000}, async()=>{
+ const requests=[];
+ const server=http.createServer(async(req,res)=>{
+  let text='';for await(const c of req)text+=c;
+  const b=JSON.parse(text);requests.push(b);assert.equal(req.headers.authorization,undefined);
+  const p=b.messages[0].content[0].text;
+  let answer;
+  if(p.includes('intake stage for a Seko')) {
+    const current=JSON.parse(p.split('SAVED_CONVERSATION (recent turns verbatim; earlier edits are in CURRENT_SOURCE/latest delivered project):\n')[1]).at(-1).user;
+    answer=JSON.stringify(current.includes('先解释人物') ? {action:'answer',text:'当前工程有一名人物。'} : current.includes('改好看点') ? {action:'clarify',text:'请说明希望调整哪个镜头或人物。'} : {action:'refine',request:'修改第一镜头相机'});
+  } else if(p.includes('CURRENT CALL: Refine')) {
+    assert.ok(p.includes('CURRENT_SOURCE:') && p.includes(source.trim()));
+    assert.ok(!p.includes('Earlier project from another account'));
+    answer=JSON.stringify({replacements:[{old:'{time:s.start,position:[2,2,5],target:[0,1,0]}',new:'{time:s.start,position:s.start===0?[2,2,4.5]:[2,2,5],target:[0,1,0]}'}]});
+  } else if(p.includes('CURRENT CALL: Author')) answer=source;
+  else if(p.includes('CURRENT_REVIEW_SCOPE:')) {
+    const ids=JSON.parse(p.split('CURRENT_REVIEW_SCOPE:')[1].split('\n')[0]);
+    const pages=JSON.parse(p.split('PAGES:')[1].split('\nTECHNICAL_CHECKS:')[0]);
+    answer=JSON.stringify({seen:pages,shots:ids.map(id=>({id,verdict:'pass',observed:'Fixture actor visible',evidence:[pages[0]]})),issues:[],warnings:[]});
+  } else { res.statusCode=500;res.end(JSON.stringify({error:'Unexpected fixture model phase'}));return; }
+  await sleep(250);res.end(JSON.stringify({choices:[{message:{content:answer,reasoning_content:'fixture reasoning',reasoning_signature:'fixture-signature'},finish_reason:'stop'}]}));
+ });await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ config.raw.model_settings={root:join(TEST_TMP_ROOT,'models')};
+ config.raw.whitebox={enabled:true,models:[{id:'whitebox-deepseek',channels:[{model:'fixture',endpoint:'http://127.0.0.1',api_key_env:'unused'}]}]};
+ saveSekoModel(config.raw,{kind:'intranet',endpoint:'http://127.0.0.1:'+server.address().port,model:'fixture',max_context_tokens:262144});
+ const selection=sekoSelection(config.raw);config.worker.maxConcurrentJobs=2;
+ const ids=[];const futures=[];
+ try {
+  for(let i=0;i<2;i++) {
+    const sid='sess_'+randomUUID(),jid='job_'+randomUUID();ids.push({sid,jid});
+    let done;const finished=new Promise(r=>done=r);futures.push(finished);
+    await runner.startJob({sessionId:sid,jobId:jid,mode:'blockout_3d',prompt,experimentalSkills:{builtin:'none'},modelSelection:selection,leaseToken:'fixture',maxRuntimeSeconds:0,
+      hooks:{onComplete:meta=>done({meta}),onFail:failure=>done({failure}),onCancelled:meta=>done({cancelled:meta})}});
+  }
+  assert.equal(runner.runningCount(),2);
+  await runner.cancelJob(ids[1].jid,'fixture cancel',.1);
+  const [a,b]=await Promise.all(futures);
+  assert.ok(a.meta,JSON.stringify(a));assert.ok(b.cancelled,JSON.stringify(b));assert.equal(runner.runningCount(),0);
+  const book=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,ids[0].sid,'rounds',ids[0].jid);
+  const result=JSON.parse(readFileSync(join(book,'seko/result.json')));
+  assert.equal(result.scene_success,true);assert.equal(result.status,'self_checked');assert.equal(result.structure_pass,true);assert.equal(result.shot_count,2);assert.equal(result.repairs,0);
+  assert.ok(existsSync(join(book,'seko/source.zip')));assert.ok(a.meta.duration_ms>=3990);
+  assert.equal(readFileSync(join(book,'seko/capture/0001/response.json'),'utf8').includes('fixture-signature'),true);
+  assert.ok(requests.length>=2 && requests.length<=3); // cancelled work may have sent one request before cancellation
+  const hash=p=>createHash('sha256').update(readFileSync(p)).digest('hex');
+  const sourceZip=join(book,'seko/source.zip'),before=hash(sourceZip);
+  const runFollowup=async prompt=>{
+    const jid='job_'+randomUUID();ids.push({sid:ids[0].sid,jid});let done;const finished=new Promise(r=>done=r);
+    await runner.startJob({sessionId:ids[0].sid,jobId:jid,mode:'blockout_3d',prompt,experimentalSkills:{builtin:'none'},modelSelection:selection,leaseToken:'fixture',maxRuntimeSeconds:0,hooks:{onComplete:meta=>done({meta}),onFail:failure=>done({failure})}});
+    const completion=await finished;assert.ok(completion.meta,JSON.stringify(completion));
+    for(let i=0;i<30&&runner.runningCount();i++)await sleep(50);
+    const dir=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,ids[0].sid,'rounds',jid,'seko');
+    return {dir,result:JSON.parse(readFileSync(join(dir,'result.json')))};
+  };
+  const clarify=await runFollowup('改好看点');assert.equal(clarify.result.status,'waiting_user');assert.equal(clarify.result.scene_success,false);assert.equal(existsSync(join(clarify.dir,'output/final.mp4')),false);
+  const answer=await runFollowup('先解释人物');assert.equal(answer.result.status,'answered');assert.equal(answer.result.scene_success,false);
+  const edited=await runFollowup('只把第一镜头相机焦距稍微调近一点，其余保持不变');assert.equal(edited.result.scene_success,true);assert.equal(edited.result.parent_job_id,ids[0].jid);assert.equal(edited.result.repairs,0);assert.equal(hash(sourceZip),before);
+  const job=JSON.parse(readFileSync(join(edited.dir,'run/job.json')));assert.equal(job.kind,'source_refinement');assert.equal(job.max_repairs,1);
+  assert.equal(existsSync(join(edited.dir,'run/plan-request.json')),false);
+  // Simulate the service owner exiting: task stdout stays a file and the new
+  // owner adopts the same Python PID. No duplicate model generation is allowed.
+  const adoptSid='sess_'+randomUUID(),adoptJid='job_'+randomUUID();ids.push({sid:adoptSid,jid:adoptJid});
+  const fixtureConfig=join(TEST_TMP_ROOT,'adoption-config.json');
+  writeFileSync(fixtureConfig,JSON.stringify(config.raw));
+  const params={sessionId:adoptSid,jobId:adoptJid,mode:'blockout_3d',prompt,experimentalSkills:{builtin:'none'},modelSelection:selection,leaseToken:'fixture',maxRuntimeSeconds:0};
+  const starter=join(TEST_TMP_ROOT,'start-adoption.mjs');
+  writeFileSync(starter,`const runner=await import(${JSON.stringify(new URL('../../apps/worker-bridge/src/job-runner.mjs',import.meta.url).href)});await runner.startJob(${JSON.stringify(params)});process.exit(0);`);
+  const child=spawn(process.execPath,[starter],{env:{...process.env,CVW_BACKEND_CONFIG:fixtureConfig},stdio:'ignore'});
+  const exit=await new Promise(r=>child.on('exit',r));assert.equal(exit,0);
+  let adoptedDone;const adoptedFinished=new Promise(r=>adoptedDone=r);
+  const {adoptRunningJobs}=await import('../../apps/worker-bridge/src/job-adopter.mjs');
+  const adopted=await adoptRunningJobs(()=>({onComplete:meta=>adoptedDone({meta}),onFail:failure=>adoptedDone({failure})}));
+  assert.ok(adopted.adopted.includes(adoptJid));
+  const resultAfterRestart=await adoptedFinished;assert.ok(resultAfterRestart.meta,JSON.stringify(resultAfterRestart));
+  for(let i=0;i<30&&runner.runningCount();i++)await sleep(50);
+  assert.equal(runner.runningCount(),0);
+
+ } finally {for(const {jid} of ids)if(runner.getJob(jid))await runner.cancelJob(jid,'cleanup',.1);server.closeAllConnections();await new Promise(r=>server.close(r));}
+});

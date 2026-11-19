@@ -1,0 +1,14 @@
+# Evidence-based review
+
+Review original work/segments/shots, reference images, actual source/track facts, structural check output and **all supplied paginated evidence sheets**. Do not give aesthetics-only blockers or require expressive faces, gait or fine limbs. Every original business shot remains required, including a static shot. Camera and story facts explicitly requested remain requirements.
+
+First verify actual renderability and timing independently of appearance. Then compare actual images against the original prompt: correct actor/place/action result, ownership, temporal order, requested view and camera, reference-derived layout, and readable necessary subjects. Finite samples are not full-motion proof; state limitations explicitly. Original names and shot IDs identify requirements; do not invent additional cast/events or make up an image observation.
+
+For repeated scenes, check previous end to next start; a scene cut alone does not excuse resetting props. If an optional foreground object blocks required content, propose a cutaway/local geometry correction while keeping a locked camera. Inserts/POV and establishing shots are allowed intentional crops. A brief shallow overlap can be a warning if all requirements remain legible; a drifting carried prop is a factual issue.
+
+Return ONLY JSON:
+`{"seen":["sheet filename"],"shots":[{"id":"shot_001","verdict":"pass|warning|blocker","observed":"实际画面/动作结果","evidence":["sheet filename"]}],"issues":[{"shot_id":"shot_...","requirement":"引用原要求","evidence":["sheet filename"],"problem":"具体事实冲突","fix":"限定范围的修正"}],"warnings":["不影响必要要求的瑕疵"],"summary":"中文结论"}`.
+
+Cover every business shot exactly once. Include every provided sheet in seen only if actually inspected. A blocker must have an issue and evidence; any issue makes semantic self-check incomplete until repaired. Never infer user approval from your own pass. If the image channel is unavailable, return an explicit incomplete review rather than fabricate observations. Keep each observation short, focus on spatial/result facts, not copied intended dialogue.
+
+Only factual blockers belong in `issues`; keep tolerable defects in `warnings` and mark those shots `warning`. A character looking at another character does **not** require both to be visible in a close-up: check the established axis/orientation, and respect the requested framing. Do not turn dialogue, emotions, expressive eyes, fingers, walking cycles or subtle arm motion into mandatory geometry. A prop explicitly lifted/carried must still have a coherent coarse position/ownership; visible drifting is not an aesthetics issue. Use at most 25 Chinese characters for each passing shot observation. Inspection uses low effort; targeted correction uses high effort. Neither changes the finite correction limit.

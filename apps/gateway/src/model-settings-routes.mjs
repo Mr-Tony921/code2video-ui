@@ -1,5 +1,7 @@
 import { adminModelViews, lastPersonalModel, prepareConnection, saveModel, checkConnection } from '../../shared/model-settings.mjs';
 
+import { sekoAdminModel, prepareSekoConnection, saveSekoModel, checkSekoConnection } from '../../shared/seko-model.mjs';
+
 export function modelSettingsRoutes({ config, currentUser, experimentalUser, users, json, readJson }) {
   async function admin(req) {
     const signed = currentUser(req);
@@ -14,6 +16,9 @@ export function modelSettingsRoutes({ config, currentUser, experimentalUser, use
     return id;
   }
   return {
+    'GET /api/admin/whitebox/model': async (req, res) => { await admin(req); json(res, 200, { model: sekoAdminModel(config.raw) }); },
+    'PATCH /api/admin/whitebox/model': async (req, res) => { await admin(req); json(res, 200, { model: saveSekoModel(config.raw, await readJson(req)) }); },
+    'POST /api/admin/whitebox/model/check': async (req, res) => { await admin(req); json(res, 200, await checkSekoConnection(prepareSekoConnection(config.raw, await readJson(req)))); },
     'GET /api/admin/models': async (req, res) => {
       await admin(req);
       json(res, 200, { models: adminModelViews(config.raw) });

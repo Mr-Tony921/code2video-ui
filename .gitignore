@@ -25,3 +25,7 @@ __pycache__/
 .secrets
 *.pem
 *.key
+
+# Seko's public JS runtime is source code, unlike private service runtime data.
+!assets/whitebox-seko/releases/*/engine/runtime/
+!assets/whitebox-seko/releases/*/engine/runtime/**

@@ -34,9 +34,9 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
   const raw = JSON.parse(await readFile(join(TEST_REPO_ROOT, 'config/backend.json'), 'utf8'));
   raw.auth.session_cookie_name = 'cvw_fixture_session';
   raw.deployment.internal_allowed_cidrs = ['127.0.0.0/8'];
-  raw.whitebox = { enabled: true, default_model: 'whitebox-fixture', default_skill: 'blockout-previs-video', skills: raw.whitebox.skills,
-    models: [{ id: 'whitebox-fixture', name: 'Fixture whitebox', channels: [
-      { model: 'fixture-model', endpoint: 'http://models.test', api_key: 'fixture-key' },
+  raw.whitebox = { enabled: true, default_model: 'whitebox-deepseek', default_skill: 'blockout-previs-video', skills: raw.whitebox.skills,
+    models: [{ id: 'whitebox-deepseek', name: 'Fixture whitebox', channels: [
+      { model: 'fixture-model', endpoint: 'http://models.test', api_key_env: 'SEKO_HTTP_TEST_KEY' },
       { model: 'fixture-model-backup', endpoint: 'http://models.test', api_key: 'backup-key' },
     ] }] };
   const address = { host: '127.0.0.1', port: worker.address().port };
@@ -48,7 +48,7 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
   const configFile = join(TEST_TMP_ROOT, 'backend.json'); await writeFile(configFile, JSON.stringify(raw));
   let logs = '';
   const child = spawn(process.execPath, [join(TEST_REPO_ROOT, 'apps/gateway/src/server.mjs')], {
-    cwd: TEST_TMP_ROOT, env: { ...process.env, CVW_BACKEND_CONFIG: configFile,
+    cwd: TEST_TMP_ROOT, env: { ...process.env, CVW_BACKEND_CONFIG: configFile, SEKO_HTTP_TEST_KEY: 'fixture-key',
       CVW_GATEWAY_PORT: String(port), CVW_GATEWAY_HOST: '127.0.0.1', CVW_SESSION_SECRET: secret },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -72,9 +72,9 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
     await req('/api/sessions', { body: { mode: 'blockout_3d', model_id: 'whitebox-fixture' }, expected: 403 });
     await users.setBlockout3d('test', true);
     const settings = await req('/api/whitebox/settings');
-    assert.equal(settings.default_model_id,'whitebox-fixture');
-    assert.equal(settings.default_skills.configured[0].version,'0.11.1');
-    assert.equal(settings.models[0].channels.length, 2);
+    assert.match(settings.default_model_id,/^seko-/);
+    assert.equal(settings.default_skills.configured[0].version,'0.1.5');
+    assert.equal(settings.fixed_model,true); assert.equal(settings.fixed_skill,true);
     assert.ok(!JSON.stringify(settings).includes('fixture-key'));
     assert.equal(settings.hard_timeout_seconds, null);
     const wid = raw.workers[0].worker_id;
@@ -90,20 +90,20 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
     assert.deepEqual(peerSettings.default_skills,settings.default_skills);
     await req('/api/sessions', { as: 'test-peer', body: { mode: 'blockout_3d' }, expected: 201 });
     const session = (await req('/api/sessions', { body: { mode: 'blockout_3d' }, expected: 201 })).session;
-    assert.equal(session.experimental_skills.configured[0].version,'0.11.1');
+    assert.equal(session.model_selection.harness,'seko-v1');
     assert.equal(session.model_selection.model, 'fixture-model');
     assert.equal(session.experimental_skills.builtin, 'none');
     const body = { prompt: 'A moving cube', enhance: true, max_runtime_seconds: 600, idempotency_key: 'whitebox-first' };
     const first = (await req(`/api/sessions/${session.id}/jobs`, { body, expected: 202 })).job;
     assert.equal(first.max_runtime_seconds, 0); assert.equal(first.enhancement.reason, 'whitebox');
-    assert.deepEqual(first.experimental_skills.skills, ['blockout-previs']);
+    assert.equal(first.model_selection.engine_release,'seko-0.1.5-cvw.1');
     assert.equal(first.experimental_skills.builtin, 'none');
     const dup = await req(`/api/sessions/${session.id}/jobs`, { body });
     assert.equal(dup.job.id, first.id); assert.equal(dup.idempotent_replay, true);
     for (let i=0; i<100 && !delivered; i++) await sleep(30);
     assert.equal(delivered.mode, 'blockout_3d'); assert.equal(delivered.max_runtime_seconds, 0);
-    assert.equal(delivered.model_selection.profile_id, 'whitebox-fixture');
-    assert.deepEqual(delivered.experimental_skills.skills, ['blockout-previs']);
+    assert.equal(delivered.model_selection.profile_id, settings.default_model_id);
+    assert.equal(delivered.experimental_skills.builtin,'none');
     await req(`/api/sessions/${session.id}`, { as: 'test-peer', expected: 404 });
     const prod = (await store.createJob({ userId: 'test-peer', sessionId: 'fixture-production', mode: 'coding_to_video', prompt: 'Production queue fixture', workerId: wid, initialStatus: 'QUEUED' })).job;
     const wb = (await store.createJob({ userId: 'test', sessionId: 'fixture-whitebox', mode: 'blockout_3d', prompt: 'Whitebox queue fixture', workerId: wid, initialStatus: 'QUEUED' })).job;
@@ -124,6 +124,10 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
     const finished = (await req('/api/jobs/' + first.id)).job;
     assert.equal(finished.status, 'COMPLETED'); assert.equal(finished.result_asset, null);
     assert.deepEqual(finished.response, reply); assert.equal(finished.last_assistant_text, reply.text);
+    await req(`/api/whitebox/jobs/${first.id}/source`, { as: 'test-peer', expected: 404 });
+    await req(`/api/sessions/${session.id}/jobs`, { body: { prompt: 'change skill', idempotency_key: 'forbidden-skill', experimental_skills: { builtin: 'coding_to_video' } }, expected: 400 });
+    await store.updateSession(session.id, { model_selection: { profile_id: 'old-whitebox', model: 'old' } });
+    await req(`/api/sessions/${session.id}/jobs`, { body: { prompt: 'change old whitebox', idempotency_key: 'legacy-readonly' }, expected: 409 });
     await users.setBlockout3d('test', false);
     await req('/api/whitebox/settings', { expected: 403 });
     await req(`/api/sessions/${session.id}/jobs`, { body: { prompt: 'change', idempotency_key: 'whitebox-next' }, expected: 403 });

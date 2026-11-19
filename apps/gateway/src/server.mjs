@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { sekoPublicResult, sekoDownload } from '../../shared/seko-artifact.mjs';
+import { isSeko, sekoSelection, sekoSettings, sekoConnection } from '../../shared/seko-model.mjs';
 import { whiteboxResponsePatch } from '../../shared/whitebox-response.mjs';
 import { validateVideo } from '../../shared/video-validation.mjs';
 /**
@@ -21,7 +23,7 @@ import { config, describeGatewayConfig } from './config.mjs';
 import { WorkerPool } from './worker-pool.mjs';
 import { Dispatcher, compareQueuedJobs } from './dispatcher.mjs';
 import * as maintenance from './maintenance.mjs';
-import { whiteboxEnabled, newWhiteboxModels, defaultWhiteboxModel, resolveNewWhiteboxModel, whiteboxSkills, defaultWhiteboxSkills, resolveWhiteboxModel, prepareWhiteboxSkills } from '../../shared/whitebox.mjs';
+import { whiteboxEnabled } from '../../shared/whitebox.mjs';
 import { agentStatus } from './enhance-agent.mjs';
 import { Watchdog } from './watchdog.mjs';
 import { StreamPump } from './stream-pump.mjs';
@@ -777,9 +779,7 @@ const routes = {
     const live = await users.get(u.username);
     if (!whiteboxEnabled(config.raw) || live?.status !== 'active' || !(live?.can_use_blockout_3d || live?.role === 'admin'))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '需管理员授予白模预演权限');
-    return json(res, 200, { models: newWhiteboxModels(config.raw).map(({ endpoint, channels, ...m }) =>
-      ({ ...m, channels: channels.map(c => ({ model: c.model })) })), skills: whiteboxSkills(config.raw),
-      default_model_id: defaultWhiteboxModel(config.raw), default_skills: defaultWhiteboxSkills(config.raw), time_target_seconds: 600, hard_timeout_seconds: null });
+    return json(res, 200, sekoSettings(config.raw));
   },
 
   'GET /api/experimental/models': async (req, res) => {
@@ -830,8 +830,9 @@ const routes = {
       experimentalSkills = { builtin };
     }
     if (mode === 'blockout_3d' && whiteboxEnabled(config.raw)) {
-      modelSelection = resolveNewWhiteboxModel(config.raw, b.model_id).snapshot;
-      experimentalSkills = defaultWhiteboxSkills(config.raw);
+      modelSelection = sekoSelection(config.raw);
+      if (b.model_id && b.model_id !== modelSelection.profile_id) return err(res, 400, 'WHITEBOX_FIXED_MODEL', '白模模型由管理员统一配置');
+      experimentalSkills = { builtin: 'none' };
     }
     const proc = pool.pickForSession(mode);
     if (!proc) return err(res, 503, 'PROCESS_UNAVAILABLE', '当前无健康后端进程可分配，请稍后重试');
@@ -921,6 +922,9 @@ const routes = {
     if (s.mode === 'blockout_3d' && (currentPermissions?.status !== 'active' || !(currentPermissions?.can_use_blockout_3d || currentPermissions?.role === 'admin')))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '白模权限已变更，无法提交此任务');
 
+    if (s.mode === 'blockout_3d' && !isSeko(s.model_selection))
+      return err(res, 409, 'WHITEBOX_LEGACY_READ_ONLY', '历史白模对话已只读保留，请新建对话使用新版白模');
+
     let liveExperimentalUser = null;
     if (s.mode === 'experimental') {
       liveExperimentalUser = await experimentalUser(req);
@@ -975,13 +979,12 @@ const routes = {
       } catch (e) { return err(res, 400, 'SKILL_INVALID', e.message); }
     }
     const whitebox = s.mode === 'blockout_3d' && whiteboxEnabled(config.raw);
-    const modelSelection = whitebox ? resolveWhiteboxModel(config.raw, s.model_selection ?? undefined).snapshot : s.model_selection;
+    const modelSelection = s.model_selection;
     if (whitebox) {
-      try {
-        experimentalSkills = await prepareWhiteboxSkills(
-          join(config.storage.sessionsRoot, config.raw.storage.sessions_subdir), id, b.experimental_skills ?? {},
-          s.experimental_skills ?? { builtin: 'blockout_3d' }, { raw: config.raw, repoRoot: config.repoRoot });
-      } catch (e) { return err(res, 400, 'SKILL_INVALID', e.message); }
+      sekoConnection(config.raw, modelSelection); // immutable saved model; validate before queueing
+      if (b.experimental_skills && (b.experimental_skills.builtin && b.experimental_skills.builtin !== 'none' || b.experimental_skills.text?.trim() || b.experimental_skills.archive_base64 || b.experimental_skills.configured?.length))
+        return err(res, 400, 'WHITEBOX_FIXED_SKILL', '白模使用平台固定 skill，不能替换');
+      experimentalSkills = { builtin: 'none' };
     }
     const isRevision = b.is_revision === true;
     // 用户可在发送处关闭增强（默认开启）。示例 prompt 本身已是增强结果，
@@ -1187,6 +1190,13 @@ const routes = {
    * 显式「下载原片」⇒ 永远下发**原片**，不降采样。
    * 前端那个按钮已标明「受政策影响速度较慢，请耐心等待」。
    */
+  'GET /api/whitebox/jobs/:id/source': async (req, res, { id }) => {
+    const u = currentUser(req); if (!u) return err(res, 401, 'UNAUTHENTICATED', '未登录');
+    const j = await store.getJob(id); if (!j || j.user_id !== u.id) return err(res, 404, 'NOT_FOUND', '产物不存在或无权访问');
+    try { const a = sekoDownload(config, j); res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Length': a.size, 'Content-Disposition': `attachment; filename="${a.name}"`, 'Cache-Control': 'private, no-store' }); const stream = createReadStream(a.path); stream.on('error', () => res.destroy()); stream.pipe(res); }
+    catch { return err(res, 404, 'SOURCE_NOT_READY', '源码尚未就绪或校验失败'); }
+  },
+
   'GET /api/assets/:id/download': async (req, res, { id }) => {
     return serveAsset(req, res, id, { attachment: true, variant: 'original' });
   },
@@ -2061,6 +2071,7 @@ function publicJob(j, queueIds = null) {
   const ms = (t) => (t ? now - new Date(t).getTime() : null);
   return {
     id: j.id, session_id: j.session_id, mode: j.mode,
+    ...(j.mode === 'blockout_3d' && isSeko(j.model_selection) ? { whitebox_result: sekoPublicResult(config, j) } : {}),
     model_selection: j.model_selection ?? null, experimental_skills: j.experimental_skills ?? null,
     status: j.status, phase: j.phase,
     progress_percent: j.progress_percent,          // 可为 null → 前端不得伪造

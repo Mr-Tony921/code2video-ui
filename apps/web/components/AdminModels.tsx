@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
+import { WhiteboxAdminModel } from './WhiteboxAdminModel';
 import { ModelConnectionForm } from './ModelConnectionForm';
 import type { ModelConnectionView } from '@/lib/types';
 
@@ -12,6 +13,7 @@ export function AdminModels() {
   if (!models) return <p className="muted">正在读取模型配置…</p>;
   return <div>
     <p className="muted">配置对新对话生效，已有对话继续使用原推理模型。增强模型用于之后发起的增强请求。Key 仅保存于服务端。</p>
+    <WhiteboxAdminModel />
     {(['c2v', 'enhancement'] as const).map(purpose => <section className="card" key={purpose} style={{ marginBottom: 16 }}>
       <h3>{purpose === 'c2v' ? 'C2V 推理模型' : 'Prompt 增强模型'}</h3>
       <ModelConnectionForm initial={models[purpose]} onSave={input => api.adminSaveModel(purpose, input)}

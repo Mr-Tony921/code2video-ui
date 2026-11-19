@@ -69,6 +69,12 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
         )}
       </div>
 
+      {job.mode === 'blockout_3d' && job.whitebox_result?.scene_success && <div style={{ marginTop: 10 }}>
+        <p className="tiny">{job.whitebox_result.model} · 工程与自检 {formatDuration(job.whitebox_result.timings.engineering_seconds * 1000)} · 视频渲染 {formatDuration(job.whitebox_result.timings.video_seconds * 1000)} · {job.whitebox_result.shot_count} 镜</p>
+        {job.whitebox_result.download_url && <a className="btn" href={withBase(job.whitebox_result.download_url)} download>下载代码与工程</a>}
+        {job.whitebox_result.status === 'renderable_with_issues' && <p className="note warn">工程可回放，有限自检仍有待核对项：{job.whitebox_result.issues?.map(i => i.message || i.code).join('；')}</p>}
+      </div>}
+
       {/* 排队可见性：告诉用户前面还有几个、一共几个 */}
       {job.status === 'QUEUED' && job.queue && (
         <div className="note info" style={{ marginTop: 10 }}>

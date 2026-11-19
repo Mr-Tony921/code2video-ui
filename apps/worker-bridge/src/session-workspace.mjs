@@ -8,6 +8,7 @@
 import { mkdir, writeFile, cp, rm } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { isSeko } from '../../shared/seko-model.mjs';
 import { config } from './config.mjs';
 import { resolveWhiteboxModel } from '../../shared/whitebox.mjs';
 import { resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
@@ -69,6 +70,10 @@ function buildSettings(model = config.model) {
  */
 export async function prepareSessionWorkspace({ sessionId, mode, modelSelection, builtinSkills }) {
   const dir = sessionDir(sessionId);
+  if (mode === 'blockout_3d' && isSeko(modelSelection)) {
+    for (const d of ['references', 'rounds', 'workspace']) await mkdir(join(dir, d), { recursive: true });
+    return { dir, skillsetName: modelSelection.engine_release, skills: ['seko-blockout'], settingsPath: null };
+  }
   const builtin = (mode === 'experimental' || (mode === 'blockout_3d' && modelSelection)) ? validateBuiltinSkills(builtinSkills) : mode;
   const { name: skillsetName, src } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetForMode(builtin);
   const model = mode === 'experimental' ? resolveExperimentalModel(config.raw, modelSelection)

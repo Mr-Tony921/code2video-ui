@@ -39,6 +39,9 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  adminWhiteboxModel: () => call<{ model: ModelConnectionView }>('/api/admin/whitebox/model'),
+  adminSaveWhiteboxModel: (input: ModelConnectionInput) => call<{ model: ModelConnectionView }>('/api/admin/whitebox/model', { method: 'PATCH', body: JSON.stringify(input) }),
+  adminCheckWhiteboxModel: (input: ModelConnectionInput) => call<ModelConnectionCheck>('/api/admin/whitebox/model/check', { method: 'POST', body: JSON.stringify(input) }),
   adminModels: () => call<{ models: Record<'c2v' | 'enhancement', ModelConnectionView> }>('/api/admin/models'),
   adminSaveModel: (purpose: 'c2v' | 'enhancement', input: ModelConnectionInput) =>
     call<{ model: ModelConnectionView }>(`/api/admin/models/${purpose}`, { method: 'PATCH', body: JSON.stringify(input) }),

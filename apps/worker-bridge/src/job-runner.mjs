@@ -13,6 +13,8 @@
  *  · 每个 Job 一个 process group，可整树终止，绝不影响其他 Job 或 Bridge 自身
  *  · 失去租约的 Job 不得提交产物
  */
+import { isSeko } from '../../shared/seko-model.mjs';
+import { prepareSekoWorkspace, sekoEvents, sekoResult } from './seko-workspace.mjs';
 import { validateVideo } from '../../shared/video-validation.mjs';
 import { routedWhiteboxModel } from './whitebox-proxy.mjs';
 import { whiteboxSystemPrompt } from './whitebox-host.mjs';
@@ -295,14 +297,15 @@ export async function startJob(p) {
   // 先判定隔离是否可用：contract 里的交付路径必须是 agent 自己视图里的路径。
   // 隔离开启时工作区 bind 到浅挂载点，宿主的 /mnt/... 在隔离内被遮蔽。
   const iso = config.isolation ?? {};
-  const isoAvailable = iso.enabled === true && probeIsolation(iso);
+  const sekoMode = p.mode === 'blockout_3d' && isSeko(p.modelSelection);
+  const isoAvailable = !sekoMode && iso.enabled === true && probeIsolation(iso);
   const mountPoint = iso.workspace_mount ?? '/workspace';
   // ★ 1.4.0：工作区按【会话】解析，同一会话各轮共用（老会话回退到 jobs/<jid>/）。
   //   续跑因此不需要拷任何东西 —— 上一轮的 src/ build/ output/ 本来就在这里，
   //   .home 也在这里，所以 cc --resume 找得到上一轮的对话。
   const { agentWs: hostWs, bookDir } = resolveJobPaths(p.sessionId, p.jobId);
 
-  const ws = await prepareJobWorkspace({
+  const ws = sekoMode ? await prepareSekoWorkspace(p) : await prepareJobWorkspace({
     sessionId: p.sessionId, jobId: p.jobId, mode: p.mode, prompt: p.prompt,
     agentWsPath: isoAvailable ? mountPoint : hostWs,
     experimentalSkills: p.experimentalSkills, modelSelection: p.modelSelection,
@@ -323,14 +326,16 @@ export async function startJob(p) {
 
   // resume 的前提是会话文件真的在（prepareJobWorkspace 已查过）。
   // 查不到就当首轮 —— 带着不存在的 id 去 --resume 会让 cc 直接启动失败，整轮白丢。
-  const { cmd, args, cwd, isolated } = buildCommand({
+  const { cmd, args, cwd, isolated } = ws.seko ? { ...ws.seko, isolated: false } : buildCommand({
     jobWs: ws.ws, isoAvailable, mountPoint,
     ccSessionId: ws.ccSessionId,
     resume: ws.isContinuation === true, experimental: p.mode === 'experimental',
     customWhitebox: p.mode === 'blockout_3d' && p.experimentalSkills?.builtin === 'none',
     whiteboxHost: ws.whiteboxHost,
   });
-  if (ws.ccSessionId) {
+  if (ws.seko) {
+    console.log(`[runner] job ${p.jobId} Seko harness，记忆来自已交付轮次`);
+  } else if (ws.ccSessionId) {
     console.log(`[runner] job ${p.jobId} cc 会话 ${ws.ccSessionId} ` +
       `${ws.isContinuation ? '→ --resume（接上一轮对话）' : '→ --session-id（首轮）'}`);
   } else {
@@ -342,7 +347,7 @@ export async function startJob(p) {
 
   const child = spawn(cmd, args, {
     cwd,
-    env: { ...buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection)
+    env: ws.seko ? ws.seko.env : { ...buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection)
       : p.mode === 'coding_to_video' && isManagedModel(p.modelSelection) ? resolveManagedModel(config.raw, p.modelSelection)
       : p.mode === 'blockout_3d' && p.modelSelection ? routedWhiteboxModel(config, p.modelSelection, p.jobId) : config.model),
       ...(ws.whiteboxHost ? { API_TIMEOUT_MS: '1200000', ENABLE_TOOL_SEARCH: 'false', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1', CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: '0', MAX_MCP_OUTPUT_TOKENS: '100000' } : {}) },
@@ -361,7 +366,7 @@ export async function startJob(p) {
   const pgid = resolvePgid(child.pid);
   const startTicks = readStartTicks(child.pid);
   const st = {
-    jobId: p.jobId, sessionId: p.sessionId, mode: p.mode,
+    jobId: p.jobId, sessionId: p.sessionId, mode: p.mode, seko: !!ws.seko,
     leaseToken: p.leaseToken,
     pid: child.pid, pgid, startTicks, child,
     phase: 'PREPARING', phaseStartedAt: nowIso(), startedAt: nowIso(),
@@ -374,7 +379,7 @@ export async function startJob(p) {
     jobDir: ws.bookDir, agentWs: ws.ws,
     // 存下来给 procAlive 做归属校验：必须与子进程环境里的 CVW_JOB_TOKEN 一致
     jobToken: jobToken(ws.ws, p.jobId),
-    outDir: join(ws.ws, 'output'),
+    outDir: ws.seko?.output ?? join(ws.ws, 'output'),
     viewPath: ws.viewPath,
     continued: ws.isContinuation === true,
     logPath, errPath, isolated,
@@ -438,9 +443,9 @@ export async function startJob(p) {
 
 /** 处理一行 stream-json：转事件 → 记录 → 推进阶段 → 回调 */
 function handleStreamLine(st, line) {
-  for (const ev of parseStreamLine(line, {
+  for (const ev of (st.seko ? sekoEvents(line) : parseStreamLine(line, {
     truncateBytes: config.raw?.process_stream?.tool_result_truncate_bytes ?? 2000,
-  })) {
+  }))) {
     st.lastProgressAt = nowIso();
     const seq = ++st.eventSeq;
     const full = { seq, at: nowIso(), ...ev };
@@ -470,7 +475,7 @@ function handleStreamLine(st, line) {
       st.lastResult = ev;
     }
 
-    const ph = phaseFromEvent(ev);
+    const ph = st.seko ? ev.phase : phaseFromEvent(ev);
     if (ph) setPhase(st, ph);
 
     // 推给 Gateway → 前端过程框。
@@ -521,6 +526,11 @@ async function detectFromFs(st) {
 const INTERMEDIATE_DIRS = ['build', 'work', 'tmp', 'temp', 'cache', 'frames', 'chunks', 'parts'];
 
 async function findArtifact(st) {
+  if (st.seko) {
+    const result = sekoResult(st.jobDir), path = join(st.outDir, 'final.mp4');
+    if (!result?.scene_success || !existsSync(path)) return null;
+    const s = await stat(path); return { path, size: s.size, mtime: s.mtimeMs, inOut: true };
+  }
   const cands = [];
   /**
    * ★ 只认【本轮产出】的文件。
@@ -761,8 +771,8 @@ async function settleResult(st, code, signal) {
   }
 
   // An explicit intake answer/clarification must never pick up a previous MP4.
-  let response = null;
-  if (st.mode === 'blockout_3d' && exitedCleanly(st, code)) {
+  let response = st.seko && exitedCleanly(st, code) ? whiteboxResponse(st.mode, sekoResult(st.jobDir)?.response) : null;
+  if (!st.seko && st.mode === 'blockout_3d' && exitedCleanly(st, code)) {
     try {
       const state = JSON.parse(readFileSync(join(st.agentWs, '.whitebox', st.jobId, 'state.json')));
       if (!state.delivered && !state.candidates && ['waiting_user', 'answered'].includes(state.mcp_phase)) {
@@ -834,9 +844,9 @@ async function settleResult(st, code, signal) {
   // 用户需要的是"换个说法重试"，而不是以为系统坏了。
   const ctxBlown = /prompt is too long|context.{0,20}(?:too long|limit|exceed)|maximum context/i
     .test(st.lastAssistantText ?? '');
-  const failCode = ctxBlown ? 'E_TASK_TOO_COMPLEX'
+  const failCode = st.seko ? 'E_WHITEBOX_EXECUTION' : ctxBlown ? 'E_TASK_TOO_COMPLEX'
     : code === 0 ? 'E_NO_ARTIFACT' : 'E_CLAUDE_EXIT';
-  const failMsg = ctxBlown
+  const failMsg = st.seko ? (st.lastAssistantText || '白模执行失败，上一版工程已保留，请查看本轮执行记录') : ctxBlown
     ? '本次创作内容过于复杂，制作过程超出了单次处理上限。建议：缩短时长、减少镜头数量，或把需求拆成几段分别生成。'
     : code === 0
       ? '制作流程正常结束但未产出成品视频'
@@ -965,7 +975,7 @@ function sidecarIndexPath(jobId) {
 /** 边车：Bridge 重启后靠它认领还活着的任务。 */
 export async function writeRunningSidecar(st, ws) {
   const payload = {
-    job_id: st.jobId, session_id: st.sessionId, mode: st.mode,
+    job_id: st.jobId, session_id: st.sessionId, mode: st.mode, seko: st.seko === true,
     lease_token: st.leaseToken,
     pid: st.pid, pgid: st.pgid, start_ticks: st.startTicks,
     job_dir: st.jobDir, out_dir: st.outDir, view_path: st.viewPath,
@@ -1111,7 +1121,7 @@ export async function adoptJob(sc, hooks) {
   if (running.has(sc.job_id)) return { adopted: false, reason: 'ALREADY_RUNNING' };
 
   const st = {
-    jobId: sc.job_id, sessionId: sc.session_id, mode: sc.mode,
+    jobId: sc.job_id, sessionId: sc.session_id, mode: sc.mode, seko: sc.seko === true,
     leaseToken: sc.lease_token,
     pid: sc.pid, pgid: sc.pgid, startTicks: sc.start_ticks ?? null,
     child: null, adopted: true,

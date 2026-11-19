@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Seko · 最小接入示例</title>
+<script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script>
+<style>
+body{margin:0;background:#151b24;color:#eef2f6;font:15px system-ui}main{max-width:1080px;margin:24px auto;padding:0 20px}h1{font-size:24px}p{color:#bdc7d3;line-height:1.6}#stage{aspect-ratio:16/9;background:#242c36}canvas{display:block;width:100%;height:100%}.controls{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:16px 0}input{flex:1;min-width:150px}button,select{padding:8px;border-radius:6px}#status{white-space:pre-wrap}small{color:#bdc7d3}
+</style>
+<main>
+<h1>Seko · 最小接入示例</h1>
+<p>读取 project.json，按原运镜回放。此页仅用于验证公共 runtime 接入，不是业务前端或 benchmark。</p>
+<div id="stage"></div>
+<div class="controls"><button id="play" disabled>播放</button><input id="seek" aria-label="时间" type="range" min="0" value="0" step="0.01"><span id="time">0 秒</span><select id="speed" aria-label="播放速度"><option value="1">1×</option><option value="2" selected>2×</option></select><select id="segment" aria-label="定位片段"></select></div>
+<pre id="status">正在加载……</pre><small>前端片段时间需换算成全局秒；更换场景时释放旧资源。</small>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import {loadProject} from '/runtime/project.js';
+const $=id=>document.getElementById(id),stage=$('stage');
+let view,renderer,time=0,playing=false,last=performance.now();
+try{
+ const response=await fetch('/project.json');if(!response.ok)throw Error(`读取失败 HTTP ${response.status}`);
+ const project=await response.json();view=loadProject(project);
+ renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.outputColorSpace=THREE.SRGBColorSpace;stage.append(renderer.domElement);
+ const resize=()=>{const w=stage.clientWidth,h=stage.clientHeight;renderer.setSize(w,h,false);view.camera.aspect=w/h;};
+ new ResizeObserver(resize).observe(stage);resize();
+ $('seek').max=project.duration;$('play').disabled=false;
+ for(const seg of project.segments){const option=document.createElement('option');option.value=seg.start;option.textContent=`${seg.title||seg.id} · ${seg.start}–${seg.end}s`;$('segment').append(option);}
+ $('status').textContent=`${project.title||'未命名工程'}\n${project.duration} 秒 · ${project.segments.length} 个片段 · ${project.shot_plan.length} 个镜头\n人物：${view.listEntities().filter(e=>e.character).map(e=>`${e.name} (${e.id})`).join('、')}\n${project.provenance.offline_fixture?'离线合成联调样例，非模型生成效果。':''}`;
+ $('play').onclick=()=>{if(time>=project.duration)time=0;playing=!playing;$('play').textContent=playing?'暂停':'播放';};
+ $('seek').oninput=e=>{time=+e.target.value;};
+ $('segment').onchange=e=>{time=+e.target.value;};
+ function frame(now){const dt=Math.min((now-last)/1000,.1);last=now;if(playing)time=Math.min(project.duration,time+dt*+$('speed').value);if(time>=project.duration){playing=false;$('play').textContent='播放';}view.setTime(time);renderer.render(view.scene,view.camera);$('seek').value=time;$('time').textContent=`${time.toFixed(2)} / ${project.duration}s`;requestAnimationFrame(frame);}
+ requestAnimationFrame(frame);
+ window.addEventListener('pagehide',()=>{view.dispose();renderer.dispose();},{once:true});
+}catch(error){$('status').textContent=`加载/渲染失败：${error.message}`;console.error(error);}
+</script></html>

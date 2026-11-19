@@ -3,9 +3,10 @@
 export type Mode = 'coding_to_video' | 'blockout_3d' | 'experimental';
 export type ExperimentalModel = {
   profile_id: string; name: string; model: string; revision: string;
-  custom?: boolean;
+  custom?: boolean; harness?: string; engine_release?: string;
 };
 export type ModelConnectionInput = {
+  protocol?: 'chat' | 'anthropic'; max_context_tokens?: number;
   kind: 'intranet' | 'tokenhub'; endpoint: string; model: string; api_key?: string; reference_id?: string;
 };
 export type ModelConnectionView = ModelConnectionInput & Partial<ExperimentalModel> & { has_key: boolean; key_mask: string };
@@ -126,7 +127,9 @@ export type Asset = {
   } | null;
 };
 
+export type WhiteboxResult = { status: string; model?: string; scene_success: boolean; structure_pass?: boolean; repairs?: number; shot_count?: number; reference_count?: number; download_url?: string; timings: { engineering_seconds: number; video_seconds: number; total_seconds?: number }; issues?: { code: string; shot_id?: string; message?: string }[] };
 export type Job = {
+  whitebox_result?: WhiteboxResult | null;
   model_selection?: ExperimentalModel | null;
   experimental_skills?: ExperimentalSkills | null;
   id: string;
