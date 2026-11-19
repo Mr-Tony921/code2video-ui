@@ -1,6 +1,6 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前代码版本为 **1.5.4**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
+基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前代码版本以根目录 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
 
 当前 dev 入口为 **http://10.210.9.14:20211/**，前端直连 `http://10.120.7.224:8000`。页面显示「Codex 开发环境」。
 
@@ -39,7 +39,7 @@ python3 scripts/service.py bridge start cvw-codex-4055  # 10.120.4.55
 `start` 在专用 tmux socket `cvw-codex` 下启动常驻监护进程，服务退出后自动拉起，退出 SSH/Codex 不影响服务。
 `start`、`stop`、`restart`、`status`、`logs` 共用同一实现；只有 web 有 `build`。旧 `start-frontend.sh`、`start-backend.sh`、`restart-service.sh` 是薄包装。`start-backend.sh` 在 Gateway 主机管理 Gateway 与本机 Worker；其余主机使用 bridge 命令。
 
-服务读取 `config/backend.json` 和 `runtime/.secrets`；前端构建时固化版本、环境角标与 basePath。改这些值后需重新构建。白模默认模型、默认 Skill、可选渠道和实验模型均从服务端配置读取。白模上传 Skill 后只加载该上传包。
+服务读取 `config/backend.json` 和 `runtime/.secrets`；前端构建时固化版本、环境角标与 basePath。改这些值后需重新构建。白模模型由管理员统一配置，新白模使用固定 Seko skill 与独立 harness，普通用户不能修改模型或上传替换 skill；实验模式保留自己的配置。详见 docs/WHITEBOX-SEKO.md。
 
 热更新用 `bash scripts/hot-update.sh run`：设置维护态、先 Bridge 后 Gateway、检查任务认领、清除维护态并执行部署检查。该命令不构建前端。重启失败时返回失败；维护状态有到期时间。
 
@@ -84,7 +84,7 @@ bash scripts/release-check.sh
 私有仓库：https://github.com/Mr-Tony921/code2video-ui 。默认分支为 `main`。
 `v1.4.6-codex.1` 保留首次重构基线，`v1.5.0` 保留首个常规版本，后续以 VERSION 与发布标签追溯。提交署名为 Tony，仅在本仓库设置。
 
-开发时创建功能分支、验证后提交并推送，完成评审再合并到 `main`；详细命令见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
+按用户要求只在 `main` 上线性提交，拉取使用 `git pull --ff-only`，不另建分支或 worktree；详细命令见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
 
 实际的 `config/backend.json` 保存在本地并被 Git 忽略；仓库提供 `config/backend.example.json`。
 新 clone 需要复制模板并配置自己的部署路径、主机和密钥，还需要独立准备 `runtime/` 的浏览器和渲染依赖。

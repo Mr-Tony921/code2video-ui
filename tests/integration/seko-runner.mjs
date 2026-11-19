@@ -13,13 +13,14 @@ const {config}=await import('../../apps/worker-bridge/src/config.mjs');
 const runner=await import('../../apps/worker-bridge/src/job-runner.mjs');
 const source=readFileSync(new URL('./fixtures/seko-source.mjs',import.meta.url),'utf8');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const prompt=JSON.stringify({version:2,duration:4,work_prompt:'人物A向右移动并停下。',segments:[{id:'a',title:'移动',start:0,end:2,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A向右移动。'},{id:'b',title:'停下',start:2,end:4,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A停下。'}]});
+const prompt='用户要求：完整故事一次生成。\n'+JSON.stringify({version:2,duration:4,work_prompt:'人物A向右移动并停下。',segments:[{id:'a',title:'移动',start:0,end:2,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A向右移动。'},{id:'b',title:'停下',start:2,end:4,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A停下。'}]});
 test('new whitebox harness uses shared execution slots, cancels only its own process and retains immutable artifacts', {timeout:180000}, async()=>{
  const requests=[];
  const server=http.createServer(async(req,res)=>{
   let text='';for await(const c of req)text+=c;
   const b=JSON.parse(text);requests.push(b);assert.equal(req.headers.authorization,undefined);
   const p=b.messages[0].content[0].text;
+  if(p.includes('CONTROL_CONTEXT_FIXTURE') && p.includes('CURRENT_REVIEW_SCOPE:')) { res.statusCode=400;res.end(JSON.stringify({error:{code:'context_length_exceeded',message:'maximum context length exceeded'}}));return; }
   let answer;
   if(p.includes('intake stage for a Seko')) {
     const current=JSON.parse(p.split('SAVED_CONVERSATION (recent turns verbatim; earlier edits are in CURRENT_SOURCE/latest delivered project):\n')[1]).at(-1).user;
@@ -28,7 +29,7 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
     assert.ok(p.includes('CURRENT_SOURCE:') && p.includes(source.trim()));
     assert.ok(!p.includes('Earlier project from another account'));
     answer=JSON.stringify({replacements:[{old:'{time:s.start,position:[2,2,5],target:[0,1,0]}',new:'{time:s.start,position:s.start===0?[2,2,4.5]:[2,2,5],target:[0,1,0]}'}]});
-  } else if(p.includes('CURRENT CALL: Author')) answer=source;
+  } else if(p.includes('CURRENT CALL: Author')) { assert.ok(p.includes('用户要求：完整故事一次生成。'));answer=source; }
   else if(p.includes('CURRENT_REVIEW_SCOPE:')) {
     const ids=JSON.parse(p.split('CURRENT_REVIEW_SCOPE:')[1].split('\n')[0]);
     const pages=JSON.parse(p.split('PAGES:')[1].split('\nTECHNICAL_CHECKS:')[0]);
@@ -90,6 +91,16 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
   const resultAfterRestart=await adoptedFinished;assert.ok(resultAfterRestart.meta,JSON.stringify(resultAfterRestart));
   for(let i=0;i<30&&runner.runningCount();i++)await sleep(50);
   assert.equal(runner.runningCount(),0);
+
+  // A real model context rejection is a control failure, not a scene repair.
+  const contextSid='sess_'+randomUUID(),contextJid='job_'+randomUUID();ids.push({sid:contextSid,jid:contextJid});
+  let contextDone;const contextFinished=new Promise(r=>contextDone=r);
+  await runner.startJob({sessionId:contextSid,jobId:contextJid,mode:'blockout_3d',prompt:prompt.replace('人物A向右移动并停下。','CONTROL_CONTEXT_FIXTURE'),experimentalSkills:{builtin:'none'},modelSelection:selection,leaseToken:'fixture',maxRuntimeSeconds:0,hooks:{onComplete:meta=>contextDone({meta}),onFail:failure=>contextDone({failure})}});
+  const contextCompletion=await contextFinished;assert.ok(contextCompletion.meta,JSON.stringify(contextCompletion));
+  const contextDir=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,contextSid,'rounds',contextJid,'seko');
+  const contextResult=JSON.parse(readFileSync(join(contextDir,'result.json')));assert.equal(contextResult.status,'renderable_with_issues');assert.equal(contextResult.repairs,0);assert.ok(contextResult.issues.some(x=>x.message?.includes('上下文超限')));
+  assert.equal(requests.filter(b=>b.messages[0].content[0].text.includes('CONTROL_CONTEXT_FIXTURE')).length,2);
+  const receipt=JSON.parse(readFileSync(join(contextDir,'capture/0002/receipt.json')));assert.equal(receipt.failure_kind,'context_limit');
 
  } finally {for(const {jid} of ids)if(runner.getJob(jid))await runner.cancelJob(jid,'cleanup',.1);server.closeAllConnections();await new Promise(r=>server.close(r));}
 });

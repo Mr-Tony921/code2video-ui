@@ -4,30 +4,46 @@ from pathlib import Path
 
 class ContextLimitError(RuntimeError): pass
 
+# Fixed whitebox-only media policy. Originals remain immutable. Contact sheets
+# produced by the engine (960px wide) retain their layout and labels.
+MEDIA_POLICY = {'version':'whitebox-media-v2','max_edge':1024,
+    'target_bytes':64*1024,'max_bytes':96*1024,'jpeg_qualities':[82,76,70,64]}
+
 def model_image(path,capture_root=None):
-    """Keep originals; encode only large images for model transport, with provenance."""
+    """Bound actual model payloads, retain pixels' provenance and original files."""
     from PIL import Image,ImageOps
     from io import BytesIO
     p=Path(path);original=p.read_bytes();original_sha=hashlib.sha256(original).hexdigest()
+    quality=None
     with Image.open(BytesIO(original)) as opened:
-        opened.load();image=ImageOps.exif_transpose(opened);size=image.size
+        opened.load();orientation=opened.getexif().get(274,1);original_size=opened.size
+        image=ImageOps.exif_transpose(opened);size=image.size;sent_size=size
         data=original;mime=Image.MIME.get(opened.format) or mimetypes.guess_type(p.name)[0] or 'image/png';policy='original'
-        if len(original)>262144 or max(size)>2048:
-            image.thumbnail((2048,2048),Image.Resampling.LANCZOS)
+        if len(original)>MEDIA_POLICY['max_bytes'] or max(size)>MEDIA_POLICY['max_edge'] or orientation!=1:
             if 'A' in image.getbands() or 'transparency' in image.info:
-                image=image.convert('RGBA')
-                background=Image.new('RGB',image.size,'white');background.paste(image,mask=image.getchannel('A'));image=background
-            encoded=BytesIO();image.convert('RGB').save(encoded,format='JPEG',quality=88,optimize=True)
-            if len(encoded.getvalue())<len(original) or image.size!=size:
-                data=encoded.getvalue();mime='image/jpeg';policy='jpeg_q88_max2048'
-        sent_size=image.size if policy!='original' else size
+                image=image.convert('RGBA');background=Image.new('RGB',image.size,'white')
+                background.paste(image,mask=image.getchannel('A'));image=background
+            base=image.convert('RGB');edge=MEDIA_POLICY['max_edge']
+            while True:
+                candidate=base.copy();candidate.thumbnail((edge,edge),Image.Resampling.LANCZOS)
+                for quality in MEDIA_POLICY['jpeg_qualities']:
+                    encoded=BytesIO();candidate.save(encoded,format='JPEG',quality=quality,optimize=True)
+                    data=encoded.getvalue()
+                    if len(data)<=MEDIA_POLICY['target_bytes']:break
+                if len(data)<=MEDIA_POLICY['max_bytes']:break
+                if edge<=128:raise ValueError('Unable to encode reference within whitebox media limit')
+                edge=max(128,int(edge*.85))
+            sent_size=candidate.size;mime='image/jpeg';policy='bounded_jpeg'
     digest=hashlib.sha256(data).hexdigest();sent_path=None
     if capture_root:
         sent_path=Path(capture_root)/'model-media'/(digest+('.jpg' if mime=='image/jpeg' else p.suffix.lower()))
         sent_path.parent.mkdir(parents=True,exist_ok=True)
         if not sent_path.exists():sent_path.write_bytes(data)
-    return data,mime,{'original_path':str(p),'original_sha256':original_sha,'original_bytes':len(original),'original_size':size,
-        'path':str(sent_path) if sent_path else str(p),'sha256':digest,'sent_bytes':len(data),'sent_size':sent_size,'encoding':policy}
+    return data,mime,{'original_path':str(p),'original_sha256':original_sha,'original_bytes':len(original),
+        'original_size':original_size,'oriented_size':size,'orientation_normalized':orientation!=1,
+        'path':str(sent_path) if sent_path else (str(p) if policy=='original' else None),
+        'sha256':digest,'sent_bytes':len(data),'sent_size':sent_size,'encoding':policy,
+        'jpeg_quality':quality,'policy':MEDIA_POLICY.copy()}
 
 
 class Provider:
@@ -54,8 +70,11 @@ class Provider:
         text=compose()
         while len(text.encode())+len(images)*4096>budget and len(kept)>1:
             removed.append(kept.pop(0));text=compose()
-        if len(text.encode())+len(images)*4096>budget:
-            raise ContextLimitError('必要的当前工程、需求和图片超出模型上下文上限。上一版已保留，请收窄本轮修改范围或联系管理员核对模型上下文配置。')
+        # An upper bound above the limit is not proof that actual tokens exceed it.
+        # Keep necessary source/evidence intact and let the model service enforce
+        # its tokenizer's real limit. A confirmed limit error is a control failure,
+        # never an instruction to spend a scene-repair attempt.
+        upper_bound_exceeded=len(text.encode())+len(images)*4096>budget
         content=[{'type':'text','text':text}];media=[]
         for label,p in images:
             data,mime,provenance=model_image(p,self.capture_root);encoded=base64.b64encode(data).decode()
@@ -76,7 +95,7 @@ class Provider:
             if capture:
                 capture.mkdir(parents=True,exist_ok=True)
                 (capture/name).write_text(json.dumps(value,ensure_ascii=False,indent=2))
-        save('request.json',body);save('metadata.json',{'endpoint':endpoint,'model':self.cfg['model'],'protocol':self.cfg.get('protocol'),'media':media,'effort':effort,'started_at':time.time(),'context_policy':{'max_tokens':limit,'reserved_output_tokens':output,'text_utf8_upper_bound':len(text.encode()),'images':len(images),'kept_rounds':len(kept),'archived_earlier_rounds':len(removed),'source_and_current_request_truncated':False,'compression_model_calls':0,'repair_budget_used':0}})
+        save('request.json',body);save('metadata.json',{'endpoint':endpoint,'model':self.cfg['model'],'protocol':self.cfg.get('protocol'),'media':media,'effort':effort,'started_at':time.time(),'context_policy':{'max_tokens':limit,'reserved_output_tokens':output,'text_utf8_upper_bound':len(text.encode()),'images':len(images),'kept_rounds':len(kept),'archived_earlier_rounds':len(removed),'source_and_current_request_truncated':False,'local_upper_bound_exceeded':upper_bound_exceeded,'token_limit_authority':'model_service; local upper bound only trims redundant history','compression_model_calls':0,'repair_budget_used':0}})
         encoded_body=json.dumps(body).encode()
         transport={'request_bytes':len(encoded_body),'connect_seconds':0,'submit_seconds':0,'response_headers_seconds':0,'response_body_seconds':0}
         # Measure phases; do not confuse slow upload with reasoning or skill reflection.
@@ -122,7 +141,14 @@ class Provider:
         except urllib.error.HTTPError as e:
             raw=e.read()
             if capture:(capture/'response.raw').write_bytes(raw)
-            save('receipt.json',{'complete':False,'http':e.code,'seconds':time.monotonic()-start})
+            try:failure=json.loads(raw).get('error',{})
+            except (ValueError,AttributeError):failure={}
+            code=str(failure.get('code','')) if isinstance(failure,dict) else ''
+            detail=str(failure.get('message','')) if isinstance(failure,dict) else str(failure)
+            import re
+            context_error=e.code in (400,413,422) and (code in ('context_length_exceeded','max_context_length_exceeded','context_window_exceeded','input_too_long') or bool(re.search(r'maximum context length|context (?:length|window).*exceed|too many tokens|prompt.*too long',detail,re.I)))
+            save('receipt.json',{'complete':False,'http':e.code,'seconds':time.monotonic()-start,'failure_kind':'context_limit' if context_error else 'http_error'})
+            if context_error:raise ContextLimitError('模型服务确认上下文超限；必要的当前工程与证据没有截断，上一版已保留。请收窄本轮修改范围或核对模型上下文配置。') from None
             raise RuntimeError(f'Model API HTTP {e.code}') from None
         except Exception as e:
             save('receipt.json',{'complete':False,'seconds':time.monotonic()-start,'error':self.clean(e)})

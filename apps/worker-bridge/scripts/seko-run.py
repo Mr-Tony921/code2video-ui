@@ -25,6 +25,22 @@ INTAKE='''You are the intake stage for a Seko Three.js whitebox workflow. Users 
 {"action":"clarify","text":"concise question in user's language"}, {"action":"answer","text":"answer based on actual saved project"}, {"action":"refine","request":"user's exact requested edit, preserving prior decisions"}, or {"action":"generate","input":{"version":2,"duration":SECONDS,"work_prompt":"original story and requirements","segments":[{"id":"seg_001","title":"...","duration":SECONDS,"resolved_duration":SECONDS,"start":0,"end":SECONDS,"prompt":"verbatim segment text; create shot markers only when the user provided no shot structure"}]}}.
 For initial generation keep every explicit story event, actor, shot and duration, camera/POV/roll and dialogue metadata, and reference identities. No added story beats, no merged/reordered explicit shots. Preserve any supplied segment IDs and all dialogue/camera instructions verbatim in segment prompt text; do not paraphrase or shorten an already detailed storyboard. Do not invent per-shot duration lines when the user intentionally leaves them to be decided within a fixed segment; the scene author will allocate them. Only explicit per-shot durations become hard constraints. Story <=300s, all segments contiguous and shot times fit. For prose without shot numbering create the smallest necessary shot plan faithful to the original. Ask a question for missing required story/duration or contradictions; resolve harmless artistic details lightly. Already supplied facts must not be asked again. Full prior user turns are supplied below. If a saved delivered project exists, edits use refine, explanations use answer, ambiguous changes use clarify; do not restart the story. Do not promise nonexistent outputs or claim tool checks. In later turns the intake stage routes edits using saved project facts; it does not receive new visual evidence, so never invent a fresh image inspection. Detailed visual verification happens during the engine edit/review stages. A fresh initial task with concrete details uses generate. No engine or technical directions belong in user questions.'''
 
+def business_input(raw):
+    """Read the upstream text-plus-JSON format without an LLM rewriting its shots.
+
+    Surrounding user instructions are retained in work_prompt. Ordinary prose
+    still uses conversational intake; malformed business data is not repaired here.
+    """
+    begin=raw.find('{')
+    if begin<0:return None
+    try:value,end=json.JSONDecoder().raw_decode(raw[begin:])
+    except ValueError:return None
+    if not isinstance(value,dict) or value.get('version')!=2 or not isinstance(value.get('segments'),list):return None
+    prefix=raw[:begin].strip();suffix=raw[begin+end:].strip()
+    surrounding='\n'.join(part for part in (prefix,suffix) if part)
+    if surrounding:value={**value,'work_prompt':value.get('work_prompt','')+'\n用户附加说明（原文）：\n'+surrounding}
+    return value
+
 def main():
     args=read(sys.argv[1]);book=Path(args['book_dir']);work=book/'seko';work.mkdir(parents=True,exist_ok=True)
     start=time.monotonic();engine=Path(args['engine']);sys.path.insert(0,str(engine/'python'))
@@ -41,13 +57,8 @@ def main():
     latest=next(((p,r) for _,p,r in reversed(history) if r.get('scene_success')),None)
     refs=Path(args['references']);images=[(p.name,p) for p in sorted(refs.iterdir()) if p.suffix.lower() in ('.png','.jpg','.jpeg','.webp')]
     emit('phase',phase='PLANNING',text='正在理解白模需求')
-    user=args['prompt'];initial=None
-    if not latest:
-        try:
-            v=json.loads(user)
-            if isinstance(v,dict) and v.get('version')==2:initial=v
-        except ValueError:pass
-    business_input = initial is not None
+    user=args['prompt'];initial=business_input(user) if not latest else None
+    supplied_business_input = initial is not None
     intake_seconds=0
     if initial is None:
         context={}
@@ -68,7 +79,7 @@ def main():
     if initial:
         # Business JSON already supplies the exact shot text. Natural-language
         # intake additionally carries original user wording once, not in three copies.
-        if not business_input:
+        if not supplied_business_input:
             initial['work_prompt']=initial.get('work_prompt','')+'\n原始用户对话（逐字保留）：\n'+json.dumps([t['user'] for t in turns],ensure_ascii=False)
         write(work/'input.json',initial)
         mod.Provider.context=''  # original task is already present in every engine phase

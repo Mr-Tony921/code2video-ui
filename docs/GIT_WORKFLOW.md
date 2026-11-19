@@ -15,17 +15,16 @@
 cd /mnt/afs_if/codevideo/workspace/code2video-dev-codex
 git switch main
 git pull --ff-only
-git switch -c feat/short-description
 # 修改代码后运行相应验证
 git status
 git diff
 git add <本次修改的文件>
 git diff --cached
 git commit -m "feat: describe the change"
-git push -u origin feat/short-description
+git push origin main
 ```
 
-在 GitHub 发起 Pull Request，评审后合并到 main。main 是本独立开发环境的代码分支；部署仍使用本副本的 service.py 和隔离校验。
+按用户要求只维护 main，直接在线性历史上提交，不新建功能分支或 worktree，不创建合并提交。仓库本地 pull.ff=only；若拉取不能快进，先检查双方改动，不强推覆盖。部署仍使用本副本的隔离校验；只改白模 Python host 时，新白模任务启动会读取并快照新文件，在飞任务继续原快照，不需要重启 C2V/实验模式。
 
 ## 发布版本
 
