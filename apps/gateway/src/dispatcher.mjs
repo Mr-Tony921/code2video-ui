@@ -3,7 +3,7 @@
  *
  * 关键约束：
  *  · 优先使用会话绑定的进程。dev 可为共享工作区配置备用执行进程。
- *  · 全局 8 / 单机 4 双层并发，两种 mode 共享（任务 10.3）
+ *  · 所有模式共用全局容量，按排队时间派发。
  *  · 投递后立即返回，绝不等待 1~2 小时的生成（任务 7.1）
  */
 import { stat } from 'node:fs/promises';
@@ -13,15 +13,16 @@ import { config } from './config.mjs';
 import { bridge } from './bridge-client.mjs';
 import * as maintenance from './maintenance.mjs';
 
+export function compareQueuedJobs(a, b) {
+  return String(a.queued_at ?? a.created_at).localeCompare(String(b.queued_at ?? b.created_at)) ||
+    String(a.created_at).localeCompare(String(b.created_at)) || a.id.localeCompare(b.id);
+}
+
 export class Dispatcher {
   constructor({ pool, log = console }) {
     this.pool = pool;
-    const workers = config.concurrency?.shared_workspace_workers;
-    const isolation = config.raw.isolation;
-    this.sharedWorkers = new Set(config.environment === 'dev' &&
-      config.raw.production?.allow_steering_during_job === false &&
-      isolation?.enabled && isolation.fallback_to_soft === false && isolation.workspace_mount === '/workspace' &&
-      Array.isArray(workers) ? workers : []);
+    this.sharedWorkers = pool.sharedWorkers;
+    this.deliveries = new Set();
     this.log = log;
     this.timer = null;
     this.running = false;
@@ -47,7 +48,7 @@ export class Dispatcher {
       const shared = this.sharedWorkers.size > 1;
       const jobs = await store.listJobs(shared ? {} : { statuses: ['QUEUED'] });
       const queued = jobs.filter(j => j.status === 'QUEUED')
-        .sort((a, b) => String(a.queued_at).localeCompare(String(b.queued_at)));
+        .sort(compareQueuedJobs);
       const activeSessions = new Set();
       const sessionJobs = new Map();
       if (shared) {
@@ -60,7 +61,7 @@ export class Dispatcher {
       }
       for (const job of queued) {
         if (activeSessions.has(job.session_id)) continue;
-        let admit = this.pool.canAdmit(job.process_instance_id);
+        let admit = this.pool.canAdmit(job.process_instance_id, job.mode);
 
         // 自愈：绑定的进程实例已不存在，但同一台机器有健康的新实例。
         //
@@ -84,12 +85,13 @@ export class Dispatcher {
             });
             this.log.warn(`[dispatcher] ${job.id} 绑定的实例已消失，改绑到同机新实例 ${live.process_instance_id}`);
             job.process_instance_id = live.process_instance_id;
-            admit = this.pool.canAdmit(job.process_instance_id);
+            admit = this.pool.canAdmit(job.process_instance_id, job.mode);
           }
         }
 
         let target;
-        if (!admit.ok && shared && ['PROCESS_CAPACITY', 'BRIDGE_BUSY_BACKOFF'].includes(admit.reason)) {
+        if (!admit.ok && shared && ['PROCESS_CAPACITY', 'BRIDGE_BUSY_BACKOFF', 'PROCESS_UNKNOWN', 'PROCESS_UNAVAILABLE',
+          'PROCESS_SUSPECTED_UNAVAILABLE', 'MODE_UNSUPPORTED'].includes(admit.reason)) {
           target = await this.findSharedExecutor(job, sessionJobs.get(job.session_id));
         }
         if (!admit.ok && !target) continue;
@@ -102,12 +104,12 @@ export class Dispatcher {
   }
 
   async findSharedExecutor(job, siblings) {
-    if (!this.sharedWorkers.has(job.worker_id) || job.attempt !== 0 || job.lease || job.started_at ||
+    if (job.started_at || (job.lease && !job.lease.revoked_at && !job.lease.released_at) ||
         siblings.some(other => other.id !== job.id && !store.isTerminal(other.status))) return null;
     const target = [...this.pool.processes.values()].find(p =>
       p.worker_id !== job.worker_id && this.sharedWorkers.has(p.worker_id) &&
       p.supported_modes.includes(job.mode) && p.active_sessions < p.max_sessions &&
-      this.pool.canAdmit(p.process_instance_id).ok);
+      this.pool.canAdmit(p.process_instance_id, job.mode).ok);
     if (!target) return null;
 
     const session = await store.getSession(job.session_id);
@@ -132,7 +134,7 @@ export class Dispatcher {
 
   async dispatch(job, target) {
     const execution = target ?? job;
-    if (!this.pool.canAdmit(execution.process_instance_id).ok) return;
+    if (!this.pool.canAdmit(execution.process_instance_id, job.mode).ok) return;
     // Assignment and executor selection share the same locked job write.
     const boundWorker = job.worker_id;
     const assigned = await store.assignQueuedJob(job, execution);
@@ -160,8 +162,15 @@ export class Dispatcher {
     // 在这里加一下会被下一次心跳直接覆盖掉（实测会导致同一个槽重复发放）。
     this.pool.reserve(job.process_instance_id, job.id);
 
+    const session = await store.getSession(job.session_id);
+    const delivery = this.deliver(job, base, lease, session).catch(e => {
+      this.log.error('[dispatcher] ' + job.id + ' 投递收口失败: ' + e.message);
+    }).finally(() => this.deliveries.delete(delivery));
+    this.deliveries.add(delivery);
+  }
+
+  async deliver(job, base, lease, sess) {
     try {
-      const sess = await store.getSession(job.session_id);
       await bridge.startJob(base, {
         job_id: job.id,
         session_id: sess?.binding?.backend_session_ref ?? job.session_id,

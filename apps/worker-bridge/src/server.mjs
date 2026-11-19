@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { whiteboxResponse } from '../../shared/whitebox-response.mjs';
 import { validateVideo } from '../../shared/video-validation.mjs';
 import { json, err, readJsonStrict as readJson, matchRoute } from '../../shared/http.mjs';
 /**
@@ -12,6 +13,7 @@ import { json, err, readJsonStrict as readJson, matchRoute } from '../../shared/
  *   CVW_WORKER_ID=cvw-131 CVW_GATEWAY_BASE_URL=http://gw:9999 \
  *   CVW_INTERNAL_TOKEN=... CVW_MODEL_API_KEY=... node src/server.mjs
  */
+import { createWhiteboxProxy } from './whitebox-proxy.mjs';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
@@ -54,7 +56,7 @@ function hooksFor(jobId) {
     onComplete: (meta) =>
       withRetry(() => gateway.jobComplete(jobId, {
         lease_token: jobLeases.get(jobId),
-        asset: {
+        asset: meta.response ? null : {
           kind: 'video',
           storage_path: meta.storage_path,
           completion_marker: meta.completion_marker,
@@ -72,6 +74,8 @@ function hooksFor(jobId) {
           ...(meta.height ? { height: meta.height } : {}),
           ...(meta.duration_ms ? { duration_ms: meta.duration_ms } : {}),
         },
+        response: meta.response,
+        last_assistant_text: meta.last_assistant_text,
         finished_at: meta.finished_at,
       }), { label: `complete ${jobId}`, tries: 8 })
         .then(() => { jobLeases.delete(jobId); console.log(`[bridge] job ${jobId} 完成已上报`); })
@@ -185,7 +189,7 @@ const routes = {
         skillset: ws.skillsetName,
         skills: ws.skills,
         workspace: ws.dir,
-        isolation: verifySkillIsolation(b.session_id, b.mode),
+        isolation: verifySkillIsolation(b.session_id, b.mode, b.builtin_skills),
       });
     } catch (e) {
       return err(res, 500, 'SESSION_INIT_FAILED', e.message);
@@ -204,6 +208,7 @@ const routes = {
     for (const f of ['job_id', 'session_id', 'mode', 'prompt', 'lease_token']) {
       if (!b[f]) return err(res, 400, 'VALIDATION_FAILED', `缺少 ${f}`);
     }
+    if (!config.worker.supportedModes.includes(b.mode)) return err(res, 400, 'MODE_UNSUPPORTED', '本 Worker 不支持该任务模式');
     if (sup.draining) return err(res, 503, 'DRAINING', '本进程正在下线，不接新任务');
 
     jobLeases.set(b.job_id, b.lease_token);
@@ -271,6 +276,8 @@ const routes = {
       if (existsSync(p)) {
         const meta = JSON.parse(await readFile(p, 'utf8'));
         if (status === 'completed') {
+          const response = whiteboxResponse(meta.mode, meta.response);
+          if (response) return json(res, 200, { status, response, finished_at: meta.finished_at });
           try {
             const verified = await validateVideo(meta.storage_path, {
               expectedSize: meta.size_bytes, fullDecode: meta.validation?.full_decode !== true,
@@ -313,7 +320,8 @@ const routes = {
     if (!authed(req)) return err(res, 401, 'INTERNAL_AUTH_FAILED', 'token 无效');
     const mode = new URL(req.url, 'http://x').searchParams.get('mode');
     if (!mode) return err(res, 400, 'VALIDATION_FAILED', '缺少 mode 查询参数');
-    return json(res, 200, verifySkillIsolation(id, mode));
+    const meta = await store.readSessionMeta(id);
+    return json(res, 200, verifySkillIsolation(id, mode, meta?.builtin_skills));
   },
 
   /** 会话元信息 + 轨迹 + Job 列表：用于按用户恢复会话。 */
@@ -474,8 +482,14 @@ const routes = {
 };
 
 
+const whiteboxProxy = createWhiteboxProxy(config, runner.getJob);
 const server = createServer(async (req, res) => {
   const { pathname } = new URL(req.url, `http://${req.headers.host ?? 'x'}`);
+  const modelRoute = /^\/whitebox-model\/(job_[a-f0-9-]{36})(\/v1\/messages(?:\/count_tokens)?)$/.exec(pathname);
+  if (modelRoute && config.raw.whitebox?.enabled) {
+    try { return await whiteboxProxy(req, res, modelRoute[1], modelRoute[2]); }
+    catch (e) { if (!res.headersSent) return err(res, 502, 'WHITEBOX_MODEL_ERROR', e.message); return res.destroy(); }
+  }
   const [handler, params] = matchRoute(routes, req.method, pathname);
   if (!handler) return err(res, 404, 'NOT_FOUND', `${req.method} ${pathname}`);
 

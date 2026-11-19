@@ -1,3 +1,4 @@
+import { whiteboxResponsePatch } from '../../shared/whitebox-response.mjs';
 /**
  * Watchdog：心跳判定、停滞检测、对账、超时取消。
  *
@@ -123,7 +124,7 @@ export class Watchdog {
       // 1) 超最大运行时间 → 走取消流程（不是直接 FAILED）
       if (j.started_at && (j.status === 'RUNNING' || j.status === 'ASSIGNED')) {
         const ran = now - new Date(j.started_at).getTime();
-        if (ran > (j.max_runtime_seconds ?? 10800) * 1000) {
+        if (j.max_runtime_seconds !== 0 && ran > (j.max_runtime_seconds ?? 10800) * 1000) {
           this.log.warn(`[watchdog] ${j.id} 超最大运行时间 ${Math.round(ran / 60000)}min → 请求取消`);
           const requested = await store.transition(j.id, 'CANCEL_REQUESTED', {
             cancellation: { requested_at: new Date().toISOString(), requested_by: 'system', reason: 'max_runtime' },
@@ -305,12 +306,12 @@ export class Watchdog {
      * 取消来晚了：它其实已经做完。按完成处理 ——
      * 用户点了停止但成片已经出来了，丢掉产物才是真的损失。
      */
-    if (truth?.status === 'completed' && truth.asset?.storage_path) {
-      const t = await store.transition(job.id, 'COMPLETED', { result_asset: { ...truth.asset, state: 'READY', ready_at: new Date().toISOString() } });
+    if (truth?.status === 'completed' && (truth.asset?.storage_path || whiteboxResponsePatch(job.mode, truth.response))) {
+      const t = await store.transition(job.id, 'COMPLETED', { ...(whiteboxResponsePatch(job.mode, truth.response) ?? { result_asset: { ...truth.asset, state: 'READY', ready_at: new Date().toISOString() } }), finished_at: truth.finished_at ?? new Date().toISOString() });
       if (t.ok) {
         await store.releaseLease(job.id);
         this.releaseSlot(job);
-        await store.appendEvent(job.id, 'job.completed', { status: 'COMPLETED', asset: truth.asset });
+        await store.appendEvent(job.id, 'job.completed', { status: 'COMPLETED', asset: truth.asset ?? null, response: truth.response ?? null });
         this.log.log(`[watchdog] ${job.id} 取消前已完成，补判 COMPLETED（产物保留）`);
       }
       this.cancelResends.delete(job.id);
@@ -414,13 +415,13 @@ export class Watchdog {
       const t = await store.transition(job.id, 'RUNNING', { last_heartbeat_at: new Date().toISOString(),
         ...(job.started_at ? {} : { started_at: truth.started_at ?? new Date().toISOString() }) });
       if (t.ok) this.log.log(`[watchdog] ${job.id} 对账确认仍在运行，恢复 RUNNING`);
-    } else if (truth.status === 'completed' && truth.asset?.storage_path) {
+    } else if (truth.status === 'completed' && (truth.asset?.storage_path || whiteboxResponsePatch(job.mode, truth.response))) {
       // 弥补「产物已写但完成事件丢失」
-      const t = await store.transition(job.id, 'COMPLETED', { result_asset: { ...truth.asset, state: 'READY', ready_at: new Date().toISOString() } });
+      const t = await store.transition(job.id, 'COMPLETED', { ...(whiteboxResponsePatch(job.mode, truth.response) ?? { result_asset: { ...truth.asset, state: 'READY', ready_at: new Date().toISOString() } }), finished_at: truth.finished_at ?? new Date().toISOString() });
       if (t.ok) {
         await store.releaseLease(job.id);
         this.releaseSlot(job);
-        await store.appendEvent(job.id, 'job.completed', { status: 'COMPLETED', asset: truth.asset });
+        await store.appendEvent(job.id, 'job.completed', { status: 'COMPLETED', asset: truth.asset ?? null, response: truth.response ?? null });
         this.log.log(`[watchdog] ${job.id} 对账发现已完成，补判 COMPLETED`);
       }
     } else if (truth.status === 'cancelled') {

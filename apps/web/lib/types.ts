@@ -174,6 +174,7 @@ export type Job = {
    * 过程框才能默认折叠而不丢信息。
    */
   last_assistant_text: string | null;
+  response?: { kind: 'clarification' | 'answer'; text: string } | null;
   /** 用户原始输入（完整） */
   original_prompt?: string | null;
   /** 增强后的制作方案；ENHANCING 阶段为 null */

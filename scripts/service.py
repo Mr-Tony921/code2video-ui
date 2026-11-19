@@ -48,7 +48,7 @@ def service_info(config, kind, worker):
     return 'web-local', config['deployment']['web'], ROOT / 'apps/web', 'node_modules/next/dist/bin/next', '/health'
 
 
-def owned_processes(cwd, entry, web):
+def owned_processes(cwd, entry, web, worker=None):
     """Identify by exact cwd + executable role; capture start time to guard PID reuse."""
     found = {}
     for proc in Path('/proc').glob('[0-9]*'):
@@ -61,6 +61,8 @@ def owned_processes(cwd, entry, web):
                 match = comm.startswith('next-server') or entry.encode() in argv
             else:
                 match = comm == 'node' and entry.encode() in argv
+            if match and worker is not None:
+                match = ("CVW_WORKER_ID=" + worker).encode() in proc.joinpath("environ").read_bytes().split(b"\0")
             if match:
                 fields = proc.joinpath('stat').read_text().rsplit(')', 1)[1].split()
                 if fields[0] != 'Z':
@@ -70,20 +72,20 @@ def owned_processes(cwd, entry, web):
     return found
 
 
-def stop(cwd, entry, web):
-    original = owned_processes(cwd, entry, web)
+def stop(cwd, entry, web, worker=None):
+    original = owned_processes(cwd, entry, web, worker)
     for pid, ticks in original.items():
-        if owned_processes(cwd, entry, web).get(pid) == ticks:
+        if owned_processes(cwd, entry, web, worker).get(pid) == ticks:
             os.kill(pid, signal.SIGTERM)
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
-        current = owned_processes(cwd, entry, web)
+        current = owned_processes(cwd, entry, web, worker)
         if not any(current.get(pid) == ticks for pid, ticks in original.items()):
             return
         time.sleep(.25)
     # Only the exact service processes originally selected, never their task groups.
     for pid, ticks in original.items():
-        if owned_processes(cwd, entry, web).get(pid) == ticks:
+        if owned_processes(cwd, entry, web, worker).get(pid) == ticks:
             os.kill(pid, signal.SIGKILL)
     time.sleep(.25)
 
@@ -184,11 +186,12 @@ def main():
         raise RuntimeError(f"Run {name} on {address['host']}, not this host")
     log = ROOT / 'runtime/logs' / (name + '.log')
     web = args.kind == 'web'
+    worker = args.worker if args.kind == 'bridge' else None
     session = session_name(name)
     if args.action == 'logs':
         os.execvp('tail', ['tail', '-n', '40', '-F', str(log)])
     if args.action == 'status':
-        pids = owned_processes(cwd, entry, web)
+        pids = owned_processes(cwd, entry, web, worker)
         managed = session_exists(session)
         print(name, 'pids=' + ','.join(map(str, pids)), 'tmux=' + (session if managed else 'none'),
               f"http://{address['host']}:{address['port']}")
@@ -205,7 +208,7 @@ def main():
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if args.action in ['stop', 'restart']:
             stop_session(session)
-            stop(cwd, entry, web)
+            stop(cwd, entry, web, worker)
             (ROOT / 'runtime/pids' / (name + '.pid')).unlink(missing_ok=True)
             if args.action == 'stop':
                 return 0
@@ -218,7 +221,7 @@ def main():
             env = environment(cfg, node, args.kind, args.worker)
             env['NEXT_PUBLIC_BASE_PATH'] = cfg['deployment']['web'].get('base_path') or ''
             return subprocess.call([node, entry, 'build'], cwd=cwd, env=env)
-        if owned_processes(cwd, entry, web) or session_exists(session):
+        if owned_processes(cwd, entry, web, worker) or session_exists(session):
             raise RuntimeError(f'{name} already running; use status or restart')
         if not shutil.which('tmux'):
             raise RuntimeError('tmux is required for persistent services')
@@ -239,7 +242,7 @@ def main():
             try:
                 with opener.open(f'http://127.0.0.1:{address["port"]}{health}', timeout=2) as response:
                     ready = health_ready(response, args.kind, args.worker)
-                pids = owned_processes(cwd, entry, web)
+                pids = owned_processes(cwd, entry, web, worker)
                 if ready and len(pids) == 1:
                     pid = next(iter(pids))
                     (ROOT / 'runtime/pids' / (name + '.pid')).write_text(str(pid) + '\n')

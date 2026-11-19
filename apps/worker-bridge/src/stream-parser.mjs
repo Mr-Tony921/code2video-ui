@@ -116,6 +116,10 @@ function summarizeToolInput(tool, input, n) {
     case 'Glob':
     case 'Grep':
       return pick('pattern', 'path', 'glob');
+    case 'mcp__whitebox__submit':
+      return { kind: input.kind, title: input.data?.title, shots: input.data?.shots?.length };
+    case 'mcp__whitebox__evidence':
+      return pick('files');
     case 'Task':
       return { subagent_type: input.subagent_type, description: input.description };
     default: {
@@ -128,6 +132,11 @@ function summarizeToolInput(tool, input, n) {
 /** 从事件流推断生产阶段。比看 stdout 文本可靠。 */
 export function phaseFromEvent(ev) {
   if (ev.kind === 'tool_use') {
+    if (ev.tool === 'mcp__whitebox__submit') {
+      if (['brief', 'edit', 'clarify', 'answer'].includes(ev.input?.kind)) return 'PREPARING';
+      if (['draft', 'patch', 'facts'].includes(ev.input?.kind)) return 'GENERATING';
+      if (ev.input?.kind === 'review') return 'RENDERING';
+    }
     const cmd = String(ev.input?.command ?? '');
     if (/ffmpeg|render\.mjs|capture\.mjs/.test(cmd)) return 'RENDERING';
     if (/ffprobe|check_video|contact_sheet|review\.py/.test(cmd)) return 'FINALIZING';

@@ -23,3 +23,11 @@ test('bulk session rebinding preserves adopted executions and leases while isola
   assert.equal(running.lease.token, lease.token); assert.equal(running.lease.epoch, lease.epoch);
   assert.equal(running.lease.holder_process_instance_id, 'new');
 });
+
+test('shared-worker registration keeps idle historical session records byte-identical', async () => {
+  const s = await store.createSession({ userId: 'fixture', mode: 'experimental',
+    workerId: 'shared-worker', processInstanceId: 'previous-instance' });
+  const original = await store.getSession(s.id);
+  await store.rebindSessionsToNewProcess('shared-worker', 'next-instance', { preserveIdle: true });
+  assert.deepEqual(await store.getSession(s.id), original);
+});

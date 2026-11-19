@@ -242,7 +242,12 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
       )}
 
       {/* 完成但没有产物：必须明说，不能静默留白 */}
-      {job.status === 'COMPLETED' && !job.result_asset && (
+      {job.status === 'COMPLETED' && job.response && (
+        <div className="note" style={{ marginTop: 10 }}>
+          {job.response.kind === 'clarification' ? '请补充需求后继续对话。' : '已答复，可继续对话或提出修改。'}
+        </div>
+      )}
+      {job.status === 'COMPLETED' && !job.result_asset && !job.response && (
         <div className="note bad" style={{ marginTop: 10 }}>
           任务已结束，但未取到视频产物。可重新提交，或联系管理员查看该任务日志。
         </div>

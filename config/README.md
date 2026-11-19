@@ -77,11 +77,11 @@ Bridge 启动时校验必填项，**缺失直接拒绝启动**，不会半配置
 
 ## 并发
 
-用户指定：**全局 8，单机 4**。两种 mode 共享，不可通过切 mode 突破。
-- 单机限制由 Bridge 自己执行（`WORKER_AT_CAPACITY`）
-- 全局限制由 Gateway 的信号量执行
+dev 的四个 Worker 共用一个 FIFO 队列，支持 C2V、实验模式和白模。Gateway 所在机器分配 2 槽，其他三台各 4 槽，总容量 14。账号、模式和模型均无专用配额或优先级。
 
-仅在 dev 的 Worker 共享会话存储、运行依赖与 `/workspace` 隔离时，可在 `concurrency.shared_workspace_workers` 列出已核验的 Worker ID。会话绑定的 Worker 满载时，尚未派发的任务可使用列表中另一台有空槽的 Worker。续写需要共享工作区中的原生对话记录，任务租约和回调使用实际执行实例。
+`concurrency.shared_workspace_workers` 列出共享会话存储、相同依赖和 `/workspace` 隔离挂载的 Worker。新任务可使用任一有空槽的 Worker，同一会话按轮次串行。续写继续使用原工作区和 CC 会话，租约与回调归属于本轮实际执行者。工作区的历史记录由服务端保留。
+
+模型上下文、输出上限和压缩阈值由各模型配置提供，CC 直接使用该配置。
 
 ## skill 映射（白模权限）
 
@@ -213,3 +213,24 @@ runtime/session-index.jsonl   全局索引：session_id ↔ user_id
 
 开启后需实现 `API_CONTRACT.md` §6.2 的 `revise` / `approve` 流程
 （增强 → Prompt Review Card → 用户确认 → 建 Job）。接口契约已定好，替换实现即可。
+
+## Dev 白模配置
+
+`whitebox.enabled` 在 dev 中开放模型与 Skill 设置。白模、C2V 和实验模式共用 FIFO 队列和 14 槽。
+
+`whitebox.default_model` 与 `whitebox.default_skill` 指定新对话的默认选择。当前默认值为 `whitebox-deepseek` 和 `blockout-previs-video` 0.11.1。各模型的 `channels` 按配置顺序尝试，凭据使用 `api_key_env` 提供。会话保存模型版本，每轮 capture 保存实际调用渠道和原始响应。已开始输出的回答只使用同一渠道。
+
+GPT 通过 Responses 适配器接入 CC，保留图片回执与原生 reasoning 状态。其他模型使用 Anthropic Messages。现有会话仍可解析已经隐藏的新建选项，历史配置不做替换。
+
+白模上传 ZIP 必须恰好含一个 Skill，上传后替换默认、内置和粘贴的 Skill。续写保留原 CC 会话和工作区，每轮单独固定产物和执行依赖。旧版 0.9.3 的兼容处理只针对已核验的源文件哈希，原始上传包及每轮执行副本均保留。
+
+白模整案时限为 `max_runtime_seconds: 0`，600 秒仅为耗时对照目标。模型请求超时默认 300 秒，白模工作区准备的接单超时为 90 秒。派发期间预留槽位，其余任务继续填充空槽。
+
+已核验的 Blockout Previs 0.11.1 使用专用 CC 分阶段宿主：初稿/首次审查为 `output_config.effort: low`，需要修正时为 `high`；保留每个模型的上下文和输出上限。确定性的 compile/check/facts/preview/render/package 由文件写入 hook 调用原 skill CLI，CC 保留 Read/Write/Edit/Bash、原生会话和实际看图。未知上传版本继续使用原通用执行流程，不套用此版本的脚本契约。新任务记录 `whitebox_host`，并在 round 中保存实际宿主脚本。
+
+仅对实测需要的渠道设置 `whitebox.models[].channels[].anthropic_compatibility`，默认均关闭：
+
+- `lift_tool_images: true`：把 `tool_result` 内图片移到同一条 user 消息的工具回执组后，附工具 ID 关联，保留字节和图片观测顺序。请求原件与实际上游请求同时保存；这是渠道兼容变换，不是删除图片。
+- `input_tokens_include_cache: true`：当渠道将缓存输入重复计入 `input_tokens` 时，发送给 CC 的统计减去 cache read/create，避免 CC 高估上下文。上游 SSE 原字节保存在 `response.txt`，兼容后的流另存 `client-response.txt`，thinking/签名/工具调用不变。
+
+2026-11-18 只为 DeepSeek `zijian/sfb` 主渠道启用这两个开关；Opus 和未经验证的备用渠道不启用。兼容开关不改变已有会话的模型配置版本。更新 bridge 会中断它所代理的在途白模 HTTP 流，因此此类更新必须等白模任务结束后进行；仅更新每轮复制的宿主脚本可供后续任务使用，无需重启 bridge。

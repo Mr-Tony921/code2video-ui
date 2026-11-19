@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { whiteboxResponsePatch } from '../../shared/whitebox-response.mjs';
 import { validateVideo } from '../../shared/video-validation.mjs';
 /**
  * Gateway —— 调度与对外 API 的常驻服务。默认端口 9999。
@@ -18,8 +19,9 @@ import { json, err, readJson, matchRoute } from '../../shared/http.mjs';
 import { internalAuthed, setSessionCookie, currentUser } from './auth.mjs';
 import { config, describeGatewayConfig } from './config.mjs';
 import { WorkerPool } from './worker-pool.mjs';
-import { Dispatcher } from './dispatcher.mjs';
+import { Dispatcher, compareQueuedJobs } from './dispatcher.mjs';
 import * as maintenance from './maintenance.mjs';
+import { whiteboxEnabled, newWhiteboxModels, defaultWhiteboxModel, resolveNewWhiteboxModel, whiteboxSkills, defaultWhiteboxSkills, resolveWhiteboxModel, prepareWhiteboxSkills } from '../../shared/whitebox.mjs';
 import { agentStatus } from './enhance-agent.mjs';
 import { Watchdog } from './watchdog.mjs';
 import { StreamPump } from './stream-pump.mjs';
@@ -67,7 +69,7 @@ function requireExperimentalModel(user, selection) {
 }
 
 
-const pool = new WorkerPool({ repoRoot: config.repoRoot });
+const pool = new WorkerPool({ repoRoot: config.repoRoot, backendConfig: config.raw });
 const dispatcher = new Dispatcher({ pool });
 const watchdog = new Watchdog({ pool, onSlotFreed: () => dispatcher.tick().catch(() => {}) });
 const pump = new StreamPump({ pool });
@@ -603,8 +605,7 @@ const routes = {
       prompt: String(j.original_prompt ?? j.prompt ?? '').slice(0, 120),
     });
     const running = live.filter((j) => ['ASSIGNED','RUNNING','CANCEL_REQUESTED','CANCELLING'].includes(j.status));
-    const queued = live.filter((j) => j.status === 'QUEUED')
-      .sort((a, b) => String(a.queued_at).localeCompare(String(b.queued_at)));
+    const queued = live.filter(j => j.status === 'QUEUED').sort(compareQueuedJobs);
     const enhancing = live.filter((j) => j.status === 'ENHANCING');
 
     return json(res, 200, {
@@ -770,6 +771,17 @@ const routes = {
     });
   },
 
+  'GET /api/whitebox/settings': async (req, res) => {
+    const u = currentUser(req);
+    if (!u) return err(res, 401, 'UNAUTHENTICATED', '未登录');
+    const live = await users.get(u.username);
+    if (!whiteboxEnabled(config.raw) || live?.status !== 'active' || !(live?.can_use_blockout_3d || live?.role === 'admin'))
+      return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '需管理员授予白模预演权限');
+    return json(res, 200, { models: newWhiteboxModels(config.raw).map(({ endpoint, channels, ...m }) =>
+      ({ ...m, channels: channels.map(c => ({ model: c.model })) })), skills: whiteboxSkills(config.raw),
+      default_model_id: defaultWhiteboxModel(config.raw), default_skills: defaultWhiteboxSkills(config.raw), time_target_seconds: 600, hard_timeout_seconds: null });
+  },
+
   'GET /api/experimental/models': async (req, res) => {
     const user = await experimentalUser(req);
     const models = experimentalModels(config.raw).filter(p => canUseExperimentalModel(user, p.profile_id))
@@ -804,7 +816,8 @@ const routes = {
       return err(res, 400, 'VALIDATION_FAILED', 'mode 必须是 coding_to_video 或 blockout_3d');
 
     // ★ 权限校验点 1/4：白模权限在服务端验，前端传什么都不作数
-    if (mode === 'blockout_3d' && !(u.can_use_blockout_3d || u.role === 'admin'))
+    const currentPermissions = mode === 'blockout_3d' ? await users.get(u.username) : u;
+    if (mode === 'blockout_3d' && (currentPermissions?.status !== 'active' || !(currentPermissions?.can_use_blockout_3d || currentPermissions?.role === 'admin')))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '需管理员授予白模预演权限');
 
     let modelSelection = mode === 'coding_to_video' ? c2vModelSnapshot(config.raw) : null, experimentalSkills = null;
@@ -815,6 +828,10 @@ const routes = {
       const builtin = validateBuiltinSkills(b.builtin_skills);
       builtinPermission(liveUser, builtin);
       experimentalSkills = { builtin };
+    }
+    if (mode === 'blockout_3d' && whiteboxEnabled(config.raw)) {
+      modelSelection = resolveNewWhiteboxModel(config.raw, b.model_id).snapshot;
+      experimentalSkills = defaultWhiteboxSkills(config.raw);
     }
     const proc = pool.pickForSession(mode);
     if (!proc) return err(res, 503, 'PROCESS_UNAVAILABLE', '当前无健康后端进程可分配，请稍后重试');
@@ -900,7 +917,8 @@ const routes = {
       return err(res, 409, 'SESSION_NOT_ACTIVE', `会话状态为 ${s.status}，无法提交新任务`);
 
     // ★ 权限校验点 4/4：提交 Job 时以 DB 中 session.mode 为准，忽略请求体
-    if (s.mode === 'blockout_3d' && !(u.can_use_blockout_3d || u.role === 'admin'))
+    const currentPermissions = s.mode === 'blockout_3d' ? await users.get(u.username) : u;
+    if (s.mode === 'blockout_3d' && (currentPermissions?.status !== 'active' || !(currentPermissions?.can_use_blockout_3d || currentPermissions?.role === 'admin')))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '白模权限已变更，无法提交此任务');
 
     let liveExperimentalUser = null;
@@ -956,6 +974,15 @@ const routes = {
           b.experimental_skills ?? {}, s.experimental_skills, { raw: config.raw, repoRoot: config.repoRoot });
       } catch (e) { return err(res, 400, 'SKILL_INVALID', e.message); }
     }
+    const whitebox = s.mode === 'blockout_3d' && whiteboxEnabled(config.raw);
+    const modelSelection = whitebox ? resolveWhiteboxModel(config.raw, s.model_selection ?? undefined).snapshot : s.model_selection;
+    if (whitebox) {
+      try {
+        experimentalSkills = await prepareWhiteboxSkills(
+          join(config.storage.sessionsRoot, config.raw.storage.sessions_subdir), id, b.experimental_skills ?? {},
+          s.experimental_skills ?? { builtin: 'blockout_3d' }, { raw: config.raw, repoRoot: config.repoRoot });
+      } catch (e) { return err(res, 400, 'SKILL_INVALID', e.message); }
+    }
     const isRevision = b.is_revision === true;
     // 用户可在发送处关闭增强（默认开启）。示例 prompt 本身已是增强结果，
     // 再过一遍只会偏离原意，所以点击示例时前端会自动关掉。
@@ -970,9 +997,9 @@ const routes = {
       isRevision,                                   // 微调：后端据此继承上一轮工作区
       workerId: s.binding.worker_id, processInstanceId: s.binding.process_instance_id,
       idempotencyKey: idemKey,
-      maxRuntimeSeconds: b.max_runtime_seconds ?? config.raw.production?.max_runtime_seconds,
-      initialStatus: s.mode === 'experimental' ? 'QUEUED' : 'ENHANCING',
-      modelSelection: s.model_selection, experimentalSkills,
+      maxRuntimeSeconds: whitebox ? 0 : b.max_runtime_seconds ?? config.raw.production?.max_runtime_seconds,
+      initialStatus: s.mode === 'experimental' || whitebox ? 'QUEUED' : 'ENHANCING',
+      modelSelection, experimentalSkills,
     });
     if (replayed) {
       dbg('job.submit.replay', { u: u.id, sid: id, job: job.id, key: idemKey });
@@ -981,9 +1008,9 @@ const routes = {
     dbg('job.submit', { u: u.id, sid: id, job: job.id, mode: s.mode, key: idemKey, rev: isRevision, enh: !skipEnhance });
 
     bridgeRefs.freeze(pool, s, id).catch(() => {});   // 提交即冻结附件集合
-    if (s.mode === 'experimental') {
-      await store.updateSession(id, { experimental_skills: experimentalSkills });
-      await store.patchJob(job.id, { enhancement: { skipped: true, reason: 'experimental', model: null } });
+    if (s.mode === 'experimental' || whitebox) {
+      await store.updateSession(id, { experimental_skills: experimentalSkills, model_selection: modelSelection });
+      await store.patchJob(job.id, { enhancement: { skipped: true, reason: whitebox ? 'whitebox' : 'experimental', model: null } });
       return json(res, 202, { job: publicJob(await store.getJob(job.id)), idempotent_replay: false, enhancing: false, server_time: nowIso() });
     }
     runEnhancement({ job, session: s, instruction: b.prompt, isRevision, skipRequested: skipEnhance })
@@ -1399,7 +1426,7 @@ const routes = {
     const b = await readJson(req);
     if (!b.worker_id || !b.process_instance_id)
       return err(res, 400, 'VALIDATION_FAILED', '缺少 worker_id 或 process_instance_id');
-    const { superseded } = pool.register(b);
+    pool.register(b);
     // Bridge 启动时认领下来的、仍在运行的任务（旧版本 Bridge 不带这个字段）
     const adoptedJobIds = Array.isArray(b.adopted_job_ids) ? b.adopted_job_ids : [];
 
@@ -1424,7 +1451,7 @@ const routes = {
 
     try {
       const { rebound, degraded } = await store.rebindSessionsToNewProcess(
-        b.worker_id, b.process_instance_id, { adoptedJobIds },
+        b.worker_id, b.process_instance_id, { adoptedJobIds, preserveIdle: pool.sharedWorkers.size > 0 },
       );
       if (rebound.length || degraded.length) {
         console.log(`[gateway] ${b.worker_id} 注册后收口会话：改绑 ${rebound.length} 个，` +
@@ -1434,16 +1461,6 @@ const routes = {
       console.warn(`[gateway] 会话收口失败（不影响注册）: ${e.message}`);
     }
 
-    for (const old of superseded) {
-      // 已经改绑到新实例的会话不要再降级（它们的执行者还活着）
-      const affected = await store.degradeSessionsOnProcess(old, `进程已重启（新实例 ${b.process_instance_id}）`);
-      if (affected.length) {
-        console.warn(`[gateway] ${b.worker_id} 重启：旧实例 ${old} 的 ${affected.length} 个会话转 DEGRADED（不迁移）`);
-        // ★ DEGRADED 的会话确定不会再用（前端已提示「请新建对话」）⇒ 立刻还名额，
-        // 不要等 TTL。否则一次 Bridge 重启就白占掉一批 max_sessions。
-        releaseSessionSlots(b.process_instance_id, affected.map((x) => x.id), b.worker_id);
-      }
-    }
     console.log(`[gateway] 已注册 ${b.worker_id} / ${b.process_instance_id}` +
       (adoptedJobIds.length ? `（认领了 ${adoptedJobIds.length} 个运行中任务）` : ''));
     return json(res, 200, {
@@ -1603,16 +1620,19 @@ const routes = {
     if (store.isTerminal(j.status))
       return err(res, 409, 'JOB_ALREADY_TERMINAL', `任务已处于终态 ${j.status}`, { status: j.status });
 
+    const responsePatch = whiteboxResponsePatch(j.mode, b.response);
+    if (b.response && !responsePatch)
+      return err(res, 400, 'VALIDATION_FAILED', 'Invalid whitebox conversational response');
     const asset = b.asset ?? {};
-    if (!asset.storage_path || !(asset.size_bytes > 0))
+    if (!responsePatch && (!asset.storage_path || !(asset.size_bytes > 0)))
       return err(res, 400, 'VALIDATION_FAILED', '产物信息不完整（需 storage_path 与 size_bytes>0）');
 
     try {
-      Object.assign(asset, await validateVideo(asset.storage_path, { fullDecode: false, expectedSize: asset.size_bytes }));
+      if (!responsePatch) Object.assign(asset, await validateVideo(asset.storage_path, { fullDecode: false, expectedSize: asset.size_bytes }));
     } catch (e) { return err(res, 400, 'INVALID_VIDEO', e.message); }
 
     const t = await store.transition(id, 'COMPLETED', {
-      result_asset: { ...asset, state: 'READY', ready_at: nowIso() },
+      ...(responsePatch ?? { result_asset: { ...asset, state: 'READY', ready_at: nowIso() } }),
       finished_at: b.finished_at ?? nowIso(),
       // bridge 的 onComplete 本来就带着它（见 job-runner 的 .done meta），
       // 原来在这里被丢掉了 —— 于是已完成任务的「制作助手」只能靠重放轨迹才拿得到。
@@ -1631,6 +1651,7 @@ const routes = {
      */
     void (async () => {
       try {
+        if (responsePatch) return;
         const r = await ensurePreview(id, asset.storage_path, { log: console });
         if (r) {
           const cur = await store.getJob(id);
@@ -1652,7 +1673,7 @@ const routes = {
     // 会话名额：判据与"对话结束才展示视频"完全一致 —— isTerminal。
     // 这个会话的任务全部终态（成功/失败/用户停止）⇒ 它当下没在工作，名额还回去。
     void maybeReleaseIdleSession(j);
-    await store.appendEvent(id, 'job.completed', { status: 'COMPLETED', asset: t.job.result_asset });
+    await store.appendEvent(id, 'job.completed', { status: 'COMPLETED', asset: t.job.result_asset, response: t.job.response ?? null });
     if (racing) console.log(`[gateway] ${id} 在取消生效前完成 —— 完成优先`);
     return json(res, 200, {
       accepted: true, job_status: 'COMPLETED',
@@ -2024,18 +2045,15 @@ function fmtDuration(sec) {
 }
 
 /**
- * 队列快照：排队中的 job 按 queued_at 升序（与 dispatcher 的出队顺序一致）。
+ * 队列快照与 dispatcher 使用同一套优先级和排队时间排序。
  * 算位置要用同一套排序，否则用户看到的"第几位"和实际出队顺序对不上。
  */
 let queueSnapshot = { ids: [], at: 0 };
 async function refreshQueue() {
-  // 1 秒内复用，避免一次列表请求里对每个 job 都扫一遍磁盘
   if (Date.now() - queueSnapshot.at < 1000) return queueSnapshot.ids;
-  const q = (await store.listJobs({ statuses: ['QUEUED'] }))
-    .sort((a, b) => String(a.queued_at).localeCompare(String(b.queued_at)))
-    .map((j) => j.id);
-  queueSnapshot = { ids: q, at: Date.now() };
-  return q;
+  const queued = (await store.listJobs({ statuses: ['QUEUED'] })).sort(compareQueuedJobs);
+  queueSnapshot = { ids: queued.map(job => job.id), at: Date.now() };
+  return queueSnapshot.ids;
 }
 
 function publicJob(j, queueIds = null) {
@@ -2082,6 +2100,7 @@ function publicJob(j, queueIds = null) {
      * 任务还在跑时工作区里已经有可播放的 mp4，下发出去用户就会当成最终成品，
      * 可是 cc 后面还会继续改。执行过程照常实时显示，只有产物要等定论。
      */
+    response: store.isTerminal(j.status) ? j.response ?? null : null,
     result_asset: (j.result_asset && store.isTerminal(j.status))
       ? {
           id: j.id,                                      // V1: asset_id 即 job_id
@@ -2184,17 +2203,6 @@ await invites.init();
 await examples.init();
 await users.init();
 
-// 换后端机器后，绑在已下线 worker 上的老会话要收口为 DEGRADED，
-// 否则用户点进去只看到 503/提交失败而没有解释。
-try {
-  const liveWorkers = (config.raw.workers ?? []).filter((w) => w.enabled !== false).map((w) => w.worker_id);
-  const stale = await store.degradeSessionsOnRetiredWorkers(liveWorkers);
-  if (stale.length) {
-    console.warn(`[gateway] ${stale.length} 个会话绑定的 worker 已下线，已标记 DEGRADED（产物仍可访问）`);
-  }
-} catch (e) {
-  console.warn(`[gateway] 下线 worker 会话收口失败（不影响启动）: ${e.message}`);
-}
 server.listen(config.server.port, config.server.host, () => {
   console.log('='.repeat(70));
   console.log('Gateway 已启动');

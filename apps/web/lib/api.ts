@@ -82,6 +82,7 @@ export const api = {
     call<{ user: User; note: string }>(`/api/admin/users/${encodeURIComponent(username)}/permissions`, {
       method: 'PATCH', body: JSON.stringify({ can_use_experimental: allowed }),
     }),
+  whiteboxSettings: () => call<{ default_model_id: string; default_skills: import('./types').ExperimentalSkillsInput; models: ExperimentalModel[]; skills: import('./types').ConfiguredSkill[] }>('/api/whitebox/settings'),
   experimentalSkills: () => call<{ skills: import('./types').ConfiguredSkill[] }>('/api/experimental/skills'),
   experimentalModels: () => call<{ models: ExperimentalModel[] }>('/api/experimental/models'),
 

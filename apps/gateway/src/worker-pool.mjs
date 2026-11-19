@@ -10,9 +10,14 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export class WorkerPool {
-  constructor({ repoRoot, now = () => Date.now(), log = console }) {
+  constructor({ repoRoot, backendConfig, now = () => Date.now(), log = console }) {
     this.log = log;
-    const cfg = JSON.parse(readFileSync(join(repoRoot, 'config/backend.json'), 'utf8'));
+    const cfg = backendConfig ?? JSON.parse(readFileSync(join(repoRoot, 'config/backend.json'), 'utf8'));
+    const isolation = cfg.isolation;
+    this.sharedWorkers = new Set(cfg.environment?.name === 'dev' &&
+      cfg.production?.allow_steering_during_job === false &&
+      isolation?.enabled && isolation.fallback_to_soft === false && isolation.workspace_mount === '/workspace'
+      ? cfg.concurrency.shared_workspace_workers ?? [] : []);
     this.globalMax = cfg.concurrency.global_max_concurrent_jobs;
     this.perMachineMax = cfg.concurrency.per_machine_max_concurrent_jobs;
     this.now = now;
@@ -107,7 +112,7 @@ export class WorkerPool {
       for (const jid of hb.running_job_ids) this.reservations.delete(jid);
     }
     if (hb.status === 'draining') st.status = 'DRAINING';
-    else if (st.status === 'SUSPECTED_UNAVAILABLE') st.status = 'HEALTHY'; // 心跳恢复 → 可逆
+    else if (st.status === 'SUSPECTED_UNAVAILABLE' || st.status === 'UNAVAILABLE') st.status = 'HEALTHY';
     return { known: true, process: st };
   }
 
@@ -227,9 +232,10 @@ export class WorkerPool {
     if (st) st.admissionBlockedUntil = this.now() + 15_000;
   }
 
-  canAdmit(processInstanceId) {
+  canAdmit(processInstanceId, mode = null) {
     const st = this.processes.get(processInstanceId);
     if (!st) return { ok: false, reason: 'PROCESS_UNKNOWN' };
+    if (mode && !st.supported_modes.includes(mode)) return { ok: false, reason: 'MODE_UNSUPPORTED' };
     if (st.status !== 'HEALTHY') return { ok: false, reason: `PROCESS_${st.status}` };
     if (st.admissionBlockedUntil > this.now()) return { ok: false, reason: 'BRIDGE_BUSY_BACKOFF' };
     if (this.globalUsed >= this.globalMax)
@@ -252,6 +258,17 @@ export class WorkerPool {
       if (d?.bridge?.host) return `http://${d.bridge.host}:${d.bridge.port}`;
     }
     return null;
+  }
+
+  sessionBridgeUrl(session) {
+    const binding = session.binding;
+    const bound = this.processes.get(binding.process_instance_id) ?? this.healthyForWorker(binding.worker_id);
+    if (bound?.status === 'HEALTHY') return this.bridgeUrlFor(bound.process_instance_id);
+    const shared = [...this.processes.values()].find(worker =>
+      this.sharedWorkers.has(worker.worker_id) && worker.status === 'HEALTHY' &&
+      worker.supported_modes.includes(session.mode));
+    return shared ? this.bridgeUrlFor(shared.process_instance_id) :
+      this.bridgeUrlFor(binding.process_instance_id, binding.worker_id);
   }
 
   capacitySnapshot({ includeWorkers = false } = {}) {

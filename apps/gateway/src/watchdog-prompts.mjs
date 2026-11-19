@@ -54,7 +54,7 @@ export class WatchdogPrompts {
         return now - new Date(base).getTime() > (p.threshold_seconds ?? 300) * 1000;
       }
       case 'approaching_max_runtime': {
-        if (!job.started_at) return false;
+        if (!job.started_at || job.max_runtime_seconds === 0) return false;
         const ran = (now - new Date(job.started_at).getTime()) / 1000;
         const limit = p.threshold_seconds ?? (job.max_runtime_seconds - 3600);
         return ran > limit;

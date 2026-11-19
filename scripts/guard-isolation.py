@@ -14,7 +14,21 @@ def inside(value):
     return p.is_relative_to(ROOT / 'runtime')
 
 
-def validate_data_scope(c):
+def relocation_for(c):
+    path = ROOT / 'runtime/deployment/dev-relocation.json'
+    if not path.exists():
+        return None
+    record = json.loads(path.read_text())
+    assert record['scope'] == 'dev-relocation-with-shared-production-hosts', 'Invalid relocation scope'
+    for role in ('web', 'gateway'):
+        service = c['deployment'][role]
+        assert record[role] == [service['host'], service['port']], f'Unapproved {role} relocation'
+    workers = {w['worker_id']: [w['bridge']['host'], w['bridge']['port'], w['max_concurrent_jobs']] for w in c['workers']}
+    assert len(workers) == len(c['workers']) and workers == record['workers'], 'Unapproved worker relocation'
+    return record
+
+
+def validate_data_scope(c, relocation=None):
     paths = [c['storage']['root'], c['storage']['sessions_root'], c['session_store']['root'], c['session_store']['index_file']]
     reused = not all(inside(p) for p in paths)
     if reused:
@@ -31,7 +45,10 @@ def validate_data_scope(c):
         assert [str(Path(p).resolve()) for p in paths] == expected, 'Only original dev data paths may be reused'
         original = [old['storage']['root'], old['storage']['sessions_root'], old['session_store']['root'], old['session_store']['index_file']]
         assert paths == original, 'Data configuration differs from original dev'
-        assert {w['worker_id'] for w in c['workers']} == {w['worker_id'] for w in old['workers']}, 'Shared data requires original dev worker identities'
+        current_ids = {w['worker_id'] for w in c['workers']}
+        old_ids = {w['worker_id'] for w in old['workers']}
+        assert current_ids == old_ids or (relocation and
+            all(w.startswith('cvw-codex-') for w in current_ids - old_ids)), 'Shared data requires original dev worker identities'
     else:
         assert all(w['worker_id'].startswith('cvw-codex-') for w in c['workers']), 'Foreign worker ID'
     overrides = [os.environ[k] for k in ('CVW_STORAGE_ROOT', 'CVW_SESSIONS_ROOT') if k in os.environ]
@@ -46,7 +63,8 @@ def check():
     assert cfg.is_relative_to(ROOT / 'config'), 'Foreign backend configuration'
     c = json.loads(cfg.read_text())
     assert c['environment']['name'] == 'dev', 'Not a development environment'
-    validate_data_scope(c)
+    relocation = relocation_for(c)
+    validate_data_scope(c, relocation)
     dependencies = [c['runtime_binaries']['chrome_bin_host'], c['runtime_binaries']['previs_dependency_root_host']]
     dependencies += [b['src'] for b in c['isolation']['bind_paths']]
     assert all(inside(p) for p in dependencies), 'Dependency or bind path escapes this checkout'
@@ -74,7 +92,12 @@ def check():
                 assert endpoints == adopted and endpoints & used <= adopted, 'Unapproved dev endpoint reuse'
             if name != 'code2video-dev':
                 hosts = {host for host, _ in used}
-                assert not ({host for host, _ in endpoints} & hosts), 'Production host selected'
+                shared_hosts = {host for host, _ in endpoints} & hosts
+                if shared_hosts:
+                    assert relocation, 'Production host selected'
+                    assert c['deployment']['web']['host'] not in shared_hosts, 'Production frontend host selected'
+                    prod_worker_ids = {w['worker_id'] for w in other['workers']}
+                    assert not (prod_worker_ids & {w['worker_id'] for w in c['workers']}), 'Production worker identity selected'
     print('PASS: checkout, storage, dependencies, namespaces, worker IDs, cookies and endpoints isolated')
 
 

@@ -28,7 +28,10 @@ async function call(baseUrl, path, { method = 'POST', body, timeoutMs } = {}) {
 export const bridge = {
   health: (base) => call(base, '/health', { method: 'GET', timeoutMs: 8000 }),
   initSession: (base, body) => call(base, '/sessions', { body }),
-  startJob: (base, body) => call(base, '/jobs', { body }),
+  startJob: (base, body) => call(base, '/jobs', { body,
+    // ZIP extraction and host adaptation can exceed the regular 20s admission timeout on cold AFS.
+    // In-flight admission reserves its slot while the dispatcher fills the remaining slots.
+    timeoutMs: body.mode === 'blockout_3d' ? 90_000 : undefined }),
   cancelJob: (base, jobId, body) => call(base, `/jobs/${jobId}/cancel`, { body }),
   /** 对账：Job 状态未知时查询真实情况 */
   probeJob: (base, jobId, sessionId) =>

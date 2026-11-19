@@ -1,41 +1,45 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前代码版本为 **1.5.3**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
+基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前代码版本为 **1.5.4**，以 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
 
-当前内网入口：**http://10.210.9.14:32062**（内网直连 `http://10.120.6.65:8000`）。页面显示「Codex 开发环境」。
+当前 dev 入口为 **http://10.210.9.14:20211/**，前端直连 `http://10.120.7.224:8000`。页面显示「Codex 开发环境」。
 
-| 服务 | 主机与端口 | 启动目标 |
+| 服务 | 主机与端口 | 容量 / 启动目标 |
 | --- | --- | --- |
-| Next.js 前端/BFF | 10.120.6.65:8000 | `web` |
-| Gateway | 10.120.3.60:9998 | `gateway` |
-| Worker Bridge | 10.120.3.60:18080 | `bridge cvw-dev-360` |
-| Worker Bridge | 10.120.3.50:18080 | `bridge cvw-dev-350` |
+| Next.js 前端/BFF | 10.120.7.224:8000 | `web` |
+| Gateway | 10.120.4.121:19998 | `gateway` |
+| Worker Bridge | 10.120.4.121:18081 | 2 槽 / `bridge cvw-codex-4121` |
+| Worker Bridge | 10.120.4.112:18081 | 4 槽 / `bridge cvw-codex-4112` |
+| Worker Bridge | 10.120.4.84:18081 | 4 槽 / `bridge cvw-codex-4084` |
+| Worker Bridge | 10.120.4.55:18081 | 4 槽 / `bridge cvw-codex-4055` |
 
-原 cc dev 服务进程已停止，代码和历史数据保留；接手版复用其主机和服务端口，恢复原 dev 的 worker 身份并直接复用原用户、任务与会话存储，另保留普通测试账户。并发配置与 dev 一致：2 + 4，实际有效容量 6。常规冒烟只同时运行少量任务。
+所有账号和模式共用 14 槽，任务按入队时间派发。同一会话串行执行，未开始的任务可在共享工作区的 Worker 间选择空槽。历史 session、参考文件、原生轨迹和成片保留在原存储中。
 
 ## 运行
 
 所有命令均从 `/mnt/afs_if/codevideo/workspace/code2video-dev-codex` 执行。`service.py` 会检查目录、存储、命名空间、配置端口和主机；不会通过全局 `pkill` 停服务。只在服务所属主机运行对应命令。需要 Node **22 或更新版本**；可用 `CVW_NODE_BIN` 指定其 bin 目录。
 
 ```bash
-# 前端主机 10.120.6.65
+# 前端主机 10.120.7.224
 python3 scripts/service.py web status
 python3 scripts/service.py web stop
 python3 scripts/service.py web build
 python3 scripts/service.py web start
 
-# 后端主机 10.120.3.60
+# Gateway 主机 10.120.4.121
 python3 scripts/service.py gateway start
-python3 scripts/service.py bridge start cvw-dev-360
+python3 scripts/service.py bridge start cvw-codex-4121
 
-# 后端主机 10.120.3.50
-python3 scripts/service.py bridge start cvw-dev-350
+# 其余三台分别启动对应 Worker
+python3 scripts/service.py bridge start cvw-codex-4112  # 10.120.4.112
+python3 scripts/service.py bridge start cvw-codex-4084  # 10.120.4.84
+python3 scripts/service.py bridge start cvw-codex-4055  # 10.120.4.55
 ```
 
 `start` 在专用 tmux socket `cvw-codex` 下启动常驻监护进程，服务退出后自动拉起，退出 SSH/Codex 不影响服务。
-`start`、`stop`、`restart`、`status`、`logs` 共用同一实现；只有 web 有 `build`。旧 `start-frontend.sh`、`start-backend.sh`、`restart-service.sh` 是薄包装。`start-backend.sh` 用于 .60 的 gateway + 本机 bridge；.50 使用 bridge 命令。
+`start`、`stop`、`restart`、`status`、`logs` 共用同一实现；只有 web 有 `build`。旧 `start-frontend.sh`、`start-backend.sh`、`restart-service.sh` 是薄包装。`start-backend.sh` 在 Gateway 主机管理 Gateway 与本机 Worker；其余主机使用 bridge 命令。
 
-服务读取 `config/backend.json` 和 `runtime/.secrets`；前端构建时固化版本、环境角标与 basePath。改这些值后需重新构建。模型设置保留 dev 当前的 SenseNova-6.8-Code2Video；不升级框架、模型、技能内容或渲染依赖。
+服务读取 `config/backend.json` 和 `runtime/.secrets`；前端构建时固化版本、环境角标与 basePath。改这些值后需重新构建。白模默认模型、默认 Skill、可选渠道和实验模型均从服务端配置读取。白模上传 Skill 后只加载该上传包。
 
 热更新用 `bash scripts/hot-update.sh run`：设置维护态、先 Bridge 后 Gateway、检查任务认领、清除维护态并执行部署检查。该命令不构建前端。重启失败时返回失败；维护状态有到期时间。
 
@@ -94,12 +98,12 @@ Git 管理代码版本，任务数据和运行凭据需单独备份。
 tmux -L cvw-codex ls
 # 前端主机
 tmux -L cvw-codex attach -t cvw-codex-web-local
-# Gateway 主机 .60
+# Gateway 主机 10.120.4.121
 tmux -L cvw-codex attach -t cvw-codex-gateway
 ```
 
 用 Ctrl-b 然后 d 离开 tmux。日志仍在 runtime/logs；停止/重启使用 service.py，避免只杀 Node 后被监护进程立即拉起。
-端口接管记录保存在 runtime/deployment/dev-takeover.json，隔离校验只允许记录中已授权的 dev 端口复用，生产主机仍始终禁止。
+端口接管记录保存在 runtime/deployment/dev-takeover.json，隔离校验只允许记录中已授权的 dev 端口复用，正式服务的目录、端口与进程保持隔离。
 当前账号、任务和素材直接使用原 cc dev 数据；原密码、用户权限、历史视频及工作区保留，普通 test/test-peer 另行保留。
 
 ## 原 dev 数据复用

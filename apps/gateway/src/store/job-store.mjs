@@ -156,7 +156,7 @@ export async function rebindJobsToNewProcess(workerId, newProcessInstanceId, { a
  * 这种会话要照常改绑，不能转 DEGRADED，否则热更新后用户的输入框被永久锁死
  * （前端 degraded ⇒ Composer disabled，只能新建对话）。
  */
-export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId, { adoptedJobIds = [] } = {}) {
+export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId, { adoptedJobIds = [], preserveIdle = false } = {}) {
   const rebound = [];
   const degraded = [];
   const sessions = (await readRecords(sessDir(), getSession)).filter(s =>
@@ -181,6 +181,8 @@ export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId,
             j.status !== 'QUEUED' && j.status !== 'ENHANCING') live.push(j);
       }
     } catch { continue; }
+
+    if (preserveIdle && !live.length) continue;
 
     if (live.length) {
       // 活着的任务是否【全部】被新实例认领下来了？是则执行者仍在，照常改绑。
@@ -217,31 +219,6 @@ export async function rebindSessionsToNewProcess(workerId, newProcessInstanceId,
     }
   }
   return { rebound, degraded };
-}
-
-/**
- * 启动时收口：绑在【已下线 worker】上的会话标记为 DEGRADED。
- *
- * 换后端机器后，老会话的 worker_id 不在配置里了。不处理的话它仍是 ACTIVE，
- * 用户点进去只会看到素材 503、提交失败，却没有任何解释。
- * 标 DEGRADED 后前端会明确提示「请新建对话」，已完成产物仍可访问。
- */
-export async function degradeSessionsOnRetiredWorkers(activeWorkerIds) {
-  const live = new Set(activeWorkerIds);
-  const out = [];
-  for (const s of await readRecords(sessDir(), getSession)) {
-    if (s.status === 'CLOSED' || s.status === 'DEGRADED') continue;
-    const wid = s.binding?.worker_id;
-    if (!wid || live.has(wid)) continue;
-    out.push(await updateSession(s.id, {
-      status: 'DEGRADED',
-      binding: {
-        status: 'PROCESS_LOST', lost_at: nowIso(),
-        health_note: `原后端机器（${wid}）已下线，请新建对话；已完成产物仍可访问`,
-      },
-    }));
-  }
-  return out;
 }
 
 export async function degradeSessionsOnProcess(processInstanceId, note) {
@@ -474,7 +451,7 @@ export async function assignQueuedJob(expected, executor) {
     const j = await getJob(expected.id);
     if (!j || j.status !== 'QUEUED' || j.cancellation?.requested_at || j.started_at ||
         j.process_instance_id !== expected.process_instance_id || j.worker_id !== expected.worker_id ||
-        (executor.worker_id !== j.worker_id && (j.attempt !== 0 || j.lease))) return null;
+        (executor.worker_id !== j.worker_id && j.lease && !j.lease.revoked_at && !j.lease.released_at)) return null;
     return writeJob({ ...j, status: 'ASSIGNED', worker_id: executor.worker_id,
       process_instance_id: executor.process_instance_id, assigned_at: nowIso(), attempt: (j.attempt ?? 0) + 1 });
   });

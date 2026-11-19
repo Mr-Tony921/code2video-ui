@@ -30,11 +30,13 @@
  * `job-paths.resolveJobPaths` 回退处理 —— 历史任务仍可读可播。
  */
 import { mkdir, writeFile, cp, rm, readdir, symlink, link, copyFile, stat } from 'node:fs/promises';
-import { existsSync, readdirSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { config } from './config.mjs';
 import { mountCustomSkills } from '../../shared/experimental-skills.mjs';
 import { sessionDir, referencesDir } from './session-workspace.mjs';
+import { prepareWhiteboxHost } from './whitebox-host.mjs';
 import {
   resolveJobPaths, ccSessionIdFor, findCcSessionFile,
   newestLegacyRound, recordedCcSessionId, lastRoundBlewContext,
@@ -152,12 +154,14 @@ function buildRevisionNote() {
   ].join('\n');
 }
 
+function hasAssetNote(files) { return files.length ? 'User reference files: ' + files.map(f => './assets/' + f).join(', ') : ''; }
+
 export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agentWsPath, experimentalSkills, modelSelection }) {
   const { agentWs, bookDir, legacy } = resolveJobPaths(sessionId, jobId);
   const ws = agentWs;
   // agent 视图里的工作区路径：隔离开启时是浅挂载点，否则就是宿主真实路径
   const viewPath = agentWsPath ?? ws;
-  const builtin = mode === 'experimental' ? (experimentalSkills?.builtin ?? 'none') : mode;
+  const builtin = (mode === 'experimental' || (mode === 'blockout_3d' && experimentalSkills)) ? (experimentalSkills?.builtin ?? 'none') : mode;
   const { name: skillsetName, src: skillsetPath } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetSrc(builtin);
 
   /**
@@ -243,9 +247,30 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
   await rm(skillTarget, { recursive: true, force: true });
   await mkdir(skillTarget, { recursive: true });
   if (skillsetPath) await cp(skillsetPath, skillTarget, { recursive: true });
-  if (mode === 'experimental') await mountCustomSkills(join(config.storage.sessionsRoot, config.storage.sessionsSubdir), sessionId, experimentalSkills, skillTarget);
+  if (mode === 'experimental' || (mode === 'blockout_3d' && experimentalSkills)) await mountCustomSkills(join(config.storage.sessionsRoot, config.storage.sessionsSubdir), sessionId, experimentalSkills, skillTarget);
   const skills = (await readdir(skillTarget, { withFileTypes: true }))
     .filter((e) => e.isDirectory()).map((e) => e.name).sort();
+
+  const whiteboxCompat = [];
+  if (mode === 'blockout_3d' && builtin === 'none') {
+    for (const skill of skills) {
+      const root = join(skillTarget, skill);
+      const archive = join(bookDir, 'skill-compat', skill);
+      await mkdir(archive, { recursive: true });
+      const adapter = join(archive, 'host-adapter.py');
+      await copyFile(join(config.repoRoot, 'apps/worker-bridge/scripts/whitebox-skill-compat.py'), adapter);
+      const record = JSON.parse(execFileSync('python3', [adapter, root], { timeout: 10000, encoding: 'utf8' }));
+      if (record) {
+        await mkdir(join(archive, 'scripts'), { recursive: true });
+        await mkdir(join(archive, 'assets'), { recursive: true });
+        for (const file of ['scripts/job.py', 'scripts/render.mjs', 'assets/scene.js', 'CVW-COMPAT.json'])
+          await copyFile(join(root, file), join(archive, file));
+        whiteboxCompat.push({ skill, ...record, archived_execution: 'skill-compat/' + skill });
+        // Pinned packages are installed once in the dev runtime and mounted read-only by convention.
+        await symlink(join(config.runtimeBinaries.previsDependencyRoot, 'blockout-093/node_modules'), join(root, 'node_modules'), 'dir');
+      }
+    }
+  }
 
   // node_modules → videokit（symlink，不拷贝几百 MB）
   const nm = join(ws, 'node_modules');
@@ -293,10 +318,40 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
   }
 
   // prompt.md = 增强后的 prompt + 微调上下文 + output contract
-  const contract = mode === 'experimental' ? '\n\n## Delivery\nSave the finished video to `output/final.mp4` in the current working directory.\n' : buildOutputContract({
+  const customWhitebox = mode === 'blockout_3d' && builtin === 'none';
+  const whiteboxHost = customWhitebox && whiteboxCompat.some(r => r.skill_version === '0.11.1')
+    ? await prepareWhiteboxHost({ repoRoot: config.repoRoot, ws, viewPath, bookDir, jobId,
+      skill: skills[0], continued: isContinuation, modelSelection, prompt }) : null;
+  const contract = whiteboxHost?.mcp_config_path ? [
+    '\n\n## Selected whitebox skill',
+    'Use only the selected skill: ' + skills.join(', ') + '. Previous or unmounted skills are not applicable.',
+    'Delivery target: video, except a material clarification or an explanation that does not request a film change.',
+    'Report render_success separately from quality_pass; unresolved quality keeps a playable adjustment reference.',
+    'Original skill ZIP, CLI source and host adaptations remain archived for this round.',
+    whiteboxHost.contract, hasAssetNote(assetFiles),
+  ].filter(Boolean).join('\n') + '\n' : customWhitebox ? [
+    '\n\n## Whitebox host integration',
+    'Use only the selected skill: ' + skills.join(', ') + (whiteboxHost ? '. The host supplies its exact phase rules and executes its CLI workflow below.' : '. Read .claude/skills/' + skills[0] + '/SKILL.md directly and follow its workflow.') + ' The generic Skill tool/catalog is disabled for this mode. Previous or unmounted skills are not applicable to this submission.',
+    'Save the validated video to output/final.mp4. Preserve the scene, source, checks and review evidence in the workspace.',
+    'Each user submission has its own output folder: work/' + jobId + '. For follow-up edits, use the selected skill’s scoped edit workflow based on the previous accepted or playable result; do not restart a whole-film workflow or reset repair counters after a tool error. Preserve the prior round.',
+    'Report elapsed time and limitations truthfully. The platform has no 600-second hard limit; 600 seconds is a measurement target.',
+    ...(whiteboxCompat.some(r => r.skill_version === '0.11.1') ? [
+      'Delivery target: video. Follow Blockout Previs 0.11.1 with blocking_first: preserve original events, movement, location, order and outcome; record delegated performance in downstream prompts. Do not add director-workspace requirements.',
+      'Keep upstream --budget 600 as soft telemetry: it never ends the whole job. New film: first candidate plus at most two corrections. User-requested local edit: edit_scope.py start/apply, at most one correction. Do not use the old version’s --budget 0 instructions.',
+      'Report render_success separately from quality_pass. If quality remains unresolved, use the skill’s reference export, retain the playable adjustment reference and copy it to output/final.mp4 with honest remaining issues. Never fabricate quality acceptance.',
+      'Python and pinned dependencies: /media/blockout-093/python/bin/python3.11; the dependency lock is identical to 0.11.1 after removing release-version metadata. Node dependencies are already installed. CHROME_PATH is configured; the host adds --software on these CPU workers. Run foreground Bash commands with timeout 600000. The skill retains its own 180-second preview and 600-second render tool limits.',
+      'The original ZIP and original CLI are unchanged. CVW-COMPAT.json records only local Chrome startup/profile and lossless PNG transfer adaptations. Preserve the skill’s source fingerprint throughout the round.',
+    ] : whiteboxCompat.length ? [
+      'The original uploaded ZIP is retained. CVW-COMPAT.json documents a host compatibility change: invoke scripts/job.py init with --budget 0 to record time without a whole-job deadline. The compatibility adapter uses lossless PNG frames for transfer to FFmpeg and a temporary local Chrome profile; scene semantics, resolution and fps are unchanged. Keep two local repair rounds. On this shared host the preview tool has a measured compatibility timeout of 180 seconds; the render tool retains its 240-second timeout.',
+      'Python 3.11 and dependencies: /media/blockout-093/python/bin/python3.11. Node dependencies are already installed; do not reinstall. Chrome is given by CHROME_PATH. Use --software for preview/render on these CPU workers. Run preview/render as separate Bash commands with timeout 360000 ms, so the shell does not kill a valid render before its own timeout.',
+      'For a revision, inspect the previous brief and compact draft, apply the user request, and compile it inside this new round directory; retain prior review evidence.'
+    ] : []),
+    whiteboxHost?.contract,
+    hasAssetNote(assetFiles),
+  ].filter(Boolean).join('\n') + '\n' : mode === 'experimental' ? '\n\n## Delivery\nSave the finished video to `output/final.mp4` in the current working directory.\n' : buildOutputContract({
     wsDir: viewPath, hasAssets: assetFiles.length > 0, skills, mode,
   });
-  const revisionNote = revision && mode !== 'experimental' ? buildRevisionNote() : '';
+  const revisionNote = revision && mode !== 'experimental' && !customWhitebox ? buildRevisionNote() : '';
   // ★ prompt.md 与 _meta.json 落【本轮簿记目录】，不落共享工作区 ——
   //   共享的话第 2 轮会把第 1 轮的 prompt 覆盖掉，排障时查不到当轮提交了什么。
   const promptPath = join(bookDir, 'prompt.md');
@@ -307,7 +362,8 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
     session_id: sessionId, job_id: jobId, mode,
     skillset: skillsetName, skills,
     model_selection: modelSelection ?? null, experimental_skills: experimentalSkills ?? null,
-    assets: assetFiles,
+    assets: assetFiles, whitebox_compat: whiteboxCompat, time_target_seconds: customWhitebox ? 600 : null,
+    whitebox_host: whiteboxHost ? { version: whiteboxHost.version, state_path: whiteboxHost.state_path, context_policy: whiteboxHost.context_policy, stage_transport: whiteboxHost.stage_transport, user_prompt: whiteboxHost.user_prompt } : null,
     node_modules: kit ?? null,
     host_path: ws,
     book_dir: bookDir,
@@ -321,7 +377,7 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
 
   return {
     ws, bookDir, legacy, isContinuation, ccSessionId,
-    viewPath, skillsetName, skills, promptPath, assetFiles, assetsDir,
+    viewPath, skillsetName, skills, promptPath, assetFiles, assetsDir, whiteboxHost,
   };
 }
 
@@ -329,7 +385,7 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
 export function verifyJobIsolation(sessionId, jobId, mode) {
   // ★ 1.4.0：skill 挂在【会话工作区】下，不再是每轮目录。
   //   不跟着改的话这条权限审计会查到空目录，把正常任务判成「缺 skill」。
-  const { agentWs } = resolveJobPaths(sessionId, jobId);
+  const { agentWs, bookDir } = resolveJobPaths(sessionId, jobId);
   const skillTarget = join(agentWs, '.claude', 'skills');
   const wb = config.skills.whiteboxSkillName;
   const hasWhitebox = existsSync(join(skillTarget, wb, 'SKILL.md'));
@@ -338,10 +394,13 @@ export function verifyJobIsolation(sessionId, jobId, mode) {
     skills = readdirSync(skillTarget, { withFileTypes: true })
       .filter((e) => e.isDirectory()).map((e) => e.name).sort();
   } catch {}
+  let custom = null;
+  try { const meta = JSON.parse(readFileSync(join(bookDir, '_meta.json'))); if (meta.mode === 'blockout_3d' && meta.experimental_skills?.builtin === 'none') custom = meta.experimental_skills.skills; } catch {}
   return {
-    ok: mode === 'experimental' || hasWhitebox === (mode === 'blockout_3d'),
+    ok: custom ? custom.length === 1 && JSON.stringify([...custom].sort()) === JSON.stringify(skills) : mode === 'experimental' || hasWhitebox === (mode === 'blockout_3d'),
     mode, has_whitebox: hasWhitebox,
-    should_have_whitebox: mode === 'blockout_3d',
+    should_have_whitebox: custom ? false : mode === 'blockout_3d',
+    expected_custom_skills: custom,
     skills, skill_count: skills.length,
   };
 }

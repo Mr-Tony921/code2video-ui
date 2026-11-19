@@ -7,7 +7,13 @@ python3 "$R/scripts/guard-isolation.py"
 KEY="${CVW_SSH_KEY:-$HOME/.ssh/id_rsa}"
 PORT="${CVW_SSH_PORT:-8888}"
 USER_="${CVW_SSH_USER:-codevideo}"
-HOSTS="${*:-10.120.3.60 10.120.3.50}"
+HOSTS="${*:-$(python3 - "$R" <<'PYHOSTS'
+from pathlib import Path
+import json,sys
+cfg=json.loads((Path(sys.argv[1])/'config/backend.json').read_text())
+print(' '.join(dict.fromkeys(w['bridge']['host'] for w in cfg['workers'] if w.get('enabled',True))))
+PYHOSTS
+)}"
 export NO_PROXY="localhost,127.0.0.1,$(echo $HOSTS|tr ' ' ',')"
 export no_proxy="$NO_PROXY"
 S="ssh -p $PORT -i $KEY -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -o IdentitiesOnly=yes"

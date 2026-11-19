@@ -87,6 +87,8 @@ export async function prepareSkillRevision(sessionRoot, sid, input = {}, previou
         if (reserved.includes(name)) throw new Error(`skill 名称冲突：${name} 与内置 skill 重复`);
     }
     const skills = await readdir(join(stage, 'skills'));
+    if (options.singleCustomSkill && builtin === 'none' && skills.length !== 1)
+      throw new Error('白模替换包必须只包含一个 SKILL.md，不能混用多个 skill');
     const manifest = { revision, builtin, text, archive_name: archiveName, archive_sha256: archiveHash, skills, ...(configured.length ? { configured } : {}) };
     await writeFile(join(stage, 'manifest.json'), JSON.stringify(manifest, null, 2));
     try { await rename(stage, dest); }

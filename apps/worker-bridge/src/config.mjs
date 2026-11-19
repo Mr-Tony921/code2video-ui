@@ -69,7 +69,7 @@ export const config = {
     port: Number(process.env.CVW_BRIDGE_PORT ?? self.bridge.port),
     maxConcurrentJobs: Number(process.env.CVW_MAX_CONCURRENT_JOBS ?? self.max_concurrent_jobs),
     maxSessions: Number(process.env.CVW_MAX_SESSIONS ?? self.max_sessions),
-    supportedModes: [...new Set([...self.supported_modes, ...(experimentalEnabled(backendCfg) ? ['experimental'] : [])])],
+    supportedModes: [...new Set([...self.supported_modes, ...(experimentalEnabled(backendCfg) && self.supported_modes.includes('coding_to_video') ? ['experimental'] : [])])],
   },
 
   gateway: {

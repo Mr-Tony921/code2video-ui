@@ -66,7 +66,8 @@ test('available dev worker executes queued fresh and native-resume jobs without 
   t.mock.method(bridge, 'startJob', async (_, body) => { seen.push(body); });
   const dispatcher = new Dispatcher({ pool, log: quiet });
   await dispatcher.tick();
-  assert.deepEqual(seen.map(x => x.job_id), [fresh.id, revision.id]);
+  await Promise.all(dispatcher.deliveries);
+  assert.deepEqual(seen.map(x => x.job_id), [fresh.id, revision.id, leased.id]);
   assert.equal(seen[1].is_revision, true);
   assert.equal(seen[1].session_id, resumed.id);
   for (const expected of [fresh, revision]) {
@@ -78,13 +79,14 @@ test('available dev worker executes queued fresh and native-resume jobs without 
     assert.equal((await store.getSession(job.session_id)).binding.worker_id, 'home');
   }
   assert.equal((await store.getJob(legacy.id)).status, 'QUEUED');
-  assert.equal((await store.getJob(leased.id)).status, 'QUEUED');
+  assert.equal((await store.getJob(leased.id)).status, 'ASSIGNED');
 
   // Even if a second submission reached the queue, a job already assigned on the shared worker blocks it.
   const sibling = await makeJob(resumed, 'QUEUED', true);
   pool.heartbeat({ process_instance_id: 'home:1', running_jobs: 1, running_job_ids: [live1.id] });
   await store.transition(live2.id, 'COMPLETED');
   await dispatcher.tick();
+  await Promise.all(dispatcher.deliveries);
   assert.equal((await store.getJob(sibling.id)).status, 'QUEUED');
 
   await store.rebindJobsToNewProcess('home', 'home:2', { adoptedJobIds: [live1.id] });

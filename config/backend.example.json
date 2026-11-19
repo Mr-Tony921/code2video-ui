@@ -1,7 +1,13 @@
 {
   "concurrency": {
-    "global_max_concurrent_jobs": 8,
-    "per_machine_max_concurrent_jobs": 4
+    "global_max_concurrent_jobs": 14,
+    "per_machine_max_concurrent_jobs": 4,
+    "shared_workspace_workers": [
+      "cvw-codex-4121",
+      "cvw-codex-4112",
+      "cvw-codex-4084",
+      "cvw-codex-4055"
+    ]
   },
   "preview": {
     "max_height": 540,
@@ -11,42 +17,86 @@
   },
   "workers": [
     {
-      "worker_id": "cvw-dev-360",
+      "worker_id": "cvw-codex-4121",
       "bridge": {
-        "host": "10.120.3.60",
-        "port": 18080,
+        "host": "10.120.4.121",
+        "port": 18081,
         "scheme": "http"
       },
       "ssh": {
-        "host": "10.120.3.60",
+        "host": "10.120.7.12",
         "port": 8888,
         "user": "codevideo"
       },
       "max_concurrent_jobs": 2,
-      "max_sessions": 4,
+      "max_sessions": 128,
       "supported_modes": [
         "coding_to_video",
-        "blockout_3d"
+        "blockout_3d",
+        "experimental"
       ],
       "enabled": true
     },
     {
-      "worker_id": "cvw-dev-350",
+      "worker_id": "cvw-codex-4112",
       "bridge": {
-        "host": "10.120.3.50",
-        "port": 18080,
+        "host": "10.120.4.112",
+        "port": 18081,
         "scheme": "http"
       },
       "ssh": {
-        "host": "10.120.3.50",
+        "host": "10.120.7.12",
         "port": 8888,
         "user": "codevideo"
       },
       "max_concurrent_jobs": 4,
-      "max_sessions": 8,
+      "max_sessions": 128,
       "supported_modes": [
         "coding_to_video",
-        "blockout_3d"
+        "blockout_3d",
+        "experimental"
+      ],
+      "enabled": true
+    },
+    {
+      "worker_id": "cvw-codex-4084",
+      "bridge": {
+        "host": "10.120.4.84",
+        "port": 18081,
+        "scheme": "http"
+      },
+      "ssh": {
+        "host": "10.120.7.12",
+        "port": 8888,
+        "user": "codevideo"
+      },
+      "max_concurrent_jobs": 4,
+      "max_sessions": 128,
+      "supported_modes": [
+        "coding_to_video",
+        "blockout_3d",
+        "experimental"
+      ],
+      "enabled": true
+    },
+    {
+      "worker_id": "cvw-codex-4055",
+      "bridge": {
+        "host": "10.120.4.55",
+        "port": 18081,
+        "scheme": "http"
+      },
+      "ssh": {
+        "host": "10.120.7.12",
+        "port": 8888,
+        "user": "codevideo"
+      },
+      "max_concurrent_jobs": 4,
+      "max_sessions": 128,
+      "supported_modes": [
+        "coding_to_video",
+        "blockout_3d",
+        "experimental"
       ],
       "enabled": true
     }
@@ -329,14 +379,14 @@
   },
   "deployment": {
     "web": {
-      "host": "10.120.6.65",
+      "host": "10.120.7.224",
       "port": 8000,
       "bind": "0.0.0.0",
       "base_path": "",
-      "public_url": "http://10.210.9.14:32062"
+      "public_url": "http://10.210.9.14:20211"
     },
     "gateway": {
-      "host": "10.120.3.60",
+      "host": "10.120.4.121",
       "port": 9998,
       "bind": "0.0.0.0"
     },
@@ -402,7 +452,9 @@
         "endpoint": "https://tokenhub.sensetime.com",
         "model": "claude-fable-5-2/anthropic_L/sfo",
         "api_key_env": "CVW_EXPERIMENTAL_FABLE_API_KEY",
-        "allowed_user_ids": ["test"],
+        "allowed_user_ids": [
+          "test"
+        ],
         "max_context_tokens": null,
         "max_output_tokens": null,
         "autocompact_pct": 80
@@ -424,5 +476,104 @@
         }
       }
     ]
+  },
+  "whitebox": {
+    "enabled": false,
+    "time_target_seconds": 600,
+    "default_skill": "blockout-previs-video",
+    "models": [
+      {
+        "id": "whitebox-intranet",
+        "name": "SenseNova 6.8 Code2Video（内网）",
+        "source": "primary",
+        "selectable": false
+      },
+      {
+        "id": "whitebox-gpt",
+        "name": "GPT 6.1 Sol",
+        "protocol": "responses",
+        "max_context_tokens": 262144,
+        "max_output_tokens": 32768,
+        "autocompact_pct": 70,
+        "reasoning_effort": "low",
+        "channels": [
+          {
+            "endpoint": "https://tokenhub.sensetime.com",
+            "model": "gpt-6.1-sol/azure_L/sfa",
+            "api_key_env": "CVW_WHITEBOX_GPT_1_API_KEY"
+          },
+          {
+            "endpoint": "https://tokenhub.sensetime.com",
+            "model": "gpt-6.1-sol/azure_L/qwb",
+            "api_key_env": "CVW_WHITEBOX_GPT_2_API_KEY"
+          }
+        ]
+      },
+      {
+        "id": "whitebox-opus",
+        "name": "Claude Opus 5.5",
+        "protocol": "anthropic",
+        "max_context_tokens": 200000,
+        "max_output_tokens": 32768,
+        "autocompact_pct": 70,
+        "reasoning_effort": "low",
+        "channels": [
+          {
+            "endpoint": "https://tokenhub.sensetime.com",
+            "model": "claude-opus-5-5/ccmax/sfa",
+            "api_key_env": "CVW_WHITEBOX_OPUS_1_API_KEY"
+          },
+          {
+            "endpoint": "https://tokenhub.sensetime.com",
+            "model": "claude-opus-5-5/anthropic_L/sfg",
+            "api_key_env": "CVW_WHITEBOX_OPUS_2_API_KEY"
+          }
+        ]
+      },
+      {
+        "id": "whitebox-deepseek",
+        "name": "DeepSeek V4.1 Flash",
+        "protocol": "anthropic",
+        "max_context_tokens": 262144,
+        "max_output_tokens": 98304,
+        "autocompact_pct": 70,
+        "reasoning_effort": "high",
+        "channels": [
+          {
+            "endpoint": "https://tokenhub.sensetime.com",
+            "model": "deepseek-v4.1-flash-1017/zijian/sfb",
+            "api_key_env": "CVW_WHITEBOX_DEEPSEEK_1_API_KEY"
+          },
+          {
+            "endpoint": "https://tokenhub.sensetime.com",
+            "model": "deepseek-v4.1-flash-1017/huoshan/huoshan",
+            "api_key_env": "CVW_WHITEBOX_DEEPSEEK_2_API_KEY"
+          }
+        ],
+        "thinking": {
+          "type": "enabled",
+          "budget_tokens": 32768
+        }
+      }
+    ],
+    "skills": [
+      {
+        "id": "blockout-previs-video",
+        "name": "Blockout Previs · 视频",
+        "version": "0.11.1",
+        "archive": "assets/experimental-skills/blockout-previs/0.11.1.zip",
+        "archive_sha256": "2e655e72815ea8e3eb6a33efa0842302bf2c2010b16aa363c8774806c78793cf",
+        "description": "视频优先；新案最多两轮修正，用户微调最多一次；分别报告可播放性与质量，600 秒仅为软目标。"
+      },
+      {
+        "id": "blockout-previs",
+        "name": "Blockout Previs",
+        "version": "0.9.3",
+        "archive": "assets/experimental-skills/blockout-previs/0.9.3.zip",
+        "archive_sha256": "1cb8cde7b79ee6acc877d5ef4d875764fb4353184507f9c679aa77ca35c151c8",
+        "description": "固定 Three.js 渲染器，场景 JSON、视觉复核和可续写工作区。主机兼容修改单独记录。"
+      }
+    ],
+    "default_model": "whitebox-deepseek"
   }
 }

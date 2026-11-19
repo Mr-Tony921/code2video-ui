@@ -14,6 +14,9 @@
  *  · 失去租约的 Job 不得提交产物
  */
 import { validateVideo } from '../../shared/video-validation.mjs';
+import { routedWhiteboxModel } from './whitebox-proxy.mjs';
+import { whiteboxSystemPrompt } from './whitebox-host.mjs';
+import { whiteboxResponse } from '../../shared/whitebox-response.mjs';
 import { resolveExperimentalModel } from '../../shared/experimental.mjs';
 import { isManagedModel, resolveManagedModel } from '../../shared/model-settings.mjs';
 import { spawn, spawnSync } from 'node:child_process';
@@ -110,6 +113,11 @@ function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
       'CLAUDE_CODE_SUBAGENT_MODEL', 'ANTHROPIC_AUTH_TOKEN',
       'CVW_INTERNAL_TOKEN', 'CVW_SESSION_SECRET']) delete inherited[key];
   }
+  if (model.channels) {
+    // Only the per-job routing token is exposed to whitebox tools, never other families' credentials.
+    for (const key of Object.keys(inherited))
+      if (/^CVW_.*(?:KEY|TOKEN|SECRET)$/.test(key)) delete inherited[key];
+  }
   if (isManagedModel(model.snapshot)) {
     // Managed user/C2V jobs receive only their selected API credential below.
     for (const key of Object.keys(inherited))
@@ -154,6 +162,7 @@ function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
     // cc 的启动参数来自 config.claude_cli.env（见 resolveClaudeEnv），
     // 不在代码里写死 —— 调上下文/输出上限不需要改代码。
     ...resolveClaudeEnv(model),
+    ...(model.protocol === 'responses' ? { ENABLE_TOOL_SEARCH: 'false' } : {}),
     CLAUDE_CODE_SUBAGENT_MODEL: model.model,
     ANTHROPIC_AUTH_TOKEN: '',
     HTTP_PROXY: httpProxy,
@@ -198,7 +207,7 @@ function probeIsolation(iso) {
   return r.status === 0;
 }
 
-function buildCommand({ jobWs, isoAvailable, mountPoint, ccSessionId, resume, experimental }) {
+function buildCommand({ jobWs, isoAvailable, mountPoint, ccSessionId, resume, experimental, customWhitebox, whiteboxHost }) {
   const iso = config.isolation ?? {};
   // ★ prompt 【不】进 argv，改从 stdin 送。
   //
@@ -219,6 +228,11 @@ function buildCommand({ jobWs, isoAvailable, mountPoint, ccSessionId, resume, ex
     '--permission-mode', config.claudeCli.permissionMode,
     '--output-format', 'stream-json',
     '--verbose',
+    // Read the sole uploaded/configured skill directly; disable CC's unrelated built-in skill catalog.
+    ...(customWhitebox ? ['--disable-slash-commands'] : []),
+    ...(whiteboxHost ? ['--system-prompt', whiteboxSystemPrompt, '--system-prompt-snapshot', 'off',
+      '--tools', whiteboxHost.mcp_config_path ? '' : 'Read,Write,Edit,Bash', '--effort', 'low', '--setting-sources', '',
+      '--strict-mcp-config', '--mcp-config', whiteboxHost.mcp_config_path ?? '{"mcpServers":{}}', '--settings', whiteboxHost.settings_path] : []),
     ...(experimental ? [] : ['--disallowedTools', 'WebSearch']),
     // 续跑：带上一轮的 cc 会话，历史与上下文由 cc 自己从磁盘恢复。
     // 首轮：显式指定 id，使 cc 会话 id ≡ 我们的会话 id，后续轮次才找得到它。
@@ -313,6 +327,8 @@ export async function startJob(p) {
     jobWs: ws.ws, isoAvailable, mountPoint,
     ccSessionId: ws.ccSessionId,
     resume: ws.isContinuation === true, experimental: p.mode === 'experimental',
+    customWhitebox: p.mode === 'blockout_3d' && p.experimentalSkills?.builtin === 'none',
+    whiteboxHost: ws.whiteboxHost,
   });
   if (ws.ccSessionId) {
     console.log(`[runner] job ${p.jobId} cc 会话 ${ws.ccSessionId} ` +
@@ -326,8 +342,10 @@ export async function startJob(p) {
 
   const child = spawn(cmd, args, {
     cwd,
-    env: buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection)
-      : p.mode === 'coding_to_video' && isManagedModel(p.modelSelection) ? resolveManagedModel(config.raw, p.modelSelection) : config.model),
+    env: { ...buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection)
+      : p.mode === 'coding_to_video' && isManagedModel(p.modelSelection) ? resolveManagedModel(config.raw, p.modelSelection)
+      : p.mode === 'blockout_3d' && p.modelSelection ? routedWhiteboxModel(config, p.modelSelection, p.jobId) : config.model),
+      ...(ws.whiteboxHost ? { API_TIMEOUT_MS: '1200000', ENABLE_TOOL_SEARCH: 'false', CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1', CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS: '0', MAX_MCP_OUTPUT_TOKENS: '100000' } : {}) },
     detached: true,                 // ★ 独立 process group，可整树终止
     stdio: ['pipe', outFh.fd, errFh.fd],   // stdin 用来送 prompt
   });
@@ -711,20 +729,6 @@ async function settleResult(st, code, signal) {
   if (st.fsTimer) clearInterval(st.fsTimer);
   stopReaper(st);
   st.tailer?.stop();
-  if (!st.leaseValid) {
-    await writeFile(join(st.jobDir, '.aborted'), JSON.stringify({
-      reason: st.cancelReason ?? 'lease_lost', at: nowIso(),
-      job_id: st.jobId, signal, exit_code: code,
-      note: '执行者已失去租约，结果已放弃',
-    }, null, 2), 'utf8').catch(() => {});
-    await appendTrace(st.sessionId, {
-      kind: 'job_aborted', job_id: st.jobId,
-      reason: st.cancelReason ?? 'lease_lost', phase: st.phase, exit_code: code,
-    });
-    st.hooks.onLeaseLostExit?.({ jobId: st.jobId, reason: st.cancelReason ?? 'lease_lost' });
-    return;
-  }
-
   if (st.cancelRequested) {
     await writeFile(join(st.jobDir, '.cancelled'),
       JSON.stringify({ reason: st.cancelReason, at: nowIso() }, null, 2), 'utf8').catch(() => {});
@@ -742,6 +746,44 @@ async function settleResult(st, code, signal) {
     return;
   }
 
+  if (!st.leaseValid) {
+    await writeFile(join(st.jobDir, '.aborted'), JSON.stringify({
+      reason: st.cancelReason ?? 'lease_lost', at: nowIso(),
+      job_id: st.jobId, signal, exit_code: code,
+      note: '执行者已失去租约，结果已放弃',
+    }, null, 2), 'utf8').catch(() => {});
+    await appendTrace(st.sessionId, {
+      kind: 'job_aborted', job_id: st.jobId,
+      reason: st.cancelReason ?? 'lease_lost', phase: st.phase, exit_code: code,
+    });
+    st.hooks.onLeaseLostExit?.({ jobId: st.jobId, reason: st.cancelReason ?? 'lease_lost' });
+    return;
+  }
+
+  // An explicit intake answer/clarification must never pick up a previous MP4.
+  let response = null;
+  if (st.mode === 'blockout_3d' && exitedCleanly(st, code)) {
+    try {
+      const state = JSON.parse(readFileSync(join(st.agentWs, '.whitebox', st.jobId, 'state.json')));
+      if (!state.delivered && !state.candidates && ['waiting_user', 'answered'].includes(state.mcp_phase)) {
+        response = whiteboxResponse(st.mode, state.clarification
+          ? { kind: 'clarification', text: state.clarification } : { kind: 'answer', text: state.answer });
+      }
+    } catch { /* Standard video completion remains mandatory otherwise. */ }
+  }
+  if (response) {
+    const marker = join(st.jobDir, '.done');
+    const meta = { response, finished_at: nowIso(), job_id: st.jobId, mode: st.mode,
+      cc_session_id: st.ccSessionId, last_assistant_text: response.text };
+    const tmp = `${marker}.${process.pid}.tmp`;
+    await writeFile(tmp, JSON.stringify(meta, null, 2));
+    await rename(tmp, marker);
+    if (!st.leaseValid || st.cancelRequested) { await rm(marker, { force: true }); return settleResult(st, code, signal); }
+    await appendTrace(st.sessionId, { kind: 'job_completed', job_id: st.jobId, response,
+      duration_ms: Date.now() - new Date(st.startedAt).getTime() });
+    st.hooks.onComplete?.({ ...meta, completion_marker: marker });
+    return;
+  }
   const art = await findArtifact(st);
   if ((exitedCleanly(st, code) || st.earlyHarvest) && art) {
     const size = await confirmStable(art.path);

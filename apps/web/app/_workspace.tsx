@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { JobCard } from '@/components/JobCard';
 import { Sidebar } from '@/components/Sidebar';
+import { WhiteboxSkills } from '@/components/WhiteboxSkills';
 import { ExperimentSkills } from '@/components/ExperimentSkills';
 import { ExperimentModelPicker } from '@/components/ExperimentModelPicker';
 import { withBase } from '@/lib/base-path';
@@ -28,7 +29,7 @@ import { api, ApiError } from '@/lib/api';
 import { BASE_PATH } from '@/lib/base-path';
 import { clean } from '@/lib/sanitize';
 import { broadcast, onBroadcast } from '@/lib/local-state';
-import type { ExperimentalModel, ExperimentalSkillsInput, ExamplePrompt, Job, Mode, OutOfScopeNotice, ReferenceManifest } from '@/lib/types';
+import type { ConfiguredSkill, ExperimentalModel, ExperimentalSkillsInput, ExamplePrompt, Job, Mode, OutOfScopeNotice, ReferenceManifest } from '@/lib/types';
 import { isTerminal } from '@/lib/types';
 
 /** 对外模型名与版本。技术实现细节不外露（见 lib/sanitize.ts）。 */
@@ -57,6 +58,11 @@ export default function Workspace() {
   const [focusJobId, setFocusJobId] = useState<string | null>(null);
   const [models, setModels] = useState<ExperimentalModel[]>([]);
   const [modelId, setModelId] = useState('');
+  const [whiteboxModels, setWhiteboxModels] = useState<ExperimentalModel[]>([]);
+  const [whiteboxModelId, setWhiteboxModelId] = useState('');
+  const [whiteboxDefaultId, setWhiteboxDefaultId] = useState('');
+  const [whiteboxDefaultSkill, setWhiteboxDefaultSkill] = useState<ConfiguredSkill | null>(null);
+  const [whiteboxCatalog, setWhiteboxCatalog] = useState<ConfiguredSkill[]>([]);
   const [experimentSkills, setExperimentSkills] = useState<ExperimentalSkillsInput>({ builtin: 'none', text: '' });
   const [newBuiltin, setNewBuiltin] = useState<ExperimentalSkillsInput['builtin']>('none');
   const [pendingMode, setPendingMode] = useState<Mode>('coding_to_video');
@@ -259,7 +265,22 @@ export default function Workspace() {
     }).catch(() => setModels([]));
   }, [boot.user?.id, boot.user?.can_use_experimental]);
   useEffect(() => {
-    setExperimentSkills({ builtin: boot.session?.experimental_skills?.builtin ?? 'none',
+    if (!boot.user?.can_use_blockout_3d && boot.user?.role !== 'admin') return;
+    let active = true;
+    api.whiteboxSettings().then(r => {
+      if (!active) return;
+      setWhiteboxModels(r.models); setWhiteboxCatalog(r.skills);
+      setWhiteboxDefaultId(r.default_model_id);
+      setWhiteboxDefaultSkill(r.default_skills.configured?.[0] ?? null);
+      setWhiteboxModelId(r.default_model_id);
+    }).catch(() => { if (active) setWhiteboxModels([]); });
+    return () => { active = false; };
+  }, [boot.user?.can_use_blockout_3d, boot.user?.role]);
+  useEffect(() => {
+    if (showNewSession && pendingMode === 'blockout_3d') setWhiteboxModelId(whiteboxDefaultId);
+  }, [showNewSession, pendingMode, whiteboxDefaultId]);
+  useEffect(() => {
+    setExperimentSkills({ builtin: boot.session?.experimental_skills?.builtin ?? (boot.session?.mode === 'blockout_3d' ? 'blockout_3d' : 'none'),
       text: boot.session?.experimental_skills?.text ?? '',
       configured: boot.session?.experimental_skills?.configured ?? [] });
   }, [boot.session?.id]);
@@ -274,8 +295,8 @@ export default function Workspace() {
         is_revision: isRevision,
         // 续写轮不报扩写意图：后端无论如何都会跳过（enhancer.mjs:125），
         // 这里送 true 只会让 UI 和实际行为对不上（用户实测：勾着但其实没扩写）。
-        enhance: boot.session.mode === 'experimental' || isRevision ? false : enhance,
-        ...(boot.session.mode === 'experimental' ? { experimental_skills: experimentSkills } : {}),
+        enhance: boot.session.mode === 'experimental' || boot.session.mode === 'blockout_3d' || isRevision ? false : enhance,
+        ...(['experimental', 'blockout_3d'].includes(boot.session.mode) ? { experimental_skills: experimentSkills } : {}),
       });
 
       // 增强是异步的：Job 以 ENHANCING 建好并秒回，
@@ -321,7 +342,7 @@ export default function Workspace() {
       return;
     }
     setPendingMode(m);
-    if (m === 'experimental') { setShowNewSession(true); return; }
+    if (m === 'experimental' || m === 'blockout_3d') { setShowNewSession(true); return; }
     if (!boot.session || boot.session.mode !== m) {
       try {
         await boot.createSession(m);
@@ -337,14 +358,14 @@ export default function Workspace() {
   const doNewSession = useCallback(async () => {
     setShowNewSession(false);
     try {
-      await boot.createSession(pendingMode, pendingMode === 'experimental' ? { model_id: modelId, builtin_skills: newBuiltin } : undefined);
+      await boot.createSession(pendingMode, pendingMode === 'experimental' ? { model_id: modelId, builtin_skills: newBuiltin } : pendingMode === 'blockout_3d' ? { model_id: whiteboxModelId } : undefined);
       setFocusJobId(null);
       setEnhance(true);                        // 新对话回到默认：扩写开启
       broadcast({ type: 'session-changed' });
     } catch (e) {
       setToast(e instanceof ApiError ? e.message : '新建会话失败');
     }
-  }, [boot, pendingMode, modelId, newBuiltin]);
+  }, [boot, pendingMode, modelId, newBuiltin, whiteboxModelId]);
 
   /**
    * 弹框里点「新建对话并导入」。
@@ -625,7 +646,10 @@ export default function Workspace() {
             tools={boot.session?.mode === 'experimental' ? <ExperimentSkills value={experimentSkills}
               onChange={setExperimentSkills} disabled={degraded || sessionBusy || locked}
               archiveName={boot.session.experimental_skills?.archive_name}
-              canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} /> : undefined}
+              canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} /> : boot.session?.mode === 'blockout_3d' ?
+              <WhiteboxSkills key={boot.session.id} value={experimentSkills} onChange={setExperimentSkills}
+                disabled={degraded || sessionBusy || locked} archiveName={boot.session.experimental_skills?.archive_name}
+                catalog={whiteboxCatalog} /> : undefined}
             experimental={boot.session?.mode === 'experimental'}
             sessionId={boot.session?.id ?? null}
             disabled={!boot.session || degraded || sessionBusy || locked}
@@ -642,7 +666,7 @@ export default function Workspace() {
             enhance={enhance}
             onEnhanceChange={setEnhance}
             basedOn={continuation}
-            enhanceLocked={boot.session?.mode === 'experimental' ? '实验模式直接使用原始 prompt，不做扩写' : continuation ? '续写不做扩写：你的修改说明会直接交给已有的制作上下文' : null}
+            enhanceLocked={boot.session?.mode === 'experimental' ? '实验模式直接使用原始 prompt，不做扩写' : boot.session?.mode === 'blockout_3d' ? '白模直接使用你的描述与所选 skill，不做扩写' : continuation ? '续写不做扩写：你的修改说明会直接交给已有的制作上下文' : null}
           />
 
           {/* 过程窗口在主区【下方】（上中下三段的"下"），独立滚动。
@@ -690,9 +714,16 @@ export default function Workspace() {
         open={showNewSession}
         runningJobs={boot.runningJobs}
         onConfirm={doNewSession}
-        confirmDisabled={pendingMode === 'experimental' && (!modelId || modelId === '__custom__')}
+        confirmDisabled={(pendingMode === 'experimental' && (!modelId || modelId === '__custom__')) || (pendingMode === 'blockout_3d' && !whiteboxModelId)}
         onCancel={() => { setShowNewSession(false); if (boot.session) setPendingMode(boot.session.mode); }}
       >
+        {pendingMode === 'blockout_3d' && <div style={{ marginBottom: 14 }}>
+          <label className="tiny">白模模型<select className="input" value={whiteboxModelId} onChange={e => setWhiteboxModelId(e.target.value)}>
+            {whiteboxModels.map(m => <option key={m.profile_id} value={m.profile_id}>{m.name}</option>)}
+          </select></label>
+          {!whiteboxModels.length && <p className="note warn">暂无可用白模模型，请稍后重试。</p>}
+          <p className="tiny">默认使用 {whiteboxDefaultSkill ? `${whiteboxDefaultSkill.name} ${whiteboxDefaultSkill.version}` : '最新白模 skill'}，以视频为交付目标；可在生成页上传替换 skill。</p>
+        </div>}
         {pendingMode === 'experimental' && <div style={{ marginBottom: 14 }}>
           <ExperimentModelPicker models={models} value={modelId} onChange={setModelId} userId={boot.user.id} />
           <label className="tiny">内置 skill<select className="input" value={newBuiltin}

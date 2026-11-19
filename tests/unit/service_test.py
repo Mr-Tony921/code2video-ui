@@ -54,6 +54,22 @@ class LifecycleTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError,'Node >=22'):
                     service.node_binary()
 
+    def test_cohost_bridges_match_worker_identity(self):
+        with tempfile.TemporaryDirectory(prefix='cvw-cohost-') as tmp:
+            root=Path(tmp);(root/'server.mjs').write_text('setInterval(()=>{},1000);')
+            children=[subprocess.Popen([service.node_binary(),'server.mjs'],cwd=root,
+                       env={**os.environ,'CVW_WORKER_ID':worker}) for worker in ['production','whitebox']]
+            try:
+                time.sleep(.3)
+                self.assertEqual(list(service.owned_processes(root,'server.mjs',False,'whitebox')),[children[1].pid])
+                service.stop(root,'server.mjs',False,'whitebox')
+                self.assertEqual(children[1].wait(timeout=5),-15)
+                self.assertIsNone(children[0].poll())
+            finally:
+                for child in children:
+                    if child.poll() is None:child.terminate()
+                    child.wait(timeout=5)
+
     def test_stop_only_exact_cwd_and_role(self):
         with tempfile.TemporaryDirectory(prefix='cvw-codex-lifecycle-') as tmp:
             own, unrelated = Path(tmp)/'own', Path(tmp)/'unrelated'
@@ -114,7 +130,15 @@ class HandoverGuardTests(unittest.TestCase):
         original=json.loads((ROOT/'config/backend.example.json').read_text())
         with tempfile.TemporaryDirectory(prefix='cvw-codex-guard-') as tmp:
             root=Path(tmp);(root/'config').mkdir();(root/'runtime/deployment').mkdir(parents=True)
-            cfg=json.loads(json.dumps(original).replace(str(ROOT),str(root)))
+            template_root='/mnt/afs_if/codevideo/workspace/code2video-dev-codex'
+            cfg=json.loads(json.dumps(original).replace(template_root,str(root)).replace(str(ROOT),str(root)))
+            source_path=Path('/mnt/afs_if/codevideo/workspace/code2video-dev/config/backend.json')
+            source=json.loads(source_path.read_text())
+            cfg['workers']=cfg['workers'][:len(source['workers'])]
+            for target,reference in zip(cfg['workers'],source['workers']):
+                target['bridge']=dict(reference['bridge'])
+            for kind in ['web','gateway']:
+                cfg['deployment'][kind]=dict(source['deployment'][kind])
             cfg['storage'].update(root=str(root/'runtime'), sessions_root=str(root/'runtime/data'))
             cfg['session_store'].update(root=str(root/'runtime/data/sessions'), index_file=str(root/'runtime/data/session-index.jsonl'))
             for i,worker in enumerate(cfg['workers']):worker['worker_id']='cvw-codex-fixture-'+str(i)

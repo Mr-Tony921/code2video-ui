@@ -9,6 +9,7 @@ import { mkdir, writeFile, cp, rm } from 'node:fs/promises';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from './config.mjs';
+import { resolveWhiteboxModel } from '../../shared/whitebox.mjs';
 import { resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
 import { isManagedModel, resolveManagedModel } from '../../shared/model-settings.mjs';
 
@@ -68,10 +69,11 @@ function buildSettings(model = config.model) {
  */
 export async function prepareSessionWorkspace({ sessionId, mode, modelSelection, builtinSkills }) {
   const dir = sessionDir(sessionId);
-  const builtin = mode === 'experimental' ? validateBuiltinSkills(builtinSkills) : mode;
+  const builtin = (mode === 'experimental' || (mode === 'blockout_3d' && modelSelection)) ? validateBuiltinSkills(builtinSkills) : mode;
   const { name: skillsetName, src } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetForMode(builtin);
   const model = mode === 'experimental' ? resolveExperimentalModel(config.raw, modelSelection)
-    : mode === 'coding_to_video' && isManagedModel(modelSelection) ? resolveManagedModel(config.raw, modelSelection) : config.model;
+    : mode === 'coding_to_video' && isManagedModel(modelSelection) ? resolveManagedModel(config.raw, modelSelection)
+    : modelSelection && mode === 'blockout_3d' ? resolveWhiteboxModel(config.raw, modelSelection) : config.model;
 
   await mkdir(join(dir, 'jobs'), { recursive: true });
   await mkdir(join(dir, 'references'), { recursive: true });   // Reference 附件（V2）
@@ -100,11 +102,11 @@ export async function prepareSessionWorkspace({ sessionId, mode, modelSelection,
  * 校验工作区挂的 skillset 与声明的 mode 一致 —— 权限审计与排障用。
  * blockout_3d 才应有 whitebox-previs 这个 skill 目录。
  */
-export function verifySkillIsolation(sessionId, mode) {
+export function verifySkillIsolation(sessionId, mode, builtin = null) {
   const skillTarget = join(sessionDir(sessionId), config.skills.targetDirInSession);
   const wbName = config.skills.whiteboxSkillName;
   const hasWhitebox = existsSync(join(skillTarget, wbName, 'SKILL.md'));
-  const shouldHaveWhitebox = mode === 'experimental' ? hasWhitebox : mode === 'blockout_3d';
+  const shouldHaveWhitebox = builtin === 'none' ? false : mode === 'experimental' ? hasWhitebox : mode === 'blockout_3d';
   let skills = [];
   try {
     skills = readdirSync(skillTarget, { withFileTypes: true })
