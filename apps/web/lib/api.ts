@@ -4,7 +4,7 @@
  */
 import { withBase } from './base-path';
 import type {
-  ExperimentalModel, ExperimentalSkillsInput, SessionOptions, Capacity, Enhancement, ExamplePrompt, GalleryBrief, GalleryItem, GalleryLoad, GalleryUser,
+  ModelConnectionInput, ModelConnectionView, ModelConnectionCheck, ExperimentalModel, ExperimentalSkillsInput, SessionOptions, Capacity, Enhancement, ExamplePrompt, GalleryBrief, GalleryItem, GalleryLoad, GalleryUser,
   InviteView, Job, JobEvent, Maintenance, Mode,
   OutOfScopeNotice, Permissions, ReferenceManifest, SessionBinding, SessionInfo, User,
 } from './types';
@@ -39,6 +39,14 @@ async function call<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  adminModels: () => call<{ models: Record<'c2v' | 'enhancement', ModelConnectionView> }>('/api/admin/models'),
+  adminSaveModel: (purpose: 'c2v' | 'enhancement', input: ModelConnectionInput) =>
+    call<{ model: ModelConnectionView }>(`/api/admin/models/${purpose}`, { method: 'PATCH', body: JSON.stringify(input) }),
+  adminCheckModel: (purpose: 'c2v' | 'enhancement', input: ModelConnectionInput) =>
+    call<ModelConnectionCheck>(`/api/admin/models/${purpose}/check`, { method: 'POST', body: JSON.stringify(input) }),
+  personalModel: () => call<{ model: ModelConnectionView | null }>('/api/experimental/custom-model'),
+  savePersonalModel: (input: ModelConnectionInput) => call<{ model: ModelConnectionView }>('/api/experimental/custom-model', { method: 'POST', body: JSON.stringify(input) }),
+  checkPersonalModel: (input: ModelConnectionInput) => call<ModelConnectionCheck>('/api/experimental/custom-model/check', { method: 'POST', body: JSON.stringify(input) }),
   /* 认证 */
   login: (username: string, password: string) =>
     call<{ user: User }>('/api/auth/login', {

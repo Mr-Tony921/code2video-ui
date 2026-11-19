@@ -10,7 +10,38 @@ process.env.CVW_GATEWAY_BASE_URL = 'http://127.0.0.1:1';
 const { config } = await import('../../apps/worker-bridge/src/config.mjs');
 const { experimentalModels } = await import('../../apps/shared/experimental.mjs');
 const runner = await import('../../apps/worker-bridge/src/job-runner.mjs');
+const { saveModel, c2vModelSnapshot } = await import('../../apps/shared/model-settings.mjs');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+test('standard C2V child uses its immutable administrator model and keeps credentials out of settings and metadata', async () => {
+  const first = saveModel(config.raw, 'c2v', 'fixture-admin', { kind: 'tokenhub', endpoint: 'https://fixed.example.test',
+    model: 'fixed-sfb', api_key: 'fixture-fixed-key' });
+  const selected = c2vModelSnapshot(config.raw);
+  saveModel(config.raw, 'c2v', 'fixture-admin', { kind: 'intranet', endpoint: 'next-host', model: 'next-model' });
+  const bin = join(TEST_TMP_ROOT, 'fake-managed-c2v');
+  await writeFile(bin, `#!/usr/bin/env python3
+import json,os,pathlib,time,sys
+keys=['ANTHROPIC_MODEL','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','CLAUDE_CODE_SUBAGENT_MODEL','CLAUDE_CODE_MAX_CONTEXT_TOKENS']
+pathlib.Path('fixture-managed-env.json').write_text(json.dumps({k:os.environ.get(k) for k in keys}))
+sys.stdin.read()
+time.sleep(30)
+`);
+  await chmod(bin, 0o755); config.claudeCli.bin = bin; config.isolation = { enabled: false };
+  const sid = 'sess_' + randomUUID(), jid = 'job_' + randomUUID();
+  const ws = join(config.storage.sessionsRoot, config.storage.sessionsSubdir, sid, 'workspace');
+  let settled; const done = new Promise(resolve => { settled = resolve; });
+  try {
+    await runner.startJob({ sessionId: sid, jobId: jid, mode: 'coding_to_video', prompt: 'Use standard video skills.',
+      modelSelection: selected, leaseToken: 'fixture-lease', maxRuntimeSeconds: 60,
+      hooks: { onCancelled: settled, onLeaseLostExit: settled, onFail: settled } });
+    let env;
+    for (let i=0; i<100; i++) { try { env=JSON.parse(await readFile(join(ws,'fixture-managed-env.json'))); break; } catch { await sleep(30); } }
+    assert.ok(env); assert.equal(env.ANTHROPIC_MODEL,'fixed-sfb'); assert.equal(env.CLAUDE_CODE_SUBAGENT_MODEL,'fixed-sfb');
+    assert.equal(env.ANTHROPIC_BASE_URL,'https://fixed.example.test'); assert.equal(env.ANTHROPIC_API_KEY,'fixture-fixed-key');
+    const meta=await readFile(join(config.storage.sessionsRoot,config.storage.sessionsSubdir,sid,'rounds',jid,'_meta.json'),'utf8');
+    assert.ok(meta.includes(first.profile_id)); assert.ok(!meta.includes('fixture-fixed-key'));
+  } finally { await runner.cancelJob(jid,'fixture finished',0.01); await Promise.race([done,sleep(5000)]); }
+});
 
 test('real child uses the selected API model for every CLI role, preserves raw signatures and emits only the minimal contract', async () => {
   config.raw.experimental = { enabled: true, models: [{ id: 'fixture', name: 'fixture', model: 'fixture-opus',

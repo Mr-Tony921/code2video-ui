@@ -22,6 +22,7 @@ import { mkdtemp, writeFile, rm, mkdir, appendFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { config } from './config.mjs';
+import { enhancementConnection } from '../../shared/model-settings.mjs';
 
 /** 当前在跑的增强数。只增不漏：拿名额与还名额成对出现在 try/finally 里。 */
 let inflight = 0;
@@ -31,12 +32,13 @@ function agentCfg() {
   const pe = config.raw.prompt_enhancement ?? {};
   const ag = pe.agent ?? {};
   const am = pe.aux_model ?? {};
+  const saved = enhancementConnection(config.raw);
   return {
     enabled: ag.enabled === true,
     bin: ag.bin ?? 'claude',
-    baseUrl: process.env[am.base_url_env ?? 'CVW_AUX_ENHANCE_BASE_URL'] ?? am.base_url ?? '',
-    apiKey: process.env[am.api_key_env ?? 'CVW_AUX_ENHANCE_API_KEY'] ?? am.api_key ?? '',
-    model: process.env[am.model_env ?? 'CVW_AUX_ENHANCE_MODEL'] ?? am.model ?? '',
+    baseUrl: saved?.endpoint ?? process.env[am.base_url_env ?? 'CVW_AUX_ENHANCE_BASE_URL'] ?? am.base_url ?? '',
+    apiKey: saved ? (saved.kind === 'intranet' ? 'sk-local-proxy' : saved.api_key) : process.env[am.api_key_env ?? 'CVW_AUX_ENHANCE_API_KEY'] ?? am.api_key ?? '',
+    model: saved?.model ?? process.env[am.model_env ?? 'CVW_AUX_ENHANCE_MODEL'] ?? am.model ?? '',
     timeoutMs: ag.timeout_ms ?? 420_000,
     maxConcurrent: ag.max_concurrent ?? 6,
     allowedTools: ag.allowed_tools ?? 'WebSearch,WebFetch',
@@ -67,8 +69,8 @@ function killTree(child, sig) {
  * 跑一轮 agent loop，返回 stdout 聚合出来的最终文本。
  * 失败一律抛错 —— 调用方会降级成单轮或直投，不会让任务失败。
  */
-export async function runEnhanceAgent(promptText, { log = console, auditDir } = {}) {
-  const a = agentCfg();
+export async function runEnhanceAgent(promptText, { log = console, auditDir, modelConfig } = {}) {
+  const a = { ...agentCfg(), ...(modelConfig ? { baseUrl: modelConfig.baseUrl, apiKey: modelConfig.apiKey, model: modelConfig.model } : {}) };
   if (!a.configured && !(a.enabled && a.baseUrl && a.apiKey && a.model)) {
     throw new Error('agent 增强未配置');
   }

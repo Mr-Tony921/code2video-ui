@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { JobCard } from '@/components/JobCard';
 import { Sidebar } from '@/components/Sidebar';
 import { ExperimentSkills } from '@/components/ExperimentSkills';
+import { ExperimentModelPicker } from '@/components/ExperimentModelPicker';
 import { withBase } from '@/lib/base-path';
 import { Composer } from '@/components/Composer';
 import { PromptBubble } from '@/components/PromptBubble';
@@ -254,9 +255,9 @@ export default function Workspace() {
   useEffect(() => {
     if (!boot.user?.can_use_experimental) { setModels([]); return; }
     api.experimentalModels().then(r => {
-      setModels(r.models); setModelId(current => current || r.models[0]?.profile_id || '');
+      setModels(r.models); setModelId(current => r.models.some(m => m.profile_id === current) ? current : r.models[0]?.profile_id || '');
     }).catch(() => setModels([]));
-  }, [boot.user?.can_use_experimental]);
+  }, [boot.user?.id, boot.user?.can_use_experimental]);
   useEffect(() => {
     setExperimentSkills({ builtin: boot.session?.experimental_skills?.builtin ?? 'none',
       text: boot.session?.experimental_skills?.text ?? '',
@@ -689,14 +690,11 @@ export default function Workspace() {
         open={showNewSession}
         runningJobs={boot.runningJobs}
         onConfirm={doNewSession}
-        confirmDisabled={pendingMode === 'experimental' && !modelId}
+        confirmDisabled={pendingMode === 'experimental' && (!modelId || modelId === '__custom__')}
         onCancel={() => { setShowNewSession(false); if (boot.session) setPendingMode(boot.session.mode); }}
       >
         {pendingMode === 'experimental' && <div style={{ marginBottom: 14 }}>
-          <label className="tiny">实验模型<select className="input" value={modelId} onChange={e => setModelId(e.target.value)}>
-            {models.map(m => <option key={m.profile_id} value={m.profile_id}>{m.name} · {m.model}</option>)}
-          </select></label>
-          {!models.length && <p className="note warn">当前没有可用实验模型，请联系配置维护者。</p>}
+          <ExperimentModelPicker models={models} value={modelId} onChange={setModelId} userId={boot.user.id} />
           <label className="tiny">内置 skill<select className="input" value={newBuiltin}
             onChange={e => setNewBuiltin(e.target.value as ExperimentalSkillsInput['builtin'])}>
             <option value="none">不使用任何内置 skill</option>

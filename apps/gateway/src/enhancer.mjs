@@ -16,18 +16,20 @@ import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { config } from './config.mjs';
 import { runEnhanceAgent, agentStatus } from './enhance-agent.mjs';
+import { enhancementConnection } from '../../shared/model-settings.mjs';
 
 const TEMPLATE_REL = 'assets/prompt-templates/dense_prompt_template.md';
 
 function auxCfg() {
   const pe = config.raw.prompt_enhancement ?? {};
   const am = pe.aux_model ?? {};
+  const saved = enhancementConnection(config.raw);
   return {
     enabled: pe.enabled !== false,
     skipForRevision: pe.skip_for_revision !== false,
-    baseUrl: process.env[am.base_url_env ?? 'CVW_AUX_ENHANCE_BASE_URL'] ?? am.base_url ?? '',
-    apiKey: process.env[am.api_key_env ?? 'CVW_AUX_ENHANCE_API_KEY'] ?? am.api_key ?? '',
-    model: process.env[am.model_env ?? 'CVW_AUX_ENHANCE_MODEL'] ?? am.model ?? '',
+    baseUrl: saved?.endpoint ?? process.env[am.base_url_env ?? 'CVW_AUX_ENHANCE_BASE_URL'] ?? am.base_url ?? '',
+    apiKey: saved ? (saved.kind === 'intranet' ? 'sk-local-proxy' : saved.api_key) : process.env[am.api_key_env ?? 'CVW_AUX_ENHANCE_API_KEY'] ?? am.api_key ?? '',
+    model: saved?.model ?? process.env[am.model_env ?? 'CVW_AUX_ENHANCE_MODEL'] ?? am.model ?? '',
     timeoutMs: am.timeout_ms ?? 300_000,
     maxTokens: am.max_tokens ?? 32000,
   };
@@ -160,7 +162,7 @@ export async function enhance({ instruction, assets = [], isRevision = false, sk
   const ag = agentStatus();
   if (ag.configured) {
     try {
-      const r = await runEnhanceAgent(msg, { log: console, auditDir });
+      const r = await runEnhanceAgent(msg, { log: console, auditDir, modelConfig: a });
       text = r.text; usage = r.usage; model = r.model ?? a.model;
       agentTools = r.tools; via = 'agent';
       console.log(`[enhancer] agent loop 完成（${Date.now() - t0}ms，工具 ${(r.tools ?? []).join(',') || '无'}）`);

@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isManagedModel, resolveManagedModel } from './model-settings.mjs';
 
 export const EXPERIMENTAL_MODE = 'experimental';
 export function experimentalEnabled(raw) {
@@ -51,6 +52,7 @@ export function experimentalModels(raw) {
 }
 
 export function resolveExperimentalModel(raw, selection) {
+  if (isManagedModel(selection)) return resolveManagedModel(raw, selection);
   const model = experimentalModels(raw).find(m => m.profile_id === (selection?.profile_id ?? selection));
   if (!model) throw Object.assign(new Error('实验模型未配置或已停用'), { code: 'MODEL_UNAVAILABLE', status: 409 });
   if (selection?.revision && selection.revision !== model.revision)

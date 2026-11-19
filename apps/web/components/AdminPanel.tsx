@@ -10,6 +10,7 @@ import { api, ApiError } from '@/lib/api';
 import { copyText } from '@/lib/clipboard';
 import { GalleryTab } from './GalleryTab';
 import { ExamplesTab } from './ExamplesTab';
+import { AdminModels } from './AdminModels';
 import type { InviteView, User } from '@/lib/types';
 
 type AdminUser = User & {
@@ -29,7 +30,7 @@ const INVITE_STATUS: Record<string, { label: string; cls: string }> = {
 };
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<'invites' | 'users' | 'gallery' | 'examples'>('invites');
+  const [tab, setTab] = useState<'invites' | 'users' | 'gallery' | 'examples' | 'models'>('invites');
   const [invites, setInvites] = useState<InviteView[]>([]);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [channels, setChannels] = useState<string[]>(['test', 'external']);
@@ -78,6 +79,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             <button aria-pressed={tab === 'users'} onClick={() => setTab('users')}>用户</button>
             <button aria-pressed={tab === 'gallery'} onClick={() => setTab('gallery')}>画廊</button>
             <button aria-pressed={tab === 'examples'} onClick={() => setTab('examples')}>示例</button>
+            <button aria-pressed={tab === 'models'} onClick={() => setTab('models')}>模型配置</button>
           </div>
           <span className="spacer" />
           <button className="btn" onClick={onClose}>关闭</button>
@@ -109,7 +111,7 @@ export function AdminPanel({ onClose }: { onClose: () => void }) {
             </div>
           )}
 
-          {tab === 'examples' ? <ExamplesTab /> : tab === 'gallery' ? <GalleryTab /> : tab === 'invites' ? (
+          {tab === 'models' ? <AdminModels /> : tab === 'examples' ? <ExamplesTab /> : tab === 'gallery' ? <GalleryTab /> : tab === 'invites' ? (
             <InvitesTab invites={invites} busy={busy}
               channels={channels} defaultChannel={defChannel}
               onCreate={(opts) => run(async () => {

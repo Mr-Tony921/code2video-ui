@@ -21,7 +21,7 @@ export function WelcomeDialog({ open, onClose }: { open: boolean; onClose: () =>
     <dialog ref={ref} onCancel={(e) => { e.preventDefault(); onClose(); }}>
       <h2 style={{ margin: '0 0 4px', fontSize: 19 }}>🧪 测试版本</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        本站由 <strong>SenseNova 6.8 Code2Video</strong> 驱动，
+        本站使用管理员配置的生成模型，
         仅支持 AI 视频生成、视频修改及相关创作讨论。请勿输入无关内容或敏感信息。
       </p>
       <ul style={{ fontSize: 14, paddingLeft: 20, lineHeight: 1.85 }}>

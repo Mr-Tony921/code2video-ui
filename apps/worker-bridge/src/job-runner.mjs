@@ -15,6 +15,7 @@
  */
 import { validateVideo } from '../../shared/video-validation.mjs';
 import { resolveExperimentalModel } from '../../shared/experimental.mjs';
+import { isManagedModel, resolveManagedModel } from '../../shared/model-settings.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdir, writeFile, readdir, stat, appendFile, open, copyFile, rename, rm } from 'node:fs/promises';
 import { existsSync, statSync, readFileSync, readdirSync } from 'node:fs';
@@ -320,7 +321,8 @@ export async function startJob(p) {
 
   const child = spawn(cmd, args, {
     cwd,
-    env: buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection) : config.model),
+    env: buildChildEnv(ws.ws, ws.viewPath, p.jobId, p.mode === 'experimental' ? resolveExperimentalModel(config.raw, p.modelSelection)
+      : p.mode === 'coding_to_video' && isManagedModel(p.modelSelection) ? resolveManagedModel(config.raw, p.modelSelection) : config.model),
     detached: true,                 // ★ 独立 process group，可整树终止
     stdio: ['pipe', outFh.fd, errFh.fd],   // stdin 用来送 prompt
   });

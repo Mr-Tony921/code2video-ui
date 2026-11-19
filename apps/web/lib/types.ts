@@ -3,7 +3,13 @@
 export type Mode = 'coding_to_video' | 'blockout_3d' | 'experimental';
 export type ExperimentalModel = {
   profile_id: string; name: string; model: string; revision: string;
+  custom?: boolean;
 };
+export type ModelConnectionInput = {
+  kind: 'intranet' | 'tokenhub'; endpoint: string; model: string; api_key?: string; reference_id?: string;
+};
+export type ModelConnectionView = ModelConnectionInput & Partial<ExperimentalModel> & { has_key: boolean; key_mask: string };
+export type ModelConnectionCheck = { ok: boolean; checked_at: string; latency_ms: number; error?: string; http_status?: number };
 export type ConfiguredSkill = {
   id: string; name: string; version: string; archive_sha256: string; description?: string; source?: unknown;
 };

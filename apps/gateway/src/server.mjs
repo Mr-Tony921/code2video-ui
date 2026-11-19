@@ -37,6 +37,8 @@ import { experimentalEnabled, experimentalModels, resolveExperimentalModel, vali
 import { configuredSkills } from '../../shared/experimental-catalog.mjs';
 import { prepareSkillRevision } from '../../shared/experimental-skills.mjs';
 import { streamSessionArchive } from '../../shared/session-archive.mjs';
+import { modelSettingsRoutes } from './model-settings-routes.mjs';
+import { isManagedModel, canUsePersonalModel, lastPersonalModel, c2vModelSnapshot } from '../../shared/model-settings.mjs';
 
 async function experimentalUser(req) {
   const signed = currentUser(req);
@@ -52,6 +54,7 @@ function builtinPermission(user, builtin) {
 }
 
 function canUseExperimentalModel(user, selection) {
+  if (isManagedModel(selection)) return canUsePersonalModel(config.raw, selection, user.id);
   const profileId = selection?.profile_id ?? selection;
   const profile = config.raw.experimental.models?.find(p => p.id === profileId && p.enabled !== false);
   if (!profile || !Object.hasOwn(profile, 'allowed_user_ids')) return true;
@@ -118,6 +121,7 @@ function dbg(evt, fields = {}) {
 
 /* ───────── 公开 API ───────── */
 const routes = {
+  ...modelSettingsRoutes({ config, currentUser, experimentalUser, users, json, readJson }),
   'GET /healthz': async (req, res) => json(res, 200, {
     ok: true, ...describeGatewayConfig(),
     maintenance: maintenance.read(),
@@ -770,7 +774,8 @@ const routes = {
     const user = await experimentalUser(req);
     const models = experimentalModels(config.raw).filter(p => canUseExperimentalModel(user, p.profile_id))
       .map(({ endpoint, ...p }) => p);
-    return json(res, 200, { models });
+    const personal = lastPersonalModel(config.raw, user.id);
+    return json(res, 200, { models: personal ? [...models, personal] : models });
   },
 
   'GET /api/experimental/skills': async (req, res) => {
@@ -802,7 +807,7 @@ const routes = {
     if (mode === 'blockout_3d' && !(u.can_use_blockout_3d || u.role === 'admin'))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '需管理员授予白模预演权限');
 
-    let modelSelection = null, experimentalSkills = null;
+    let modelSelection = mode === 'coding_to_video' ? c2vModelSnapshot(config.raw) : null, experimentalSkills = null;
     if (mode === 'experimental') {
       const liveUser = await experimentalUser(req);
       requireExperimentalModel(liveUser, b.model_id);

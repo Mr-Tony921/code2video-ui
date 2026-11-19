@@ -10,6 +10,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { config } from './config.mjs';
 import { resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
+import { isManagedModel, resolveManagedModel } from '../../shared/model-settings.mjs';
 
 export function sessionDir(sessionId) {
   // 会话数据走 sessionsRoot（存储充足的卷），不再和控制面挤在 runtime/ 下
@@ -69,7 +70,8 @@ export async function prepareSessionWorkspace({ sessionId, mode, modelSelection,
   const dir = sessionDir(sessionId);
   const builtin = mode === 'experimental' ? validateBuiltinSkills(builtinSkills) : mode;
   const { name: skillsetName, src } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetForMode(builtin);
-  const model = mode === 'experimental' ? resolveExperimentalModel(config.raw, modelSelection) : config.model;
+  const model = mode === 'experimental' ? resolveExperimentalModel(config.raw, modelSelection)
+    : mode === 'coding_to_video' && isManagedModel(modelSelection) ? resolveManagedModel(config.raw, modelSelection) : config.model;
 
   await mkdir(join(dir, 'jobs'), { recursive: true });
   await mkdir(join(dir, 'references'), { recursive: true });   // Reference 附件（V2）

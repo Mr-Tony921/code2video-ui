@@ -19,6 +19,7 @@ function cookie(username, role = 'user') {
 test('HTTP enforces fresh experimental permissions, binds model and skills, bypasses enhancement, and isolates histories', async () => {
   await users.create({ username: 'test', password: 'Fixture-Password123' });
   await users.create({ username: 'test-peer', password: 'Fixture-Password123' });
+  await users.create({ username: 'fixture-admin', password: 'Fixture-Password123', role: 'admin' });
   let delivered;
   const worker = createServer(async (req, res) => {
     let body = ''; for await (const chunk of req) body += chunk;
@@ -83,7 +84,7 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
     const wid = raw.workers[0].worker_id;
     await req('/internal/processes/register', { internal: true, body: { worker_id: wid, process_instance_id: wid + ':fixture',
       host: '127.0.0.1', port: worker.address().port, supported_modes: ['coding_to_video', 'experimental'],
-      max_concurrent_jobs: 2, max_sessions: 4 } });
+      max_concurrent_jobs: 2, max_sessions: 16 } });
     const session = (await req('/api/sessions', { body: { mode: 'experimental', model_id: 'fixture' }, expected: 201 })).session;
     assert.equal(session.model_selection.model, 'fixture-opus');
     const submitted = await req(`/api/sessions/${session.id}/jobs`, { body: { prompt: 'exact user prompt', enhance: true,
@@ -132,6 +133,32 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
       body: { can_use_experimental: true } });
     const peerModels = await req('/api/experimental/models', { as: 'test-peer' });
     assert.deepEqual(peerModels.models.map(m => m.profile_id), ['fixture', 'intranet-default']);
+    await req('/api/admin/models', { expected: 403 });
+    await req('/api/admin/models', { role: 'admin', expected: 403 }); // Cookie role cannot grant fresh administrator access.
+    const privateKey = 'fixture-personal-private-key';
+    const personal = (await req('/api/experimental/custom-model', { body: { kind: 'tokenhub',
+      endpoint: 'https://personal.example.test', model: 'personal-model', api_key: privateKey } })).model;
+    assert.ok(!JSON.stringify(personal).includes(privateKey));
+    assert.equal((await req('/api/experimental/custom-model', { as: 'test-peer' })).model, null);
+    await req('/api/sessions', { as: 'test-peer', body: { mode: 'experimental', model_id: personal.profile_id }, expected: 403 });
+    const personalSession = (await req('/api/sessions', { body: { mode: 'experimental', model_id: personal.profile_id }, expected: 201 })).session;
+    const personalJob = (await req(`/api/sessions/${personalSession.id}/jobs`, { body: { prompt: 'custom model original prompt',
+      idempotency_key: 'personal-model-job' }, expected: 202 })).job;
+    assert.equal(personalJob.model_selection.model, 'personal-model');
+    assert.equal(personalJob.experimental_skills.builtin, 'none');
+    assert.ok(!JSON.stringify(personalJob).includes(privateKey));
+    const c2v = (await req('/api/admin/models/c2v', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
+      body: { kind: 'tokenhub', endpoint: 'https://default.example.test', model: 'default-sfb', api_key: 'fixture-c2v-key' } })).model;
+    const standard = (await req('/api/sessions', { body: { mode: 'coding_to_video', model_id: 'fixture' }, expected: 201 })).session;
+    assert.equal(standard.model_selection.profile_id, c2v.profile_id); // User-supplied model_id is ignored for C2V.
+    await req('/api/admin/models/c2v', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
+      body: { kind: 'intranet', endpoint: 'http://127.0.0.1:2', model: 'new-default' } });
+    const standardJob = (await req(`/api/sessions/${standard.id}/jobs`, { body: { prompt: 'fixed C2V conversation', enhance: false,
+      idempotency_key: 'fixed-c2v' }, expected: 202 })).job;
+    assert.equal(standardJob.model_selection.model, 'default-sfb');
+    const newer = (await req('/api/sessions', { body: { mode: 'coding_to_video' }, expected: 201 })).session;
+    assert.equal(newer.model_selection.model, 'new-default');
+    await req('/api/admin/models/c2v', { method: 'PATCH', body: { kind: 'intranet', endpoint: 'evil', model: 'wrong' }, expected: 403 });
     for (const modelId of ['fable', { profile_id: 'fable' }]) {
       const denied = await req('/api/sessions', { as: 'test-peer', body: { mode: 'experimental', model_id: modelId }, expected: 403 });
       assert.equal(denied.error.code, 'EXPERIMENTAL_MODEL_FORBIDDEN');
