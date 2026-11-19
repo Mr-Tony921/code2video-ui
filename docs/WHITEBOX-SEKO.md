@@ -41,3 +41,7 @@ Seko 的 source.js 依赖 helpers/runtime，默认 ZIP 同时包含 source、pro
 在选定 dev worker 的 tmux 中使用 `node scripts/whitebox-acceptance.mjs --worker WORKER_ID --out NEW_OUTPUT_DIR --prompt INPUT_FILE --references REFERENCE_DIR`。INPUT_FILE 可以是原始业务 JSON 或用户自然语言。脚本读取当前管理员白模模型，仅在全新目录建立独立模型/会话/任务存储，不提交公众队列，也不冒充网页 test 会话。实际生成仍走同一 worker runner。输出每轮独立 JSON 报告、视频/源码路径和分段耗时。
 
 后续用 `node scripts/whitebox-acceptance.mjs --resume FIRST_REPORT_JSON --prompt FOLLOWUP_TEXT_FILE` 在同一个隔离会话中验证追问。保留首轮 hash，并另行对下载工程、真实样帧和 MP4 全解码做验收；脚本完成不等于视觉质量通过。
+
+## 2026-11-19 完整三案验证
+
+三案共122镜、20张原图，重新生成及源码/视频技术验收3/3；独立有限质量仅相亲记基本可读，林小鱼及矿坑仍有明确缺陷。图片固定压缩、业务JSON保真和上下文误拦截修复已验证。工程API等待与额外MP4渲染单独记录，当前网络不作为严格速度验收。见[完整三案报告](WHITEBOX-SEKO-THREECASE-20261119.md)。
