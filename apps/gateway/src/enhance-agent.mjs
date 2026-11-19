@@ -115,6 +115,8 @@ export async function runEnhanceAgent(promptText, { log = console, auditDir, mod
       delete env.ALL_PROXY;
       delete env.all_proxy;
     }
+    for (const key of Object.keys(env))
+      if (/^CVW_.*(?:KEY|TOKEN|SECRET)$/.test(key)) delete env[key];
 
     const args = [
       '-p',

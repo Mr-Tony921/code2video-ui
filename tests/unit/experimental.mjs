@@ -109,6 +109,8 @@ for key in ('HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy'):
 for key in ('NO_PROXY', 'no_proxy'):
     assert os.environ[key] == 'localhost,models.example.test'
 assert all(key not in os.environ for key in ('ALL_PROXY', 'all_proxy', 'CVW_CLAUDE_HTTP_PROXY'))
+assert 'CVW_INTERNAL_TOKEN' not in os.environ
+assert os.environ['ANTHROPIC_API_KEY'] == 'fixture-key'
 p=pathlib.Path(os.environ['HOME'])/'.claude/projects/fixture/native.jsonl'
 p.parent.mkdir(parents=True,exist_ok=True)
 r={'type':'assistant','message':{'content':[{'type':'thinking','thinking':'fixture','signature':'opaque-audit-signature'},{'type':'text','text':'fixture response'}],'reasoning_signature':'opaque-audit-reasoning'}}

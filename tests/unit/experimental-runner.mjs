@@ -13,7 +13,10 @@ const runner = await import('../../apps/worker-bridge/src/job-runner.mjs');
 const { saveModel, c2vModelSnapshot } = await import('../../apps/shared/model-settings.mjs');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-test('standard C2V child uses its immutable administrator model and keeps credentials out of settings and metadata', async () => {
+test('standard C2V child uses its immutable administrator model and keeps credentials out of settings and metadata', async t => {
+  const otherKey = process.env.CVW_UNRELATED_API_KEY;
+  process.env.CVW_UNRELATED_API_KEY = 'fixture-unrelated-secret';
+  t.after(() => { if (otherKey == null) delete process.env.CVW_UNRELATED_API_KEY; else process.env.CVW_UNRELATED_API_KEY = otherKey; });
   const first = saveModel(config.raw, 'c2v', 'fixture-admin', { kind: 'tokenhub', endpoint: 'https://fixed.example.test',
     model: 'fixed-sfb', api_key: 'fixture-fixed-key' });
   const selected = c2vModelSnapshot(config.raw);
@@ -21,7 +24,7 @@ test('standard C2V child uses its immutable administrator model and keeps creden
   const bin = join(TEST_TMP_ROOT, 'fake-managed-c2v');
   await writeFile(bin, `#!/usr/bin/env python3
 import json,os,pathlib,time,sys
-keys=['ANTHROPIC_MODEL','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','CLAUDE_CODE_SUBAGENT_MODEL','CLAUDE_CODE_MAX_CONTEXT_TOKENS']
+keys=['ANTHROPIC_MODEL','ANTHROPIC_BASE_URL','ANTHROPIC_API_KEY','CLAUDE_CODE_SUBAGENT_MODEL','CLAUDE_CODE_MAX_CONTEXT_TOKENS','CVW_UNRELATED_API_KEY']
 pathlib.Path('fixture-managed-env.json').write_text(json.dumps({k:os.environ.get(k) for k in keys}))
 sys.stdin.read()
 time.sleep(30)
@@ -38,6 +41,7 @@ time.sleep(30)
     for (let i=0; i<100; i++) { try { env=JSON.parse(await readFile(join(ws,'fixture-managed-env.json'))); break; } catch { await sleep(30); } }
     assert.ok(env); assert.equal(env.ANTHROPIC_MODEL,'fixed-sfb'); assert.equal(env.CLAUDE_CODE_SUBAGENT_MODEL,'fixed-sfb');
     assert.equal(env.ANTHROPIC_BASE_URL,'https://fixed.example.test'); assert.equal(env.ANTHROPIC_API_KEY,'fixture-fixed-key');
+    assert.equal(env.CVW_UNRELATED_API_KEY,null);
     const meta=await readFile(join(config.storage.sessionsRoot,config.storage.sessionsSubdir,sid,'rounds',jid,'_meta.json'),'utf8');
     assert.ok(meta.includes(first.profile_id)); assert.ok(!meta.includes('fixture-fixed-key'));
   } finally { await runner.cancelJob(jid,'fixture finished',0.01); await Promise.race([done,sleep(5000)]); }

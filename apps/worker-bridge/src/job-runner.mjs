@@ -110,6 +110,11 @@ function buildChildEnv(jobWs, agentWsPath, jobId, model = config.model) {
       'CLAUDE_CODE_SUBAGENT_MODEL', 'ANTHROPIC_AUTH_TOKEN',
       'CVW_INTERNAL_TOKEN', 'CVW_SESSION_SECRET']) delete inherited[key];
   }
+  if (isManagedModel(model.snapshot)) {
+    // Managed user/C2V jobs receive only their selected API credential below.
+    for (const key of Object.keys(inherited))
+      if (/^CVW_.*(?:KEY|TOKEN|SECRET)$/.test(key)) delete inherited[key];
+  }
   // ★ HOME 必须指向【命名空间内可写】的路径。
   //
   // 事故（线上 job_356f7a34）：HOME=/mnt/afs_toolcall/codevideo，而隔离把整个
