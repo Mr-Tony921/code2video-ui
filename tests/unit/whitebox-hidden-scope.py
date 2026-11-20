@@ -1,6 +1,6 @@
 from pathlib import Path
-import sys,unittest,json,copy,tempfile
-R=Path(__file__).resolve().parents[2];E=R/'assets/whitebox-seko/releases/seko-0.1.10-cvw.1/engine';sys.path.insert(0,str(E/'python'));from seko_engine.evidence import changed_shots,keep_visible_changes,retain_review_findings
+import os,sys,unittest,json,copy,tempfile
+R=Path(__file__).resolve().parents[2];E=R/'assets/whitebox-seko/releases'/os.environ.get('SEKO_TEST_RELEASE','seko-0.1.12-cvw.1')/'engine';sys.path.insert(0,str(E/'python'));from seko_engine.evidence import changed_shots,keep_visible_changes,retain_review_findings
 class Hidden(unittest.TestCase):
  def fixture(self):
   return {'duration':60,'shot_plan':[{'id':f's{i}','start':i*10,'end':(i+1)*10} for i in range(6)],'entities':[{'id':'boot'}],'reference_usage':[],'animation':{'tracks':[{'target':'boot','property':'visible','keys':[{'time':0,'value':False},{'time':15,'value':True},{'time':19,'value':False}]},{'target':'boot','property':'position','keys':[{'time':0,'value':[0,0,0]},{'time':60,'value':[0,0,0]}]}]}}

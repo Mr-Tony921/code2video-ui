@@ -2,10 +2,10 @@
 import os,json,subprocess,time
 from pathlib import Path
 R=Path(__file__).resolve().parents[1];D=R/'runtime/validation'/('seko-check-'+str(time.time_ns()));D.mkdir(parents=True);(D/'tmp').mkdir(exist_ok=True)
-env={**os.environ,'TMPDIR':str(D/'tmp'),'PYTHONDONTWRITEBYTECODE':'1','SEKO_TEST_RELEASE':os.environ.get('SEKO_TEST_RELEASE','seko-0.1.11-cvw.1'),'SEKO_TEST_FAST_INTAKE':'1'}
+env={**os.environ,'TMPDIR':str(D/'tmp'),'PYTHONDONTWRITEBYTECODE':'1','SEKO_TEST_RELEASE':os.environ.get('SEKO_TEST_RELEASE','seko-0.1.12-cvw.1'),'SEKO_TEST_FAST_INTAKE':'1'}
 import sys
 py=sys.executable
-names=['seko-responses','seko-memory','whitebox-prose-markers','whitebox-media','whitebox-transport','whitebox-flow','whitebox-input-boundaries','whitebox-intake-fast','whitebox-line-patches','whitebox-review-contract','whitebox-coarse-review','whitebox-source-recovery','whitebox-hidden-scope','whitebox-visibility-scope']
+names=['seko-responses','seko-memory','whitebox-prose-markers','whitebox-media','whitebox-transport','whitebox-flow','whitebox-input-boundaries','whitebox-intake-fast','whitebox-line-patches','whitebox-review-contract','whitebox-coarse-review','whitebox-curve-scope','whitebox-source-recovery','whitebox-hidden-scope','whitebox-visibility-scope']
 commands=[[py,'tests/unit/'+n+'.py'] for n in names]
 commands+=[[py,'tests/integration/'+n+'.py'] for n in ['whitebox-provider-failures','whitebox-review-boundary','whitebox-review-carryover','whitebox-camera-stage','whitebox-evidence-uncertainty']]
 commands+=[['node','--test','tests/unit/seko-model.mjs','tests/unit/job-card-null-failure.mjs','tests/unit/whitebox-http.mjs','tests/unit/whitebox-geometry.mjs','tests/unit/whitebox-motion.mjs','tests/unit/whitebox-subjects.mjs','tests/unit/whitebox-camera-proposals.mjs','tests/unit/whitebox-focus.mjs','tests/unit/whitebox-focus-scope.mjs']]

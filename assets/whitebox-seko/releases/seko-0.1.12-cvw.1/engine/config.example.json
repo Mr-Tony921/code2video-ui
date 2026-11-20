@@ -1,0 +1,7 @@
+{
+  "models": {
+    "deepseek": {"family":"deepseek","base_url":"https://tokenhub.sensetime.com/v1","api_key_env":"SEKO_DEEPSEEK_KEY","channels":["deepseek-v4.1-flash-1017/zijian/sfb","deepseek-v4.1-flash-1017/huoshan/huoshan"],"max_output_tokens":98304,"http_timeout_seconds":1200},
+    "gpt": {"family":"gpt","base_url":"https://tokenhub.sensetime.com/v1","api_key_env":"SEKO_GPT_KEY","channels":["gpt-6.1-sol/azure_L/sfa","gpt-6.1-sol/azure_L/qwb"],"max_output_tokens":98304,"http_timeout_seconds":1200},
+    "opus": {"family":"opus","base_url":"https://tokenhub.sensetime.com/v1","api_key_env":"SEKO_OPUS_KEY","channels":["claude-opus-5-5/ccmax/sfa","claude-opus-5-5/anthropic_L/sfg"],"max_output_tokens":98304,"http_timeout_seconds":1200}
+  }
+}
