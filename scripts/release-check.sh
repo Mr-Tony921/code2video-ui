@@ -7,6 +7,9 @@ set -uo pipefail
 R="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$R"
 python3 "$R/scripts/guard-isolation.py" || exit 1
+mkdir -p "$R/runtime"
+CHECK_TMP=$(mktemp -d "$R/runtime/release-check.XXXXXX") || exit 1
+trap 'rm -rf -- "$CHECK_TMP"' EXIT
 j(){ python3 -c "import json,sys;d=json.load(open('config/backend.json'));print(eval('d'+sys.argv[1]))" "$1"; }
 LAN="http://$(j "['deployment']['web']['host']"):$(j "['deployment']['web']['port']")"
 PUB=$(j "['deployment']['web'].get('public_url') or ''")
@@ -66,10 +69,10 @@ BUILT=$(python3 -c "import json;print(json.load(open('apps/web/.next/routes-mani
 
 echo "── D. 三层可达 ──"
 [ "$("${C[@]}" -o /dev/null -w '%{http_code}' "$LAN/health")" = 200 ] && ok "前端 /health" || no "前端 /health"
-"${C[@]}" "$GW/healthz" -o /tmp/rc.$$ 2>/dev/null
+"${C[@]}" "$GW/healthz" -o $CHECK_TMP/gateway.json 2>/dev/null
 python3 - "$P" <<PY 2>/dev/null && P=$((P+1)) || no "Gateway healthz"
 import json,sys
-d=json.load(open('/tmp/rc.$$'))
+d=json.load(open('$CHECK_TMP/gateway.json'))
 print("  ✅ %-36s v%s | %s | %d 进程 | %d/%d 并发"%(
   "Gateway", d.get('version'), d.get('model_display_name'),
   d['processes'], d['global_used'], d['global_max_concurrent_jobs']))
@@ -77,9 +80,9 @@ assert d['processes']>=1
 PY
 for endpoint in $(python3 -c "import json;[print(str(w['bridge']['host'])+':'+str(w['bridge']['port'])) for w in json.load(open('config/backend.json'))['workers'] if w.get('enabled',True)]"); do
   h=$endpoint
-  "${C[@]}" "http://$h/health" -o /tmp/rb.$$ 2>/dev/null
+  "${C[@]}" "http://$h/health" -o $CHECK_TMP/bridge.json 2>/dev/null
   python3 -c "
-import json;d=json.load(open('/tmp/rb.$$'))
+import json;d=json.load(open('$CHECK_TMP/bridge.json'))
 assert d['registered']; print('  ✅ %-36s %s running=%d/%d'%('Bridge $h',d['worker_id'],d['running_jobs'],d['max_concurrent_jobs']))
 " 2>/dev/null && P=$((P+1)) || no "Bridge $h 未注册"
 done
@@ -113,7 +116,7 @@ PY
 
 echo "── G. 版本 ──"
 V=$(cat VERSION 2>/dev/null)
-GV=$(python3 -c "import json;print(json.load(open('/tmp/rc.$$')).get('version'))" 2>/dev/null)
+GV=$(python3 -c "import json;print(json.load(open('$CHECK_TMP/gateway.json')).get('version'))" 2>/dev/null)
 [ -n "$V" ] && [ "$V" = "$GV" ] && ok "VERSION 与 Gateway 一致" "v$V" || no "版本不一致" "VERSION=$V Gateway=$GV"
 
 # ★ 还要查【构建产物】里的版本号。
@@ -135,7 +138,6 @@ else
 fi
 grep -q "^## $V" CHANGELOG.md 2>/dev/null && ok "CHANGELOG 有本版记录" || no "CHANGELOG 缺 $V 的条目"
 
-rm -f /tmp/rc.$$ /tmp/rb.$$
 echo
 echo "  ══ 通过 $P 项，失败 $F 项 ══"
 if [ "$F" = 0 ]; then
