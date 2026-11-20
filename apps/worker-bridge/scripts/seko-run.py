@@ -56,7 +56,10 @@ def business_input(raw):
     if surrounding:value={**value,'work_prompt':value.get('work_prompt','')+'\n用户附加说明（原文）：\n'+surrounding}
     return value
 
+AUDIT = None
+
 def main():
+    global AUDIT
     args=read(sys.argv[1]);book=Path(args['book_dir']);work=book/'seko';work.mkdir(parents=True,exist_ok=True)
     start=time.monotonic();engine=Path(args['engine']);sys.path.insert(0,str(engine/'python'))
     spec=importlib.util.spec_from_file_location('seko_host_provider',Path(__file__).with_name('seko-provider.py'));mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
@@ -64,6 +67,8 @@ def main():
     from seko_engine.provider import parse_json
     harness.Provider=mod.Provider
     mod.Provider.capture_root=work/'capture'
+    audit_spec=importlib.util.spec_from_file_location('seko_audit',Path(__file__).with_name('seko-audit.py'));audit_mod=importlib.util.module_from_spec(audit_spec);audit_spec.loader.exec_module(audit_mod)
+    AUDIT=audit_mod.RoundAudit(work,args).install(mod.Provider)
     if (engine/'python/seko_engine/media.py').is_file():
         from seko_engine.media import optimize_image
         mod.Provider.image_optimizer=staticmethod(optimize_image)
@@ -153,8 +158,13 @@ def main():
     write(work/'result.json',final);emit('message',text=message);emit('complete',ok=True)
 
 if __name__=='__main__':
-    try:main()
+    completed=False
+    try:
+        main();completed=True
     except Exception as e:
         # Provider strips credentials; never print configuration or environment.
         secret=os.environ.get('CVW_SEKO_API_KEY','');text=str(e);text=text.replace(secret,'[REDACTED]') if secret else text
         emit('message',text='白模执行失败：'+text[:1500]);emit('complete',ok=False);sys.exit(1)
+
+    finally:
+        if AUDIT is not None:AUDIT.close(completed)

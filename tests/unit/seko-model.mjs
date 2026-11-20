@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { join } from 'node:path';
-import { saveSekoModel, sekoSelection, sekoConnection, checkSekoConnection, prepareSekoConnection } from '../../apps/shared/seko-model.mjs';
+import { saveSekoModel, sekoSelectionForUser, sekoSettings, sekoSelection, sekoConnection, checkSekoConnection, prepareSekoConnection } from '../../apps/shared/seko-model.mjs';
 import { modelSettingsRoutes } from '../../apps/gateway/src/model-settings-routes.mjs';
 const raw={model_settings:{root:join(TEST_TMP_ROOT,'seko-models')},whitebox:{default_model:'whitebox-deepseek',models:[{id:'whitebox-deepseek',channels:[{endpoint:'https://tokenhub.invalid',model:'deepseek/sfb',api_key_env:'SEKO_FIXTURE_KEY'}]}]}};
 process.env.SEKO_FIXTURE_KEY='test-private-secret';
@@ -53,4 +53,23 @@ test('GPT bootstrap and saved connections preserve Responses and configured outp
  assert.equal(sekoConnection(gpt,one).max_output_tokens,32768);assert.equal(sekoConnection(gpt,one).max_context_tokens,524288);
  assert.equal(sekoConnection(gpt,sekoSelection(gpt)).max_output_tokens,16384);
  assert.throws(()=>prepareSekoConnection(gpt,{...changed,max_output_tokens:262144}));
+});
+
+
+test('allowlisted batch model is pinned without changing the global default or exposing credentials',()=>{
+ const before=sekoSelection(raw);
+ const saved=saveSekoModel(raw,{kind:'intranet',endpoint:'http://127.0.0.1:4455',model:'batch-second',protocol:'chat'},{makeDefault:false});
+ assert.equal(sekoSelection(raw).profile_id,before.profile_id);
+ const cfg={...raw,whitebox:{...raw.whitebox,model_access:{batch:[saved.profile_id]}}};
+ const user={id:'batch',status:'active'};
+ const selected=sekoSelectionForUser(cfg,user,saved.profile_id);
+ assert.equal(selected.profile_id,saved.profile_id);assert.equal(selected.skill_version,'0.1.12');
+ assert.equal(sekoConnection(cfg,selected).model,'batch-second');
+ assert.equal(sekoSettings(cfg,user).models.length,2);
+ assert.equal(sekoSettings(cfg,{id:'peer',status:'active'}).models.length,1);
+ assert.throws(()=>sekoSelectionForUser(cfg,{id:'peer',status:'active'},saved.profile_id),e=>e.status===403);
+ assert.throws(()=>sekoSelectionForUser(cfg,{...user,status:'disabled'},saved.profile_id),e=>e.status===403);
+ assert.throws(()=>sekoSelectionForUser(cfg,user,'seko-00000000000000000000000000000000'),e=>e.status===403);
+ assert.equal('api_key'in selected,false);
+ assert.equal(sekoSelection(raw).profile_id,before.profile_id);
 });

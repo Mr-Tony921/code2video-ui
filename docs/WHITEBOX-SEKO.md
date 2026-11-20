@@ -6,7 +6,7 @@
 
 gateway 与现有 FIFO/worker 容量/租约不变，每任务启动一个独立 Python 进程组，stdout/stderr 直接写文件；sidecar 记录 seko 标识，服务重启接管原进程，取消仅停止该进程组。没有附件 SQLite 第二队列。Python 运行固定引擎，模型不能调用任意 shell。
 
-管理员在模型设置页配置白模 Tokenhub（key 必填）或内网（不发认证头），明确 Responses/Chat/Anthropic 协议，主动检测连通。模型配置私有、不可变；新配置影响新会话。普通用户不能改模型/skill。默认 GPT 6.1 Sol（TokenHub azure_L/sfa，Responses），SFB 下线后不再用于新会话。备用渠道不隐式回退；旧会话仍使用创建时的固定模型和引擎快照。
+管理员在模型设置页配置白模 Tokenhub（key 必填）或内网（不发认证头），明确 Responses/Chat/Anthropic 协议，主动检测连通。模型配置私有、不可变；新配置影响新会话。普通用户不能改模型连接或 skill；运维可通过 whitebox.model_access 按用户 ID 授予已保存模型快照的选择权限。默认 GPT 6.1 Sol（TokenHub azure_L/sfa，Responses），SFB 下线后不再用于新会话。备用渠道不隐式回退；旧会话仍使用创建时的固定模型和引擎快照。
 
 首问支持原业务 JSON 与自然语言。自然语言先整理必要输入，关键矛盾先澄清。固定 skill 负责 Three.js/镜头/模型细节。原话、图片、每次模型请求/完整回复、实际 reasoning/signature 均保存到各轮目录。模型未返回的字段不补造。固定 `whitebox-media-v2` 仅用于白模：长边最多1024像素，保持比例、不裁切；每张优先64KiB，硬上限96KiB。较大的图片依次尝试JPEG质量82/76/70/64；仍超限才等比缩小，再尝试编码。小于上限且尺寸合适的原图不重复压缩；EXIF方向先归一化，透明图在编码JPEG时合成白底。原始文件始终不改动。实际模型图片单独落盘，逐项记录原始/发送SHA、原始/归一方向/发送尺寸、字节、质量和策略版本。引擎审查拼图宽960像素，保留原有分页、布局及文字标签，不裁掉证据。该确定性编码不调用模型、不耗反思预算。
 
@@ -44,7 +44,7 @@ Seko 的 source.js 依赖 helpers/runtime，默认 ZIP 同时包含 source、pro
 
 ## 2026-11-20 GPT 固化版 0.1.10
 
-dev 新会话默认引擎为 `seko-0.1.10-cvw.1`。首轮初稿最多2次修正，追问一次编辑最多1次修正；没有隐藏整案重试。已有业务JSON或明确分段时间文本由确定性 intake 处理，不为了重新转写再调用模型。只有必要澄清/无法确定结构时才调用 intake。
+该次验收固定引擎为 `seko-0.1.10-cvw.1`；当前默认见下方 0.1.12 发布记录。首轮初稿最多2次修正，追问一次编辑最多1次修正；没有隐藏整案重试。已有业务JSON或明确分段时间文本由确定性 intake 处理，不为了重新转写再调用模型。只有必要澄清/无法确定结构时才调用 intake。
 
 审查针对可渲染、时间/片段/镜头保真，以及可见的核心剧情矛盾。证据缺失保持 uncertain 和已知问题，不标成质量通过，也不驱动模型改场景来补一张证明。真正的几何/动作/时序错误才进入修正。主 skill 与 source contract 都允许简单人物：按剧情需要添加姿态、接触与四肢，不为所有人补精细面部或步态。
 
@@ -60,7 +60,7 @@ dev 新会话默认引擎为 `seko-0.1.10-cvw.1`。首轮初稿最多2次修正�
 
 ## 粗白模自检 0.1.11
 
-`seko-0.1.11-cvw.1` 保留为独立候选，dev 默认仍为 `seko-0.1.10-cvw.1`。`scripts/check-seko.py` 默认验证最新候选，不意味着服务已启用该版本。候选不能仅凭代码回归或可渲染率提升为默认；需要同时评估完整任务的画面结果和端到端耗时。
+`seko-0.1.11-cvw.1` 保留为独立候选，当时 dev 默认仍为 `seko-0.1.10-cvw.1`。`scripts/check-seko.py` 默认验证最新候选，不意味着服务已启用该版本。候选不能仅凭代码回归或可渲染率提升为默认；需要同时评估完整任务的画面结果和端到端耗时。
 
 必要结果按剧情和空间关系判断：主体可见、方向和位置正确、重要持物/承重及救援因果成立、片段/镜头时长正确。抱臂、点头、重复步态/打斗、细微穿插和接触精度不是独立修正理由；姿态只有影响上述必要结果时才是必修项。主体整体遮挡、明显悬空/道具漂移、错误位移、缺少关键事件仍需修正。
 
@@ -70,6 +70,20 @@ dev 新会话默认引擎为 `seko-0.1.10-cvw.1`。首轮初稿最多2次修正�
 
 已知限制：修正后的审查范围仍使用保守关键帧邻域，并保留此前的 warning 镜头，其中包括 `core=met` 的表演简化。因此局部修正仍可能触发全片复审；本候选未修复范围扩大，不能作为稳定提速承诺。模型服务中断时保留可渲染候选和已知问题，这是失败回退，不是质量通过或优化收益。实际版本对照证据放在 `runtime/validation/seko-0.1.11-gpt512-20261120/`，不随代码提交。
 
-### 0.1.12 局部复审候选
+### 0.1.12 局部复审发布
 
-新增冻结版本 `seko-0.1.12-cvw.1`，默认发布暂保持 0.1.10。复审以实际动画曲线变化区间、画面/元数据变化和未解决的核心要求确定范围；已接受的可选简化不因其他镜头修正而重审。支持 linear/step/smooth 的完整曲线比较，未知格式仍保守扩大；不是靠稀疏截图认定中间帧不变。修正上限和模型档位不变。三案结果保存在 `runtime/validation/seko-0.1.12-gpt512-20261120`；构建完成不等于性能验收通过。
+用户于 2026-11-21 明确要求固定 dev 默认到冻结版本 `seko-0.1.12-cvw.1`；旧会话快照不变。复审以实际动画曲线变化区间、画面/元数据变化和未解决的核心要求确定范围；已接受的可选简化不因其他镜头修正而重审。支持 linear/step/smooth 的完整曲线比较，未知格式仍保守扩大；不是靠稀疏截图认定中间帧不变。修正上限和模型档位不变。三案结果保存在 `runtime/validation/seko-0.1.12-gpt512-20261120`；构建完成不等于性能验收通过。
+
+
+## 批量提交与轨迹留存
+
+运维可用 `saveSekoModel(raw, connection, {makeDefault:false})` 保存不可变模型连接，再在私有配置 `whitebox.model_access` 中按用户 ID 列出允许的 profile_id。创建会话 API 的 model_id 仅接受当前默认或该用户被授予的快照；任意连接/未知 profile 会拒绝。此配置不改 C2V、实验模式或其他账号，提交后切换默认也不会改变已排队会话。
+
+所有任务仍走普通账号的登录、创建会话、附件上传、提交 jobs API 和现有 FIFO 队列。批次索引、源 prompt 哈希、附件顺序与 SHA 单独记入运维批次回执，不能追加到用户 prompt。Seko 原生 version 2 数据可直接发送；通用文本保持原文，不能把数据集内部估时强制注入。
+
+每轮 `rounds/<job>/prompt.md` 保存原文，`seko/capture/<call>/request.json`、`response.json`/`response.raw` 保留完整模型请求、回复与签名，原图及实际发送媒体均保留。新增 `seko/trace/events.jsonl` 按序关联用户原话、模型调用/回复、工具 argv 与完整 stdout/stderr；路径以该轮 seko 目录为基准，失败也追加记录。`seko/diagnostics/operations.jsonl` 单独记录耗时和状态，关联 operation_id；细分传输仍在 capture 的 transport.json。语义轨迹不嵌入计时指标，也不记录认证头或环境密钥。强制取消可能只有 call 而没有 result，按未完成处理，不能伪造完整轨迹。
+
+复核：`python tests/unit/seko-audit.py`、`node --test tests/unit/seko-model.mjs tests/unit/whitebox-http.mjs`、`SEKO_TEST_RELEASE=seko-0.1.12-cvw.1 SEKO_TEST_FAST_INTAKE=1 node --test tests/integration/seko-runner.mjs`。真实模型可用性与批次进度单独保存在 runtime，不作为 skill 质量通过的证据。
+
+
+提交入口：`python scripts/whitebox-submit-batch.py --dataset DATASET_DIR --models MODELS_JSON --account PRIVATE_ACCOUNT_JSON --out LEDGER_DIR --base-url DEV_WEB_URL`。账号文件为 username/password，模型文件为 profile_id/model 列表。先加 `--limit 4` 验证两类输入和各模型启动，再以相同参数去掉 limit 继续；已记入回执的 job 不重复提交，提交 jobs 使用稳定幂等键。会话创建接口尚无幂等保证，创建响应丢失时脚本会停下并标记 session_create_pending，必须先核对服务端会话再恢复，不能盲目重建。脚本需要在有权读取该 dev 会话共享存储的运维机器执行，以核验上传附件 SHA；凭据和回执不提交 Git。

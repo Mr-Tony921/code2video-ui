@@ -70,6 +70,10 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
   const book=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,ids[0].sid,'rounds',ids[0].jid);
   const result=JSON.parse(readFileSync(join(book,'seko/result.json')));
   assert.equal(result.scene_success,true);assert.equal(result.status,'self_checked');assert.equal(result.structure_pass,true);assert.equal(result.shot_count,2);assert.equal(result.repairs,0);
+  const trace=readFileSync(join(book,'seko/trace/events.jsonl'),'utf8').trim().split('\n').map(line=>JSON.parse(line));
+  assert.ok(trace.some(e=>e.kind==='model_reply'));assert.ok(trace.some(e=>e.kind==='tool_call'));
+  assert.ok(trace.some(e=>e.kind==='tool_result'));assert.ok(trace.every(e=>!('seconds'in e)));
+  assert.ok(existsSync(join(book,'seko/diagnostics/operations.jsonl')));
   assert.ok(existsSync(join(book,'seko/source.zip')));assert.ok(a.meta.duration_ms>=3990);
   assert.equal(result.timings.api_calls,flowRelease&&!fastIntake?3:2);
   assert.equal(result.timings.api_complete_calls,result.timings.api_calls);

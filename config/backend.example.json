@@ -575,6 +575,6 @@
       }
     ],
     "default_model": "whitebox-gpt",
-    "seko_release": "seko-0.1.10-cvw.1"
+    "seko_release": "seko-0.1.12-cvw.1"
   }
 }

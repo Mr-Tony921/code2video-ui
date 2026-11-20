@@ -7,7 +7,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { normalizeConnection } from './model-settings.mjs';
 export const SEKO_HARNESS = 'seko-v1';
-export const SEKO_RELEASE = 'seko-0.1.10-cvw.1';
+export const SEKO_RELEASE = 'seko-0.1.12-cvw.1';
 export const isSeko = selection => selection?.harness === SEKO_HARNESS;
 const fail = (text, status = 400) => Object.assign(new Error(text), { status, code: 'WHITEBOX_MODEL_INVALID' });
 const root = raw => join(raw.model_settings?.root ?? join(process.env.CVW_STORAGE_ROOT ?? raw.storage.root, 'model-settings'), 'whitebox');
@@ -57,26 +57,39 @@ function view(entry, admin = true) {
       key_mask: c.api_key ? c.api_key.slice(0, 6) + '****' + c.api_key.slice(-3) : '' } : {}) };
 }
 export const sekoAdminModel = raw => view(current(raw));
-export function saveSekoModel(raw, input) {
+export function saveSekoModel(raw, input, { makeDefault = true } = {}) {
   const c = prepareSekoConnection(raw, input);
   const revision = createHash('sha256').update(JSON.stringify(c)).digest('hex');
   const id = 'seko-' + revision.slice(0, 32);
   const entry = { connection: c, snapshot: { profile_id: id, name: c.model, model: c.model, revision: revision.slice(0, 16) }, created_at: new Date().toISOString() };
   if (!read(raw, id + '.json')) write(raw, id + '.json', entry);
-  write(raw, 'default.json', { profile_id: id }); return view(entry);
+  if (makeDefault) write(raw, 'default.json', { profile_id: id }); return view(entry);
 }
-export function sekoSelection(raw) {
-  let e = current(raw);
+export function sekoSelection(raw, profileId = null) {
+  let e = profileId ? record(raw, profileId) : current(raw);
   if (!e.snapshot) { saveSekoModel(raw, e.connection); e = current(raw); }
   const release = raw.whitebox?.seko_release ?? SEKO_RELEASE;
   if (!/^seko-[\w.-]+$/.test(release)) throw fail('白模发布版本格式无效');
   const manifest = JSON.parse(readFileSync(join(fileURLToPath(new URL('../../', import.meta.url)), 'assets/whitebox-seko/releases', release, 'RELEASE.json')));
   return { ...view(e, false), harness: SEKO_HARNESS, engine_release: release, skill_version: manifest.skill_version, engine_sha256: createHash('sha256').update(JSON.stringify(manifest.files)).digest('hex') };
 }
-export const sekoSkill = { id: 'seko-blockout', name: 'Seko Blockout', version: '0.1.10', release: SEKO_RELEASE };
-export function sekoSettings(raw) { const m = sekoSelection(raw); return { models: [m], default_model_id: m.profile_id,
-  skills: [{ ...sekoSkill, version: m.skill_version }], default_skills: { builtin: 'none', configured: [{ ...sekoSkill, version: m.skill_version, release: m.engine_release }] }, harness: SEKO_HARNESS,
-  fixed_model: true, fixed_skill: true, time_target_seconds: 600, video_timing_separate: true, hard_timeout_seconds: null }; }
+export const sekoSkill = { id: 'seko-blockout', name: 'Seko Blockout', version: '0.1.12', release: SEKO_RELEASE };
+/** Optional operator allowlist: public callers may select only saved profiles granted to their user id. */
+export function sekoSelectionForUser(raw, user, requestedId) {
+  const selected = sekoSelection(raw);
+  if (!requestedId || requestedId === selected.profile_id) return selected;
+  const allowed = raw.whitebox?.model_access?.[user?.id];
+  if (user?.status !== 'active' || !Array.isArray(allowed) || !allowed.includes(requestedId))
+    throw Object.assign(new Error('白模模型由管理员统一配置；此账号未获该模型权限'), { status: 403, code: 'WHITEBOX_MODEL_FORBIDDEN' });
+  return sekoSelection(raw, requestedId);
+}
+export function sekoSettings(raw, user = null) {
+  const m = sekoSelection(raw), ids = user?.status === 'active' ? raw.whitebox?.model_access?.[user.id] : [];
+  const models = [m, ...(Array.isArray(ids) ? [...new Set(ids)].filter(id => id !== m.profile_id).map(id => sekoSelectionForUser(raw, user, id)) : [])];
+  return { models, default_model_id: m.profile_id,
+    skills: [{ ...sekoSkill, version: m.skill_version }], default_skills: { builtin: 'none', configured: [{ ...sekoSkill, version: m.skill_version, release: m.engine_release }] }, harness: SEKO_HARNESS,
+    fixed_model: models.length === 1, fixed_skill: true, time_target_seconds: 600, video_timing_separate: true, hard_timeout_seconds: null };
+}
 /** Actual intended protocol; an internal request has no fake authorization header. */
 export async function checkSekoConnection(c, { timeoutMs = 60000 } = {}) {
   const start = Date.now(), anthropic = c.protocol === 'anthropic', responses = c.protocol === 'responses';

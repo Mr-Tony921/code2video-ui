@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { sekoPublicResult, sekoDownload } from '../../shared/seko-artifact.mjs';
-import { isSeko, sekoSelection, sekoSettings, sekoConnection } from '../../shared/seko-model.mjs';
+import { isSeko, sekoSelectionForUser, sekoSettings, sekoConnection } from '../../shared/seko-model.mjs';
 import { whiteboxResponsePatch } from '../../shared/whitebox-response.mjs';
 import { validateVideo } from '../../shared/video-validation.mjs';
 /**
@@ -779,7 +779,7 @@ const routes = {
     const live = await users.get(u.username);
     if (!whiteboxEnabled(config.raw) || live?.status !== 'active' || !(live?.can_use_blockout_3d || live?.role === 'admin'))
       return err(res, 403, 'BLOCKOUT_3D_FORBIDDEN', '需管理员授予白模预演权限');
-    return json(res, 200, sekoSettings(config.raw));
+    return json(res, 200, sekoSettings(config.raw, live));
   },
 
   'GET /api/experimental/models': async (req, res) => {
@@ -830,8 +830,7 @@ const routes = {
       experimentalSkills = { builtin };
     }
     if (mode === 'blockout_3d' && whiteboxEnabled(config.raw)) {
-      modelSelection = sekoSelection(config.raw);
-      if (b.model_id && b.model_id !== modelSelection.profile_id) return err(res, 400, 'WHITEBOX_FIXED_MODEL', '白模模型由管理员统一配置');
+      modelSelection = sekoSelectionForUser(config.raw, currentPermissions, b.model_id);
       experimentalSkills = { builtin: 'none' };
     }
     const proc = pool.pickForSession(mode);
