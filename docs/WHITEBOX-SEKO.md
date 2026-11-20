@@ -42,10 +42,6 @@ Seko 的 source.js 依赖 helpers/runtime，默认 ZIP 同时包含 source、pro
 
 后续用 `node scripts/whitebox-acceptance.mjs --resume FIRST_REPORT_JSON --prompt FOLLOWUP_TEXT_FILE` 在同一个隔离会话中验证追问。保留首轮 hash，并另行对下载工程、真实样帧和 MP4 全解码做验收；脚本完成不等于视觉质量通过。
 
-## 2026-11-19 完整三案验证
-
-三案共122镜、20张原图，重新生成及源码/视频技术验收3/3；独立有限质量仅相亲记基本可读，林小鱼及矿坑仍有明确缺陷。图片固定压缩、业务JSON保真和上下文误拦截修复已验证。工程API等待与额外MP4渲染单独记录，该次历史网络不作为严格速度验收。见[完整三案报告](WHITEBOX-SEKO-THREECASE-20261119.md)。
-
 ## 2026-11-20 GPT 固化版 0.1.10
 
 dev 新会话默认引擎为 `seko-0.1.10-cvw.1`。首轮初稿最多2次修正，追问一次编辑最多1次修正；没有隐藏整案重试。已有业务JSON或明确分段时间文本由确定性 intake 处理，不为了重新转写再调用模型。只有必要澄清/无法确定结构时才调用 intake。
@@ -54,4 +50,10 @@ dev 新会话默认引擎为 `seko-0.1.10-cvw.1`。首轮初稿最多2次修正�
 
 `timings.engineering_excluding_measured_upload_seconds` = 工程总时间减客户端实测请求提交时间；视频另计。等待响应头仍可能含上游上传/排队/推理，不应解释成纯模型推理。网络未完成首稿时会明确失败；审查网络失败已有可回放场景则保留它和已知问题，不能冒充质量通过。
 
-离线回归：在 dev worker 执行 `/opt/videokit/venv/bin/python scripts/check-seko.py`，报告落在本 checkout 的 runtime/validation。新机需按 engine/package-lock.json 安装依赖。隔离真实验收可加 `--release seko-0.1.10-cvw.1`；续改不能更换已固定版本。完整实际结果、速度限制和 medium 对照记录见 [GPT 接手与验收报告](WHITEBOX-GPT-20261120.md)。
+离线回归：在 dev worker 执行 `/opt/videokit/venv/bin/python scripts/check-seko.py`，报告落在本 checkout 的 runtime/validation。新机需按 engine/package-lock.json 安装依赖。隔离真实验收可加 `--release seko-0.1.10-cvw.1`；续改不能更换已固定版本。实验数据与报告属于部署运行数据，保存在 runtime/validation 与 runtime/reports/whitebox，不随代码提交；使用具体批次的模型、版本、输入 SHA 和实际结果支撑结论。
+
+## 代码、依赖与实验目录
+
+- assets/whitebox-seko/releases/ 保留正式版本源码、技能和依赖锁；engine/node_modules 是本机依赖，首次安装在对应 engine 下执行 npm ci，不进入 Git。
+- runtime/validation/ 保存版本固定的验收批次；runtime/reports/whitebox/ 保存实验结论；这些目录由运行环境独立保留。
+- runtime/whitebox-seko/legacy-releases/ 保存历史 dev 引擎，在原 assets 路径保留本机兼容软链接，以保持旧会话和旧任务依赖路径有效。历史引擎不是新会话默认发布物。搬迁运行数据时需同步归档及链接，不能仅删除旧引擎。

@@ -29,3 +29,10 @@ __pycache__/
 # Seko's public JS runtime is source code, unlike private service runtime data.
 !assets/whitebox-seko/releases/*/engine/runtime/
 !assets/whitebox-seko/releases/*/engine/runtime/**
+
+# Machine-local dependencies and compatibility aliases for historical dev sessions.
+/assets/whitebox-seko/releases/*/engine/node_modules
+/assets/whitebox-seko/releases/seko-0.1.5-cvw.*
+/assets/whitebox-seko/releases/seko-0.1.6-cvw.*
+/assets/whitebox-seko/releases/seko-0.1.7-cvw.*
+/assets/whitebox-seko/releases/seko-0.1.8-cvw.*
