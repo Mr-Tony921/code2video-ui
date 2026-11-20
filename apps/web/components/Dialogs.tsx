@@ -28,7 +28,7 @@ export function WelcomeDialog({ open, onClose }: { open: boolean; onClose: () =>
         <li>单次生成可能需要 <strong>1~2 小时</strong>，属于正常现象</li>
         <li><strong>可以关闭网页</strong>：生成在后端继续，重新打开本页即可查看进度</li>
         <li>切换标签页、最小化都不受影响，可以放在后台</li>
-        <li>支持上传图片 / 视频 / 音频作为参考素材，单次对话最多 10 个</li>
+        <li>白模每个对话最多 100 张参考图；C2V / 实验模式支持图片、视频、音频，最多 10 个</li>
         <li>发错了可以「停止并修改」，不必新建对话；历史创作可在顶栏「创作历史」回看</li>
       </ul>
       <div className="row" style={{ marginTop: 16 }}>

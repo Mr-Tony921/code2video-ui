@@ -93,7 +93,7 @@ export function healthNote(job: Job): { text: string; tone: 'ok' | 'warn' | 'bad
     case 'STATE_UNKNOWN':
       return { text: `系统正在与后端核对任务真实状态，请稍候。任务可能仍在运行，请勿重复提交。`, tone: 'warn' };
     case 'CONFIRMED_FAILED':
-      return { text: job.failure.message ?? '生成失败', tone: 'bad' };
+      return { text: job.failure?.message ?? '生成失败', tone: 'bad' };
     default:
       return null;
   }

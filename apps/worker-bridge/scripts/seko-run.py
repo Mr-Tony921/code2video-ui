@@ -13,6 +13,21 @@ def safe(root,name):
     if not p.is_relative_to(Path(root).resolve()) or not p.is_file():raise ValueError('Invalid artifact path')
     return p
 
+def capture_timings(root):
+    """Measured client upload is separable; API wait still includes queue/inference."""
+    result={'api_calls':0,'api_complete_calls':0,'api_seconds':0.0,'api_connect_seconds':0.0,'api_upload_seconds':0.0,'api_response_wait_seconds':0.0,'api_download_seconds':0.0,'stages':[]}
+    for folder in sorted(Path(root).glob('[0-9][0-9][0-9][0-9]')):
+        def data(name):
+            p=folder/name
+            return read(p) if p.exists() else {}
+        meta=data('metadata.json');receipt=data('receipt.json');transport=data('transport.json')
+        row={'capture':folder.name,'stage':meta.get('stage','unknown'),'complete':receipt.get('complete',False),'seconds':receipt.get('seconds',0.0),'upload_seconds':transport.get('submit_seconds',0.0)}
+        result['stages'].append(row);result['api_calls']+=1;result['api_complete_calls']+=int(row['complete'])
+        result['api_seconds']+=row['seconds']
+        for key,field in [('api_connect_seconds','connect_seconds'),('api_upload_seconds','submit_seconds'),('api_response_wait_seconds','response_headers_seconds'),('api_download_seconds','response_body_seconds')]:
+            result[key]+=transport.get(field,0.0)
+    return result
+
 def past_rounds(book):
     result=[]
     for p in book.parent.glob('*/seko/result.json'):
@@ -49,6 +64,10 @@ def main():
     from seko_engine.provider import parse_json
     harness.Provider=mod.Provider
     mod.Provider.capture_root=work/'capture'
+    if (engine/'python/seko_engine/media.py').is_file():
+        from seko_engine.media import optimize_image
+        mod.Provider.image_optimizer=staticmethod(optimize_image)
+    else:mod.Provider.image_optimizer=None
     history=past_rounds(book)
     turns=[{'user':r['user_prompt'],'assistant':r.get('message'),'outcome':r.get('status'),'job_id':r['job_id']} for _,_,r in history]
     turns.append({'user':args['prompt']});mod.Provider.context=json.dumps(turns,ensure_ascii=False)
@@ -59,14 +78,24 @@ def main():
     emit('phase',phase='PLANNING',text='正在理解白模需求')
     user=args['prompt'];initial=business_input(user) if not latest else None
     supplied_business_input = initial is not None
+    compact_intake = not latest and (engine/'python/seko_engine/intake.py').is_file()
     intake_seconds=0
     if initial is None:
         context={}
         if latest:
             previous=latest[0].parent/'run';a=read(previous/'artifact.json');project=read(safe(previous,a['project']))
             context={'duration':project['duration'],'segments':project['segments'],'shots':project['shot_plan'],'entities':project['entities'],'known_issues':latest[1].get('issues',[]),'reference_usage':project.get('reference_usage',[]),'model':args['model']}
-        t=time.monotonic();reply=provider.call(INTAKE+'\nLATEST_DELIVERED_PROJECT:'+json.dumps(context,ensure_ascii=False)+'\nREFERENCE_ATTACHMENTS:'+json.dumps([{'id':f'reference_{i+1}','filename':label} for i,(label,_) in enumerate(images)],ensure_ascii=False),[],effort='low',json_mode=True);intake_seconds=time.monotonic()-t
-        decision=parse_json(reply['text']);write(work/'intake.json',decision)
+        t=time.monotonic()
+        if compact_intake:
+            # Only opt-in releases use compact intake. Existing pinned releases
+            # and all follow-up routing keep their established behavior.
+            from seko_engine.intake import decide
+            decision=decide(provider,parse_json,turns,images,write,work)
+        else:
+            reply=provider.call(INTAKE+'\nLATEST_DELIVERED_PROJECT:'+json.dumps(context,ensure_ascii=False)+'\nREFERENCE_ATTACHMENTS:'+json.dumps([{'id':f'reference_{i+1}','filename':label} for i,(label,_) in enumerate(images)],ensure_ascii=False),[],effort='low',json_mode=True)
+            decision=parse_json(reply['text'])
+        intake_seconds=time.monotonic()-t
+        write(work/'intake.json',decision)
         if decision.get('action') in ('clarify','answer'):
             text=decision.get('text','').strip()
             if not text:raise ValueError('Empty conversational response')
@@ -79,17 +108,20 @@ def main():
     if initial:
         # Business JSON already supplies the exact shot text. Natural-language
         # intake additionally carries original user wording once, not in three copies.
-        if not supplied_business_input:
+        if not supplied_business_input and not compact_intake:
             initial['work_prompt']=initial.get('work_prompt','')+'\n原始用户对话（逐字保留）：\n'+json.dumps([t['user'] for t in turns],ensure_ascii=False)
         write(work/'input.json',initial)
         mod.Provider.context=''  # original task is already present in every engine phase
     else:
         # The frozen task carries the original story; latest source carries prior edits.
         mod.Provider.context=json.dumps(turns[1:],ensure_ascii=False)
-    emit('phase',phase='GENERATING',text='正在生成 Three.js 工程并做有限自检')
+    emit('phase',phase='GENERATING',text='正在生成 Three.js 工程')
     result=harness.run(work/'input.json' if initial else None,refs,args['config'],'selected',work/'run',args['job_id'],
         seed_run=latest[0].parent/'run' if latest else None,refinement_request=user if latest else None)
     engineering=time.monotonic()-start
+    transport_timing=capture_timings(work/'capture')
+    transport_timing['engineering_excluding_measured_upload_seconds']=max(0.0,engineering-transport_timing['api_upload_seconds'])
+    transport_timing['timing_note']='Excludes client request-body send time only; response wait may include upstream upload, queue and inference. Video measured separately.'
     if not result.get('scene_success'):raise RuntimeError(result.get('error') or 'No renderable whitebox project')
     run=work/'run';a=read(run/'artifact.json');project=safe(run,a['project']);source=safe(run,a['source'])
     if a.get('sha256') and sha(project)!=a['sha256']:raise ValueError('Artifact hash mismatch')
@@ -116,8 +148,8 @@ def main():
     if proc.returncode:raise RuntimeError('Whitebox video rendering failed; project retained: '+proc.stderr[-1500:])
     issues=read(source.parent/'issues.json') if (source.parent/'issues.json').exists() else []
     if result.get('error'):issues.append({'code':'engine_error','message':result['error']})
-    message='白模工程与视频已生成。'+('有限自检仍有待核对项，请查看结果说明。' if result['status']!='self_checked' else '已通过有限自检，效果请以预览为准。')
-    final={'harness':'seko-v1','release':args['release'],'job_id':args['job_id'],'model':args['model'],'status':result['status'],'scene_success':True,'structure_pass':result.get('structure_pass'),'user_prompt':user,'message':message,'issues':issues,'repairs':result.get('repairs'),'duration':data['duration'],'shot_count':len(data['shot_plan']),'reference_count':len(task.get('references',[])), 'parent_job_id':latest[1]['job_id'] if latest else None,'finished_at':time.time(), 'export':{'file':'source.zip','sha256':sha(zip_path),'size_bytes':zip_path.stat().st_size},'timings':{'intake_seconds':intake_seconds,'engineering_seconds':engineering,'model_seconds':result.get('model_seconds'),'tool_seconds':result.get('tool_seconds'),'video_seconds':time.monotonic()-render_start,'total_seconds':time.monotonic()-start}}
+    message='白模工程与视频已生成，可预览视频或下载工程。'+('仍有未确认或已知质量问题，请结合结果说明检查。' if result['status']!='self_checked' else '已通过有限自检，效果请以预览为准。')
+    final={'harness':'seko-v1','release':args['release'],'job_id':args['job_id'],'model':args['model'],'status':result['status'],'scene_success':True,'structure_pass':result.get('structure_pass'),'user_prompt':user,'message':message,'issues':issues,'repairs':result.get('repairs'),'duration':data['duration'],'shot_count':len(data['shot_plan']),'reference_count':len(task.get('references',[])), 'parent_job_id':latest[1]['job_id'] if latest else None,'finished_at':time.time(), 'export':{'file':'source.zip','sha256':sha(zip_path),'size_bytes':zip_path.stat().st_size},'timings':{**transport_timing,'intake_seconds':intake_seconds,'engineering_seconds':engineering,'model_seconds':result.get('model_seconds'),'tool_seconds':result.get('tool_seconds'),'video_seconds':time.monotonic()-render_start,'total_seconds':time.monotonic()-start}}
     write(work/'result.json',final);emit('message',text=message);emit('complete',ok=True)
 
 if __name__=='__main__':

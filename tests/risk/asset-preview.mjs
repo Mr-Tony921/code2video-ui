@@ -17,7 +17,7 @@ import { TEST_REPO_ROOT, TEST_TMP_ROOT } from '../fixtures.mjs';
  * 2. **不能影响视频生成逻辑。** 只读原片、只写 Gateway 自己的目录，
  *    不碰会话目录、不碰 agent 工作区，完成钩子必须 fire-and-forget。
  * 3. **白模同理。** 白模 previs 本来就是低码率（实测 640x360 / 59kbps），
- *    只按码率触发就意味着它**一个字节都不会被动**，不会白掉一次画质。
+ *    同时按码率与分辨率触发就意味着它**一个字节都不会被动**，不会白掉一次画质。
  */
 import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -45,7 +45,7 @@ t('max_kbps 是绝对上限', Number(cfg.preview?.max_kbps) > 0, `=${cfg.preview
 t('生成有超时上限（不能无限等）', Number(cfg.preview?.generate_timeout_ms) > 0);
 
 /* ───── 2. ★ 落点必须在会话目录之外、按 job_id ───── */
-const { previewPathFor, previewIsFresh } = await import(join(R, 'apps/gateway/src/asset-preview.mjs'));
+const { previewPathFor, previewIsFresh, previewCaps, previewUrlFor } = await import(join(R, 'apps/gateway/src/asset-preview.mjs'));
 const p1 = previewPathFor('job_aaa');
 const p2 = previewPathFor('job_bbb');
 t('★ 预览片按 job_id 命名（多轮各自独立）', p1 !== p2 && p1.includes('job_aaa'));
@@ -59,7 +59,7 @@ t('预览片在 Gateway 自己的目录下', /gateway[/\\]asset-previews/.test(p
 /* ───── 3. 陈旧判定（纯函数，直接测行为）───── */
 const fp = { source_size: 100, source_mtime_ms: 5 };
 // 指纹里含【当前上限】—— 配置改了也要重做，所以 fixture 必须带上当前的 caps
-const caps = `${cfg.preview.max_height}x${cfg.preview.max_kbps}`;
+const caps = previewCaps();
 const rec = { ...fp, caps, mode: 'none' };
 t('指纹一致 ⇒ 新鲜', previewIsFresh(rec, fp) === true);
 t('★ 原片大小变了 ⇒ 判定过期（否则会把旧内容当本轮成片播）',
@@ -72,11 +72,12 @@ t('★ 旧记录没有 caps 字段 ⇒ 判定过期（本版之前写入的记�
 t('没有记录 ⇒ 不新鲜', previewIsFresh(null, fp) === false);
 t('读不到原片指纹 ⇒ 不新鲜（不能瞎用旧预览片）', previewIsFresh(rec, null) === false);
 
-/* ───── 4. 只按码率触发（白模与小片子不受影响）───── */
+/* ───── 4. 同时按码率与分辨率触发（白模与小片子不受影响）───── */
 const ap = strip(readFileSync(join(R, 'apps/gateway/src/asset-preview.mjs'), 'utf8'));
-t('★ 只用码率判断是否重编码', /\(meta\.kbps[^)]*\)\s*>\s*maxKbps/.test(ap));
-t('★ 没有"分辨率超了就重编码"的判据', !/tooTall|>\s*maxHeight/.test(ap),
-  '分辨率上限只在确实要重编码时顺带生效');
+t('分辨率超限也触发重编码', /meta\.height[^;]+> maxHeight/.test(ap));
+t('480P 是当前预览上限', cfg.preview.max_height === 480);
+t('旧缓存策略失效', !previewIsFresh({ ...fp, caps: '480x600', mode: 'none' }, fp));
+t('播放 URL 含预览策略版本，避开旧浏览器缓存', previewUrlFor('job_aaa').includes('v=v2%3A480x'));
 t('达标时返回 mode:none 且不产生第二份文件', /mode:\s*'none',\s*path:\s*null/.test(ap));
 t('缩放只缩不放', /min\(\$\{maxHeight\},ih\)/.test(ap));
 t('产物先校验再 rename（别让半截文件被播到）',
@@ -84,8 +85,7 @@ t('产物先校验再 rename（别让半截文件被播到）',
 t('失败清临时文件并返回 null（退化成播原片）',
   /catch[\s\S]{0,200}unlink\(tmp\)[\s\S]{0,200}return null/.test(ap));
 t('同一 job 并发只生成一次', /inflight/.test(ap));
-t('上限调高后顺手清掉用不上的旧预览片（别留孤儿）',
-  /maxKbps\)\)\s*\{[\s\S]{0,200}unlink\(previewPathFor\(jobId\)\)/.test(ap));
+t('达标时清掉旧预览片', /unlink\(previewPathFor\(jobId\)\)/.test(ap));
 
 /* ───── 5. 路由分工：播放=预览片，下载=原片 ───── */
 const gw = strip(readFileSync(join(R, 'apps/gateway/src/server.mjs'), 'utf8'));
@@ -110,10 +110,10 @@ const jc = readFileSync(join(R, 'apps/web/components/JobCard.tsx'), 'utf8');
 t('★ 下载按钮明确写「原片」', /下载原片/.test(jc));
 t('★ 标注受网络策略限制、速度慢、请耐心等待',
   /速度较慢/.test(jc) && /耐心等待/.test(jc));
-t('★ 告知网页播放已降采样（否则用户以为成片就这个画质）', /已降采样/.test(jc));
+t('★ 告知网页播放已降采样（否则用户以为成片就这个画质）', /最高 480P 预览/.test(jc));
 t('mode:none 时不乱说"已压缩"', /preview\?\.mode === 'reencode'/.test(jc));
 t('video 的 src 仍是 playback_url（插件下载因此拿到压缩片）',
-  /<video[\s\S]{0,200}src=\{withBase\(job\.result_asset\.playback_url\)\}/.test(jc));
+  /<video[\s\S]{0,450}src=\{withBase\(job\.result_asset\.playback_url\)\}/.test(jc));
 const ty = readFileSync(join(R, 'apps/web/lib/types.ts'), 'utf8');
 t('Asset 类型带 preview 字段', /preview:\s*\{[\s\S]{0,200}mode:\s*'reencode'\s*\|\s*'none'/.test(ty));
 

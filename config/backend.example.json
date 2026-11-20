@@ -10,10 +10,10 @@
     ]
   },
   "preview": {
-    "max_height": 540,
+    "max_height": 480,
     "max_kbps": 600,
     "audio_kbps": 96,
-    "generate_timeout_ms": 25000
+    "generate_timeout_ms": 120000
   },
   "workers": [
     {
@@ -574,6 +574,7 @@
         "description": "固定 Three.js 渲染器，场景 JSON、视觉复核和可续写工作区。主机兼容修改单独记录。"
       }
     ],
-    "default_model": "whitebox-deepseek"
+    "default_model": "whitebox-gpt",
+    "seko_release": "seko-0.1.10-cvw.1"
   }
 }

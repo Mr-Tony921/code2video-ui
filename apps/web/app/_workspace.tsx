@@ -15,6 +15,7 @@ import { withBase } from '@/lib/base-path';
 import { Composer } from '@/components/Composer';
 import { PromptBubble } from '@/components/PromptBubble';
 import { ProcessPanel } from '@/components/ProcessPanel';
+import { whiteboxMessage } from '@/lib/whitebox-display';
 import { ReferencePicker } from '@/components/ReferencePicker';
 import { ExampleDialog } from '@/components/ExampleDialog';
 import { ExampleList } from '@/components/ExampleList';
@@ -110,6 +111,18 @@ export default function Workspace() {
   const [examples, setExamples] = useState<ExamplePrompt[]>([]);
   const [outOfScope, setOutOfScope] = useState<OutOfScopeNotice | null>(null);
   const [refs, setRefs] = useState<ReferenceManifest | null>(null);
+  const currentReferenceSession = useRef<string | null>(null);
+  const loadedReferenceSession = useRef<string | null>(null);
+  currentReferenceSession.current = boot.session?.id ?? null;
+  const [referenceUploads, setReferenceUploads] = useState<Set<string>>(new Set());
+  const referenceBusy = !!boot.session && referenceUploads.has(boot.session.id);
+  const onReferenceBusy = useCallback((id: string, busy: boolean) => {
+    setReferenceUploads((previous) => {
+      const next = new Set(previous);
+      if (busy) next.add(id); else next.delete(id);
+      return next;
+    });
+  }, []);
 
   // 热更新中：只读横幅 + 禁用输入，正在跑的任务照常显示进度
   const locked = boot.maintenance?.active === true;
@@ -198,7 +211,10 @@ export default function Workspace() {
   // 附件清单
   const loadRefs = useCallback(async () => {
     if (!boot.session) { setRefs(null); return; }
-    try { setRefs(await api.listReferences(boot.session.id)); } catch { setRefs(null); }
+    const id = boot.session.id;
+    if (loadedReferenceSession.current !== id) { setRefs(null); loadedReferenceSession.current = id; }
+    try { const value = await api.listReferences(id); if (currentReferenceSession.current === id) setRefs(value); }
+    catch { if (currentReferenceSession.current === id) setRefs(null); }
   }, [boot.session]);
   useEffect(() => { void loadRefs(); }, [loadRefs]);
 
@@ -286,6 +302,7 @@ export default function Workspace() {
   const submit = useCallback(async (text: string, idemKey: string) => {
     if (!boot.session) return;
     setOutOfScope(null);
+    if (referenceBusy) { setToast('请等待参考素材上传完成后再生成'); return; }
     try {
       // 已有完成的视频 → 本次是续写（后端一律跳过扩写）
       const isRevision = !!continuation;
@@ -320,7 +337,7 @@ export default function Workspace() {
       setToast(e instanceof ApiError ? e.message : '提交失败，请重试');
     }
     // enhance 必须在依赖里：漏了会捕获旧值，用户改了开关却按上一次的设置提交
-  }, [boot, loadRefs, enhance, continuation, experimentSkills]);
+  }, [boot, loadRefs, enhance, continuation, experimentSkills, referenceBusy]);
 
   /**
    * 切换模式。
@@ -570,9 +587,12 @@ export default function Workspace() {
           />
 
           <ReferencePicker
+            key={boot.session?.id ?? 'no-session'}
+            mode={boot.session?.mode ?? pendingMode}
+            onBusyChange={onReferenceBusy}
             sessionId={boot.session?.id ?? null}
             manifest={refs}
-            disabled={degraded || sessionBusy}
+            disabled={degraded || sessionBusy || locked}
             onChanged={loadRefs}
           />
         </Sidebar>
@@ -627,7 +647,7 @@ export default function Workspace() {
                 <div className="tiny" style={{ marginBottom: 5, color: 'var(--mute)' }}>
                   制作助手
                 </div>
-                <div style={{ whiteSpace: 'pre-wrap' }}>{clean(helperText)}</div>
+                <div style={{ whiteSpace: 'pre-wrap' }}>{clean(job?.mode === 'blockout_3d' ? whiteboxMessage(helperText) : helperText)}</div>
               </div>
             )}
 
@@ -647,11 +667,12 @@ export default function Workspace() {
               canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} /> : undefined}
             experimental={boot.session?.mode === 'experimental'}
             sessionId={boot.session?.id ?? null}
-            disabled={!boot.session || degraded || sessionBusy || locked || (boot.session.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1')}
+            disabled={!boot.session || degraded || sessionBusy || referenceBusy || locked || (boot.session.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1')}
             disabledReason={
               boot.session?.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1' ? '历史白模对话已只读保留，请新建对话使用新版白模' : locked ? '系统正在更新，请稍候…'
                 : !boot.session ? '请先新建对话'
                 : degraded ? '该对话的后端进程已失联，请新建对话'
+                : referenceBusy ? '参考素材正在上传，请等待完成后再生成'
                 : sessionBusy ? '当前有生成任务正在执行，完成后可继续输入'
                 : undefined
             }
@@ -668,7 +689,7 @@ export default function Workspace() {
               放右侧整列会挤压聊天区，视频出来都看不见 —— 用户实测反馈。 */}
           {boot.session && (
             <ProcessPanel
-              events={processEvents} prompts={wdPrompts}
+              events={job?.mode === 'blockout_3d' ? processEvents.map(e => e.kind === 'assistant_text' ? { ...e, text: whiteboxMessage(e.text) } : e) : processEvents} prompts={wdPrompts}
               phase={job?.phase ?? null} running={!!job && !isTerminal(job.status)}
               ccSessionId={ccSessionId}
               sessionId={boot.session.id}

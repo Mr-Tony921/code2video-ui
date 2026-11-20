@@ -34,7 +34,7 @@ import * as store from './store/job-store.mjs';
 import { enhance, enhancementStatus } from './enhancer.mjs';
 import * as invites from './invites.mjs';
 import * as examples from './examples.mjs';
-import { ensurePreview, previewPathFor, previewIsFresh, initPreviews } from './asset-preview.mjs';
+import { ensurePreview, previewPathFor, previewIsFresh, initPreviews, previewUrlFor } from './asset-preview.mjs';
 import * as users from './users.mjs';
 import { bridgeRefs } from './refs-proxy.mjs';
 import { experimentalEnabled, experimentalModels, resolveExperimentalModel, validateBuiltinSkills } from '../../shared/experimental.mjs';
@@ -561,7 +561,7 @@ const routes = {
       // 可是 agent 后面还会继续改（线上 sess_09d06d8f 就是这么出的事）。
       // publicJob 已经按终态门控过，这里是同一条规则，之前漏了。
       playback_url: (store.isTerminal(j.status) && j.result_asset?.state === 'READY')
-        ? `/api/assets/${j.id}/playback` : null,
+        ? previewUrlFor(j.id) : null,
       failure_code: j.failure?.code ?? null,
       enhancement_chars: j.enhancement?.dense_length ?? null,
     }));
@@ -1224,7 +1224,7 @@ const routes = {
           ? { mode: a.preview.mode, size_bytes: a.preview.size_bytes ?? null,
               width: a.preview.width ?? null, height: a.preview.height ?? null }
           : null,
-        playback_url: `/api/assets/${id}/playback`,
+        playback_url: previewUrlFor(id),
         download_url: `/api/assets/${id}/download`,
       },
       server_time: nowIso(),
@@ -2122,7 +2122,7 @@ function publicJob(j, queueIds = null) {
           width: j.result_asset.width ?? null,
           height: j.result_asset.height ?? null,
           playable: j.result_asset.state === 'READY',
-          playback_url: `/api/assets/${j.id}/playback`,
+          playback_url: previewUrlFor(j.id),
           download_url: `/api/assets/${j.id}/download`,
           /**
            * 网页播放实际下发的是降采样预览片；size_bytes 仍然是【原片】大小。

@@ -29,6 +29,38 @@ class Memory(unittest.TestCase):
     with self.assertRaises(m.ContextLimitError):p.call('REJECT_AS_CONTEXT_LIMIT:'+'x'*20000)
     receipt=json.loads((Path(tmp)/'captures/0003/receipt.json').read_text());self.assertEqual(receipt['failure_kind'],'context_limit');self.assertEqual(len(seen),3)
   finally:server.shutdown();thread.join();server.server_close()
+ def test_all_100_references_reach_the_actual_request_in_order_for_both_protocols(self):
+  from PIL import Image
+  from io import BytesIO
+  seen=[]
+  class Handler(BaseHTTPRequestHandler):
+   def log_message(self,*args):pass
+   def do_POST(self):
+    body=json.loads(self.rfile.read(int(self.headers['Content-Length'])));seen.append(body)
+    result=({'content':[{'type':'text','text':'OK'}],'stop_reason':'end_turn'} if self.path=='/v1/messages' else {'choices':[{'message':{'content':'OK'},'finish_reason':'stop'}]})
+    self.send_response(200);self.end_headers();self.wfile.write(json.dumps(result).encode())
+  server=HTTPServer(('127.0.0.1',0),Handler);thread=threading.Thread(target=server.serve_forever);thread.start()
+  try:
+   with tempfile.TemporaryDirectory() as tmp:
+    root=Path(tmp);images=[];originals={}
+    for i in range(100):
+     p=root/f'reference-{i+1:03d}.png';Image.new('RGB',(1300,500) if i%2 else (500,1600),(i,110,200)).save(p)
+     images.append((f'reference_{i+1}',p));originals[p]=p.read_bytes()
+    for protocol in ('chat','anthropic'):
+     config=root/'config.json';config.write_text(json.dumps({'models':{'selected':{'kind':'intranet','protocol':protocol,'family':'generic','model':'fixture','endpoint':f'http://127.0.0.1:{server.server_port}','max_context_tokens':262144}}}))
+     m.Provider.capture_root=root/protocol;m.Provider.context='';m.Provider.count=0
+     self.assertEqual(m.Provider(config,'selected').call('Use all reference images.',images)['text'],'OK')
+     content=seen[-1]['messages'][0]['content'];labels=[v['text'] for v in content if v['type']=='text'][1:]
+     self.assertEqual(labels,['Image evidence: '+label for label,_ in images])
+     media=[v for v in content if v['type'] in ('image','image_url')];self.assertEqual(len(media),100)
+     for block in media:
+      encoded=block['source']['data'] if protocol=='anthropic' else block['image_url']['url'].split(',',1)[1]
+      with Image.open(BytesIO(base64.b64decode(encoded))) as im:self.assertLessEqual(max(im.size),1024)
+     audit=json.loads((root/protocol/'0001/metadata.json').read_text());self.assertEqual(len(audit['media']),100)
+     self.assertEqual(audit['context_policy']['repair_budget_used'],0)
+     for p,original in originals.items():self.assertEqual(p.read_bytes(),original)
+    self.assertEqual(len(seen),2)
+  finally:server.shutdown();thread.join();server.server_close()
  def test_media_budget_preserves_originals_and_captures_actual_sent_pixels(self):
   from PIL import Image
   with tempfile.TemporaryDirectory() as tmp:

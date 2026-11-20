@@ -95,7 +95,7 @@ export function HistoryPanel({ onClose, onPick, onReuse }: {
               </div>
 
               {j.result_asset?.playable && (
-                <video controls preload="none" style={{ marginTop: 8, maxHeight: 220 }}
+                <video controls controlsList="nodownload" preload="none" style={{ marginTop: 8, maxHeight: 220 }}
                        src={withBase(j.result_asset.playback_url)} />
               )}
 

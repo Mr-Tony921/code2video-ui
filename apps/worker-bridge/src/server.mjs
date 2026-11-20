@@ -355,9 +355,7 @@ const routes = {
 
   'GET /sessions/:id/references': async (req, res, { id }) => {
     if (!authed(req)) return err(res, 401, 'INTERNAL_AUTH_FAILED', 'token 无效');
-    const m = await refs.readManifest(id);
-    const max = config.raw.references?.max_per_session ?? 10;
-    return json(res, 200, { ...m, max_per_session: max, remaining: Math.max(0, max - m.items.length) });
+    return json(res, 200, await refs.referenceManifest(id));
   },
 
   /** 给增强模型用的 assets JSON（含 ffprobe 实测 meta） */

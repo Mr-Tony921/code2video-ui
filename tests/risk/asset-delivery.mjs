@@ -39,7 +39,7 @@ const t = (n, c, e = '') => { c ? (pass++, console.log('  ✅', n, e)) : (fail++
 
 /* ───── 1. 播放器属性 ───── */
 const jc = strip(read('apps/web/components/JobCard.tsx'));
-const vid = /<video[^>]*\/>/.exec(jc)?.[0] ?? '';
+const vid = /<video\b[\s\S]*?\/>/.exec(jc)?.[0] ?? '';
 t('找到 <video>', !!vid);
 t('★★ 不带 loop（短片每次回绕都顿一下）', !/\bloop\b/.test(vid), vid.replace(/\s+/g, ' ').slice(0, 110));
 t('仍然 autoPlay + muted（自动预览）', /autoPlay/.test(vid) && /muted/.test(vid));

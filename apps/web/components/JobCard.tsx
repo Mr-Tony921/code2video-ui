@@ -33,6 +33,8 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [showPlan, setShowPlan] = useState(false);
+  const [previewSize, setPreviewSize] = useState<{ url: string; width: number; height: number } | null>(null);
+  const loadedPreview = previewSize?.url === job.result_asset?.playback_url ? previewSize : null;
   const health = healthNote(job);
   const running = !isTerminal(job.status);
   const canCancel = running && !job.cancellation.requested_at;
@@ -70,9 +72,8 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
       </div>
 
       {job.mode === 'blockout_3d' && job.whitebox_result?.scene_success && <div style={{ marginTop: 10 }}>
-        <p className="tiny">{job.whitebox_result.model} · 工程与自检 {formatDuration(job.whitebox_result.timings.engineering_seconds * 1000)} · 视频渲染 {formatDuration(job.whitebox_result.timings.video_seconds * 1000)} · {job.whitebox_result.shot_count} 镜</p>
+        <p className="tiny">{job.whitebox_result.model} · 工程生成 {formatDuration(job.whitebox_result.timings.engineering_seconds * 1000)} · 视频渲染 {formatDuration(job.whitebox_result.timings.video_seconds * 1000)} · {job.whitebox_result.shot_count} 镜</p>
         {job.whitebox_result.download_url && <a className="btn" href={withBase(job.whitebox_result.download_url)} download>下载代码与工程</a>}
-        {job.whitebox_result.status === 'renderable_with_issues' && <p className="note warn">工程可回放，有限自检仍有待核对项：{job.whitebox_result.issues?.map(i => i.message || i.code).join('；')}</p>}
       </div>}
 
       {/* 排队可见性：告诉用户前面还有几个、一共几个 */}
@@ -151,7 +152,7 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
       )}
 
       {/* 任务过重：给可操作的建议，而不是只抛错误码 */}
-      {job.status === 'FAILED' && job.failure.code === 'E_TASK_TOO_COMPLEX' && (
+      {job.status === 'FAILED' && job.failure?.code === 'E_TASK_TOO_COMPLEX' && (
         <div className="note warn" style={{ marginTop: 8 }}>
           <strong>内容过于复杂，未能完成</strong>
           <div style={{ marginTop: 5 }}>{clean(job.failure.message)}</div>
@@ -163,12 +164,14 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
         </div>
       )}
 
-      {job.status === 'FAILED' && job.failure.code && job.failure.code !== 'E_TASK_TOO_COMPLEX' && (
+      {job.status === 'FAILED' && job.failure?.code && job.failure.code !== 'E_TASK_TOO_COMPLEX' && (
         <div className="note bad" style={{ marginTop: 8 }}>
           原因：{clean(job.failure.message)}
           <div className="mono" style={{ marginTop: 3 }}>错误码：{clean(job.failure.code)}</div>
         </div>
       )}
+
+      {job.status === 'FAILED' && !job.failure?.code && <div className="note bad" style={{ marginTop: 8 }}>任务未完成，错误详情暂未返回。可稍后重新查看。</div>}
 
       {job.status === 'CANCELLED' && (
         <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>
@@ -194,31 +197,23 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
             所以它跟网络无关，纯粹是 loop 带来的解码器重置。
             要反复看有 controls 可以重播。
           */}
-          <video controls autoPlay muted playsInline preload="metadata"
+          <video controls controlsList="nodownload" autoPlay muted playsInline preload="metadata"
+                 onLoadedMetadata={(e) => setPreviewSize({ url: job.result_asset!.playback_url, width: e.currentTarget.videoWidth, height: e.currentTarget.videoHeight })}
                  src={withBase(job.result_asset.playback_url)} />
           <div className="row wrap tiny" style={{ marginTop: 8 }}>
+            {loadedPreview && <span>预览 {loadedPreview.width}×{loadedPreview.height}</span>}
             {job.result_asset.width && job.result_asset.height && (
-              <span>{job.result_asset.width}×{job.result_asset.height}</span>
+              <span>· 原片 {job.result_asset.width}×{job.result_asset.height}</span>
             )}
             {job.result_asset.duration_ms && <span>· {(job.result_asset.duration_ms / 1000).toFixed(1)} 秒</span>}
             <span>· 原片 {formatBytes(job.result_asset.size_bytes)}</span>
             <span>· 耗时 {formatDuration(job.elapsed.running_ms)}</span>
           </div>
-          {/*
-            ★ 必须说明「网页里播的不是原片」。
-            不说的话，用户看到 540p 会以为成片质量就这样 ——
-            而实际原片仍是 1080p，只是为了能在受限网络下快速播放做了降采样。
-            mode:'none' 说明原片本来就不大、播的就是原片，这时候别乱说"已压缩"。
-          */}
-          {job.result_asset.preview?.mode === 'reencode' && (
-            <div className="note tiny" style={{ marginTop: 6 }}>
-              网页播放已降采样
-              {job.result_asset.preview.height ? ` 至 ${job.result_asset.preview.height}p` : ''}
-              {job.result_asset.preview.size_bytes
-                ? `（${formatBytes(job.result_asset.preview.size_bytes)}）` : ''}
-              ，便于在当前网络下快速播放；原片未改动，可用下方按钮下载。
-            </div>
-          )}
+          <div className="note tiny" style={{ marginTop: 6 }}>
+            {loadedPreview && loadedPreview.height > 480
+              ? '预览转换暂未就绪，当前播放原片。'
+              : '网页默认使用最高 480P 预览，较小视频不放大；原片保留，可用下方按钮独立下载。'}
+          </div>
           <div className="row" style={{ marginTop: 10 }}>
             {/*
               ★ 这个按钮下的是【原片】（/download 永远给原片）。

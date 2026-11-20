@@ -6,7 +6,7 @@ export type ExperimentalModel = {
   custom?: boolean; harness?: string; engine_release?: string;
 };
 export type ModelConnectionInput = {
-  protocol?: 'chat' | 'anthropic'; max_context_tokens?: number;
+  protocol?: 'chat' | 'anthropic' | 'responses'; max_context_tokens?: number;
   kind: 'intranet' | 'tokenhub'; endpoint: string; model: string; api_key?: string; reference_id?: string;
 };
 export type ModelConnectionView = ModelConnectionInput & Partial<ExperimentalModel> & { has_key: boolean; key_mask: string };
@@ -166,7 +166,7 @@ export type Job = {
     effective: boolean | null;
     resources_released_at: string | null;
   };
-  failure: { code: string | null; message: string | null };
+  failure: { code: string | null; message: string | null } | null;
   result_asset: Asset | null;
   attempt: number;
   max_runtime_seconds: number;

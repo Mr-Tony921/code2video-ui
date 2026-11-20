@@ -26,7 +26,7 @@ export async function prepareSekoWorkspace(p) {
   for(const f of ['seko-run.py','seko-provider.py'])await copyFile(join(config.repoRoot,'apps/worker-bridge/scripts',f),join(task,f));
   const connection=sekoConnection(config.raw,p.modelSelection),{api_key:key,...publicConnection}=connection;
   const configFile=join(task,'model.json');
-  await writeFile(configFile,JSON.stringify({models:{selected:{...publicConnection,http_timeout_seconds:1200,max_output_tokens:98304}}},null,2),{mode:0o600});
+  await writeFile(configFile,JSON.stringify({models:{selected:{...publicConnection,http_timeout_seconds:1200,max_output_tokens:publicConnection.max_output_tokens ?? (publicConnection.family === 'gpt' ? 32768 : 98304)}}},null,2),{mode:0o600});
   let assets=[];
   const referenceManifest=join(referencesDir(p.sessionId),config.raw.references?.manifest_file ?? 'manifest.json');
   if(existsSync(referenceManifest))assets=JSON.parse(readFileSync(referenceManifest)).items??[];

@@ -18,10 +18,8 @@
  *      · 不碰生成逻辑：这个目录属于 Gateway，agent 看不到、续跑迁移不会拷它、
  *        e2e 对产物 inode/md5 的断言也不受影响（我们只新增旁路文件，原片一个字节不动）。
  *
- * 2. **只按码率触发，低于上限的一个字节都不动。** 用户要的是"给一个最高限制，
- *    不要按百分比一刀切"。小片子（白模 previs、短动画）本来就不卡，
- *    重编码只会白掉一次画质又浪费 CPU —— 这条在 1.4.3 示例片那边已经踩过一次。
- *    分辨率上限只在"确实要重编码"时顺带生效。
+ * 2. **网页预览同时限制分辨率和码率。** 默认最高 480P；低码率的高分辨率
+ *    白模同样需要缩小。原片低于两项上限时直接播放，不放大、不改原片。
  *
  * 3. **任何失败都退化成「播原片」，绝不让播放失败。** ffmpeg 不在、转码超时、
  *    产物校验不过，统统返回 null，调用方继续用原片。
@@ -43,12 +41,15 @@ export async function initPreviews() { await mkdir(previewRoot(), { recursive: t
 const cfg = () => {
   const p = config.raw?.preview ?? {};
   return {
-    maxHeight: Number(p.max_height ?? 540),
+    maxHeight: Number(p.max_height ?? 480),
     maxKbps: Number(p.max_kbps ?? 600),
     audioKbps: Number(p.audio_kbps ?? 96),
-    timeoutMs: Number(p.generate_timeout_ms ?? 25_000),
+    timeoutMs: Number(p.generate_timeout_ms ?? 120_000),
   };
 };
+
+export function previewCaps() { const { maxHeight, maxKbps } = cfg(); return `v2:${maxHeight}x${maxKbps}`; }
+export const previewUrlFor = id => `/api/assets/${id}/playback?v=${encodeURIComponent(previewCaps())}`;
 
 async function run(cmd, args, timeoutMs) {
   const { execFile } = await import('node:child_process');
@@ -80,8 +81,7 @@ export function previewIsFresh(preview, fp) {
    * 的记录会永远新鲜，新上限再也套不到它身上 —— 删 asset-previews/ 目录也救不回来，
    * 因为那条记录根本没有文件。把上限一起记进指纹，改配置后下次播放自动重做。
    */
-  const { maxHeight, maxKbps } = cfg();
-  if (preview.caps !== `${maxHeight}x${maxKbps}`) return false;
+  if (preview.caps !== previewCaps()) return false;
   return preview.source_size === fp.source_size
       && preview.source_mtime_ms === fp.source_mtime_ms;
 }
@@ -103,13 +103,14 @@ export async function ensurePreview(jobId, srcPath, { log = console } = {}) {
     const meta = await probeVideo(srcPath);
     if (!meta || !fp) return null;                       // ffprobe 不在/读不出 ⇒ 播原片
 
-    // ★ 只按码率触发；达标的原片直接播，不重编码、不掉画质
-    if (!((meta.kbps ?? 0) > maxKbps)) {
+    // Resolution is a separate trigger: even low-bitrate 720P whitebox needs a 480P preview.
+    if (!((meta.kbps ?? 0) > maxKbps || (meta.height ?? 0) > maxHeight)) {
       // 上限被调高之后，之前生成的预览片就没用了 —— 顺手删掉，别留孤儿文件
       await unlink(previewPathFor(jobId)).catch(() => {});
       return { mode: 'none', path: null,
-               meta: { ...fp, caps: `${maxHeight}x${maxKbps}`, mode: 'none',
-                       reason: `码率 ${meta.kbps ?? '?'}kbps 未超上限 ${maxKbps}kbps，直接播原片` } };
+               meta: { ...fp, caps: previewCaps(), mode: 'none',
+                       width: meta.width, height: meta.height,
+                       reason: `分辨率与码率均未超 ${maxHeight}P / ${maxKbps}kbps，直接播原片` } };
     }
 
     await mkdir(previewRoot(), { recursive: true });
@@ -117,9 +118,10 @@ export async function ensurePreview(jobId, srcPath, { log = console } = {}) {
     const tmp = `${dst}.${randomUUID()}.tmp`;
     try {
       await run('ffmpeg', [
-        '-v', 'error', '-y', '-i', srcPath,
+        '-v', 'error', '-y', '-threads', '2', '-i', srcPath,
+        '-filter_threads', '1',
         '-vf', `scale=-2:'min(${maxHeight},ih)'`,         // 只缩不放，保持偶数宽高
-        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26',
+        '-c:v', 'libx264', '-threads', '2', '-preset', 'veryfast', '-crf', '26',
         '-maxrate', `${maxKbps}k`, '-bufsize', `${maxKbps * 2}k`,
         '-pix_fmt', 'yuv420p',
         '-map', '0:v:0', '-map', '0:a:0?', '-c:a', 'aac', '-b:a', `${audioKbps}k`,
@@ -134,7 +136,7 @@ export async function ensurePreview(jobId, srcPath, { log = console } = {}) {
         + `${out.height}p/${out.kbps}kbps（${(meta.size_bytes / 1048576).toFixed(1)}MB → ${(out.size_bytes / 1048576).toFixed(1)}MB）`);
       return {
         mode: 'reencode', path: dst,
-        meta: { ...fp, caps: `${maxHeight}x${maxKbps}`, mode: 'reencode', generated_at: new Date().toISOString(),
+        meta: { ...fp, caps: previewCaps(), mode: 'reencode', generated_at: new Date().toISOString(),
                 size_bytes: out.size_bytes, width: out.width, height: out.height,
                 kbps: out.kbps, duration_ms: out.duration_ms },
       };
