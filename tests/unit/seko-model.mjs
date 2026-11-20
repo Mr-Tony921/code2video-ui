@@ -45,12 +45,12 @@ test('whitebox Responses config normalizes endpoint and probes actual complete o
 });
 
 test('GPT bootstrap and saved connections preserve Responses and configured output limits',()=>{
- const gpt={model_settings:{root:join(TEST_TMP_ROOT,'gpt-bootstrap')},whitebox:{models:[{id:'whitebox-gpt',protocol:'responses',max_context_tokens:262144,max_output_tokens:32768,channels:[{endpoint:'https://tokenhub.invalid',model:'gpt-6.1-sol/fixture',api_key_env:'SEKO_FIXTURE_KEY'}]}]}};
+ const gpt={model_settings:{root:join(TEST_TMP_ROOT,'gpt-bootstrap')},whitebox:{models:[{id:'whitebox-gpt',protocol:'responses',max_output_tokens:32768,channels:[{endpoint:'https://tokenhub.invalid',model:'gpt-6.1-sol/fixture',api_key_env:'SEKO_FIXTURE_KEY'}]}]}};
  const one=sekoSelection(gpt),c=sekoConnection(gpt,one);
- assert.equal(c.family,'gpt');assert.equal(c.protocol,'responses');assert.equal(c.max_output_tokens,32768);
+ assert.equal(c.family,'gpt');assert.equal(c.protocol,'responses');assert.equal(c.max_output_tokens,32768);assert.equal(c.max_context_tokens,524288);
  const changed=prepareSekoConnection(gpt,{kind:'tokenhub',endpoint:c.endpoint,model:'gpt-6.1-sol/second',protocol:'responses',max_context_tokens:262144,max_output_tokens:16384});
  assert.equal(changed.max_output_tokens,16384);saveSekoModel(gpt,changed);
- assert.equal(sekoConnection(gpt,one).max_output_tokens,32768);
+ assert.equal(sekoConnection(gpt,one).max_output_tokens,32768);assert.equal(sekoConnection(gpt,one).max_context_tokens,524288);
  assert.equal(sekoConnection(gpt,sekoSelection(gpt)).max_output_tokens,16384);
  assert.throws(()=>prepareSekoConnection(gpt,{...changed,max_output_tokens:262144}));
 });

@@ -492,7 +492,7 @@
         "id": "whitebox-gpt",
         "name": "GPT 6.1 Sol",
         "protocol": "responses",
-        "max_context_tokens": 262144,
+        "max_context_tokens": 524288,
         "max_output_tokens": 32768,
         "autocompact_pct": 70,
         "reasoning_effort": "low",

@@ -25,7 +25,7 @@ function initial(raw) {
   const family = /deepseek/i.test(c.model) ? 'deepseek' : /claude|opus/i.test(c.model) ? 'opus' : /gpt/i.test(c.model) ? 'gpt' : 'generic';
   return { kind: 'tokenhub', endpoint: c.endpoint, model: c.model,
     api_key: process.env[c.api_key_env] ?? '', protocol: profile.protocol ?? (family === 'gpt' ? 'responses' : 'chat'),
-    family, max_context_tokens: profile.max_context_tokens ?? 262144,
+    family, max_context_tokens: profile.max_context_tokens ?? (family === 'gpt' ? 524288 : 262144),
     max_output_tokens: profile.max_output_tokens ?? (family === 'gpt' ? 32768 : 98304) };
 }
 function current(raw) { const p = read(raw, 'default.json'); return p ? record(raw, p) : { connection: initial(raw) }; }
