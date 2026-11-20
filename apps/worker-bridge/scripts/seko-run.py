@@ -94,8 +94,12 @@ def main():
         if compact_intake:
             # Only opt-in releases use compact intake. Existing pinned releases
             # and all follow-up routing keep their established behavior.
-            from seko_engine.intake import decide
-            decision=decide(provider,parse_json,turns,images,write,work)
+            from seko_engine import intake as engine_intake
+            if args['release']=='seko-0.1.12-cvw.1':
+                intake_spec=importlib.util.spec_from_file_location('seko_web_intake',Path(__file__).with_name('seko-intake.py'));intake_mod=importlib.util.module_from_spec(intake_spec);intake_spec.loader.exec_module(intake_mod)
+                decision=intake_mod.decide(provider,parse_json,turns,images,write,work,engine_intake)
+            else:
+                decision=engine_intake.decide(provider,parse_json,turns,images,write,work)
         else:
             reply=provider.call(INTAKE+'\nLATEST_DELIVERED_PROJECT:'+json.dumps(context,ensure_ascii=False)+'\nREFERENCE_ATTACHMENTS:'+json.dumps([{'id':f'reference_{i+1}','filename':label} for i,(label,_) in enumerate(images)],ensure_ascii=False),[],effort='low',json_mode=True)
             decision=parse_json(reply['text'])

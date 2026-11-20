@@ -87,3 +87,12 @@ Seko 的 source.js 依赖 helpers/runtime，默认 ZIP 同时包含 source、pro
 
 
 提交入口：`python scripts/whitebox-submit-batch.py --dataset DATASET_DIR --models MODELS_JSON --account PRIVATE_ACCOUNT_JSON --out LEDGER_DIR --base-url DEV_WEB_URL`。账号文件为 username/password，模型文件为 profile_id/model 列表。先加 `--limit 4` 验证两类输入和各模型启动，再以相同参数去掉 limit 继续；已记入回执的 job 不重复提交，提交 jobs 使用稳定幂等键。会话创建接口尚无幂等保证，创建响应丢失时脚本会停下并标记 session_create_pending，必须先核对服务端会话再恢复，不能盲目重建。脚本需要在有权读取该 dev 会话共享存储的运维机器执行，以核验上传附件 SHA；凭据和回执不提交 Git。
+
+
+### Web 输入适配：未指定时长
+
+用户于 2026-11-21 选择：通用需求没有时长时，模型按剧情复杂度自行安排，最长300秒；明确给出的镜头/片段/总时长仍是强约束。`seko-intake.py` 仅为固定 0.1.12 的网页输入替换“缺少时长就追问”的路由规则，复用原引擎的原文组装、完整镜头保留和时长校验。不修改冻结 skill，不把内部编题估时或额外指令写入用户 prompt，不增加模型调用或修正次数。空故事及明确约束冲突仍应澄清。涉及语义时长规划时记录 intake-policy.json；每轮记录 host_sha256，以区分宿主适配版本。
+
+批次脚本可加 `--group seko` 或 `--group general` 分组提交，两组仍共用原有完整 manifest 和幂等回执。早期仅返回澄清的试投记录保留，重新提交需要在批次回执中显式关联旧记录，不能当成已生成或删除轨迹。
+
+仅经确认需要重提的条目可记录 `submission_attempt`（正整数）和 `prior_attempts`，以生成新的幂等键；普通中断恢复必须沿用原回执，不自动增加 attempt。首次提交的旧幂等键保持兼容。新增回归：`python tests/unit/seko-web-intake.py`、`python tests/unit/whitebox-batch.py`（亦纳入 `scripts/check-seko.py`）。

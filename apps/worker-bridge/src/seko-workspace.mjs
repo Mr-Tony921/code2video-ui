@@ -23,7 +23,7 @@ export async function prepareSekoWorkspace(p) {
   await mkdir(ws,{recursive:true});await mkdir(task,{recursive:true});await mkdir(refs,{recursive:true});
   await cp(source,engine,{recursive:true,filter:f=>!f.split('/').some(x=>x==='node_modules'||x==='__pycache__')});
   await symlink(join(source,'node_modules'),join(engine,'node_modules'),'dir');
-  for(const f of ['seko-run.py','seko-provider.py','seko-audit.py'])await copyFile(join(config.repoRoot,'apps/worker-bridge/scripts',f),join(task,f));
+  for(const f of ['seko-run.py','seko-provider.py','seko-audit.py','seko-intake.py'])await copyFile(join(config.repoRoot,'apps/worker-bridge/scripts',f),join(task,f));
   const connection=sekoConnection(config.raw,p.modelSelection),{api_key:key,...publicConnection}=connection;
   const configFile=join(task,'model.json');
   await writeFile(configFile,JSON.stringify({models:{selected:{...publicConnection,http_timeout_seconds:1200,max_output_tokens:publicConnection.max_output_tokens ?? (publicConnection.family === 'gpt' ? 32768 : 98304)}}},null,2),{mode:0o600});
@@ -38,7 +38,7 @@ export async function prepareSekoWorkspace(p) {
   await writeFile(join(bookDir,'prompt.md'),p.prompt);
   const args={book_dir:bookDir,job_id:p.jobId,prompt:p.prompt,engine,references:refs,config:configFile,model:p.modelSelection.model,release};
   const request=join(task,'request.json');await writeFile(request,JSON.stringify(args,null,2));
-  await writeFile(join(bookDir,'_meta.json'),JSON.stringify({mode:p.mode,harness:'seko-v1',model_selection:p.modelSelection,assets,engine_release:release,host_sha256:Object.fromEntries(['seko-run.py','seko-provider.py','seko-audit.py'].map(f=>[f,createHash('sha256').update(readFileSync(join(task,f))).digest('hex')]))},null,2));
+  await writeFile(join(bookDir,'_meta.json'),JSON.stringify({mode:p.mode,harness:'seko-v1',model_selection:p.modelSelection,assets,engine_release:release,host_sha256:Object.fromEntries(['seko-run.py','seko-provider.py','seko-audit.py','seko-intake.py'].map(f=>[f,createHash('sha256').update(readFileSync(join(task,f))).digest('hex')]))},null,2));
   const env={PATH:process.env.PATH,LANG:'C.UTF-8',PYTHONUNBUFFERED:'1',PYTHONDONTWRITEBYTECODE:'1',
     CHROME_PATH:config.raw.runtime_binaries?.chrome_bin_host??config.runtimeBinaries.chromeBin,
     FFMPEG_BIN:config.runtimeBinaries.ffmpeg??'ffmpeg',CVW_JOB_TOKEN:jobToken(ws,p.jobId),CVW_SEKO_API_KEY:key};

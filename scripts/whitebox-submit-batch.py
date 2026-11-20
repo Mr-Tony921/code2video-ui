@@ -16,6 +16,18 @@ def write(path, value):
     tmp.replace(path)
 
 
+def job_idempotency_key(manifest, key, row):
+    # Only an explicitly recorded rerun gets a new key. Ordinary resume keeps the
+    # original key, including batches started before rerun support was added.
+    attempt = row.get('submission_attempt', 0)
+    if type(attempt) is not int or attempt < 0:
+        raise ValueError('Invalid recorded submission attempt')
+    identity = str(manifest.resolve()) + ':' + key
+    if attempt:
+        identity += ':attempt:' + str(attempt)
+    return 'whitebox:' + sha(identity.encode())
+
+
 def within(root, name):
     path = (root / name).resolve()
     path.relative_to(root.resolve())
@@ -77,6 +89,7 @@ def main():
     parser.add_argument('--out', type=Path, required=True, help='Persistent submission ledger; reuse to resume')
     parser.add_argument('--base-url', required=True)
     parser.add_argument('--config', type=Path, default=Path('config/backend.json'))
+    parser.add_argument('--group', action='append', choices=['seko', 'general'], help='Submit selected input group(s), sharing the same full batch ledger')
     parser.add_argument('--limit', type=int, default=0, help='Total submissions including earlier runs; 0 means all')
     parser.add_argument('--release', default='seko-0.1.12-cvw.1')
     args = parser.parse_args()
@@ -111,6 +124,8 @@ def main():
     rows = json.loads(index.read_text()) if index.exists() else {}
     total = sum(bool(row.get('job_id')) for row in rows.values())
     for task in tasks:
+        if args.group and task['group'] not in args.group:
+            continue
         for model in models:
             key = task['short_id'] + ':' + model['profile_id']
             row = rows.setdefault(key, {'task_id': task['short_id'], 'group': task['group'],
@@ -154,7 +169,7 @@ def main():
                 verified.append({'order': i+1, 'stored_name': item['stored_name'], 'sha256': asset['sha256']})
             row['references'] = verified
             write(index, rows)
-            idem = 'whitebox:' + sha((str(manifest.resolve()) + ':' + key).encode())
+            idem = job_idempotency_key(manifest, key, row)
             reply = client.request(f'/api/sessions/{sid}/jobs', {'prompt': task['submitted_prompt'], 'enhance': False},
                                    headers={'Idempotency-Key': idem}, retry=True)
             job = reply['job']
@@ -165,7 +180,7 @@ def main():
             total += 1
             print(json.dumps({'submitted': total, 'task': task['short_id'], 'model': model['model'],
                               'session_id': sid, 'job_id': job['id'], 'status': job['status']}, ensure_ascii=False), flush=True)
-    print(json.dumps({'submitted': total, 'planned': len(tasks)*len(models), 'complete': True}), flush=True)
+    print(json.dumps({'submitted': total, 'planned': len(tasks)*len(models), 'selected_groups': args.group or ['seko', 'general'], 'selected_groups_submitted': True, 'complete': total == len(tasks)*len(models)}), flush=True)
 
 
 if __name__ == '__main__':
