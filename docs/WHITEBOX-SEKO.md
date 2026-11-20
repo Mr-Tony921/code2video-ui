@@ -96,3 +96,5 @@ Seko 的 source.js 依赖 helpers/runtime，默认 ZIP 同时包含 source、pro
 批次脚本可加 `--group seko` 或 `--group general` 分组提交，两组仍共用原有完整 manifest 和幂等回执。早期仅返回澄清的试投记录保留，重新提交需要在批次回执中显式关联旧记录，不能当成已生成或删除轨迹。
 
 仅经确认需要重提的条目可记录 `submission_attempt`（正整数）和 `prior_attempts`，以生成新的幂等键；普通中断恢复必须沿用原回执，不自动增加 attempt。首次提交的旧幂等键保持兼容。新增回归：`python tests/unit/seko-web-intake.py`、`python tests/unit/whitebox-batch.py`（亦纳入 `scripts/check-seko.py`）。
+
+同日宿主策略 v2：英文自由文本的模型规划可能使用 `Shot 1:` 等行首编号。只在模型新生成的 `planned_segments.prompt` 中，将明确的英文数字镜头标记规范成引擎要求的 `分镜1`；不改用户原文、原始响应或按原文 span 组装的段落。原始决定仍为 intake-decision.json，有变更时另存 intake-effective-decision.json 与 marker 变更清单，不增加调用。不同宿主版本以每轮 host_sha256 区分，早期失败不自动重提。

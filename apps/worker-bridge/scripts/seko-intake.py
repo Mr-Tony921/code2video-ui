@@ -4,7 +4,25 @@ Reuses the frozen engine's verbatim assembly and validation. No dataset estimate
 user-text additions, or extra model/repair calls are introduced.
 """
 
-POLICY = 'web-unspecified-duration-plan-v1'
+import copy
+import re
+
+POLICY = 'web-unspecified-duration-plan-v2'
+GENERATED_SHOT = re.compile(r'(?im)^([ \t]*)Shot[ \t]*(\d+)[ \t]*[:：.)-][ \t]*')
+
+def canonical_plan_markers(raw):
+    """Only generated prose plans: retain original source and raw model decisions."""
+    effective = copy.deepcopy(raw)
+    changes = []
+    for index, segment in enumerate(effective.get('planned_segments') or []):
+        prompt = segment.get('prompt')
+        if not isinstance(prompt, str):
+            continue
+        normalized, count = GENERATED_SHOT.subn(lambda m: m[1] + '分镜' + m[2] + ' ', prompt)
+        if count:
+            segment['prompt'] = normalized
+            changes.append({'segment_index': index, 'markers': count, 'from': 'Shot N', 'to': '分镜N'})
+    return effective, changes
 
 
 def instructions(engine_intake):
@@ -36,9 +54,13 @@ def decide(provider, parse_json, turns, images, write, work, engine_intake):
         provider.context = previous
     raw = parse_json(reply['text'])
     write(work / 'intake-decision.json', raw)
-    result, audit = engine_intake.assemble(raw, source)
+    effective, marker_changes = canonical_plan_markers(raw)
+    if marker_changes:
+        write(work / 'intake-effective-decision.json', effective)
+    result, audit = engine_intake.assemble(effective, source)
     write(work / 'intake-policy.json', {'policy': POLICY, 'original_user_text_modified': False,
-                                      'explicit_timing_authoritative': True, 'extra_model_calls': 0})
+                                      'explicit_timing_authoritative': True, 'extra_model_calls': 0,
+                                      'generated_shot_marker_changes': marker_changes})
     if audit:
         write(work / 'intake-input-map.json', {**audit, 'web_policy': POLICY})
     return result

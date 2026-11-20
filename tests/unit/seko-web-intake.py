@@ -35,6 +35,21 @@ class Intake(unittest.TestCase):
         self.assertEqual(kw,{'effort':'low','json_mode':True}); self.assertEqual(context,'')
         self.assertFalse(written['intake-policy.json']['original_user_text_modified'])
         self.assertEqual(written['intake-input-map.json']['repair_budget_used'],0)
+    def test_english_generated_markers_are_canonical_but_source_and_reply_unchanged(self):
+        source='A person leaves a bag, then greets a friend.'
+        raw={'action':'generate','planned_segments':[{'duration':12,'prompt':'Shot 1: Leave the bag.\nShot 2: Greet the friend.'}]}
+        result,p,w=self.decide(source, raw)
+        self.assertEqual(result['input']['work_prompt'],source)
+        self.assertEqual(result['input']['segments'][0]['prompt'],'分镜1 Leave the bag.\n分镜2 Greet the friend.')
+        self.assertEqual(w['intake-decision.json'],raw)
+        self.assertTrue(raw['planned_segments'][0]['prompt'].startswith('Shot 1:'))
+        self.assertEqual(w['intake-policy.json']['generated_shot_marker_changes'][0]['markers'],2)
+        self.assertEqual(len(p.calls),1)
+    def test_marker_normalization_does_not_rewrite_source_spans_or_story_words(self):
+        raw={'action':'generate','segments':[{'first_line':1,'last_line':2,'duration':12,'title':'Shot 1: A'}]}
+        self.assertEqual(web.canonical_plan_markers(raw),(raw,[]))
+        raw={'action':'generate','planned_segments':[{'duration':12,'prompt':'分镜1 A says Shot 1: is ready.'}]}
+        self.assertEqual(web.canonical_plan_markers(raw),(raw,[]))
     def test_explicit_timed_blocks_keep_zero_call_route(self):
         source='总时长10秒\n片段1：见面\n时长：6秒\n分镜1 两人握手\n片段2：离开\n时长：4秒\n分镜1 两人离开'
         result,p,w=self.decide(source, {})
