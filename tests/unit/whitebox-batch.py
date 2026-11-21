@@ -1,9 +1,52 @@
 from pathlib import Path
-import importlib.util, unittest, hashlib, json, tempfile
+import importlib.util, unittest, hashlib, json, tempfile, threading, time, contextlib, io
+from unittest.mock import patch
 ROOT=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('batch',ROOT/'scripts/whitebox-submit-batch.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 class Batch(unittest.TestCase):
+    def test_concurrent_submission_preserves_receipts_limits_and_idempotent_resume(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);self.fixture(root)
+            models=[{'profile_id':'one','model':'model-one'},{'profile_id':'two','model':'model-two'}]
+            (root/'models.json').write_text(json.dumps(models))
+            (root/'account.json').write_text(json.dumps({'username':'fixture','password':'fixture-only'}))
+            (root/'config.json').write_text(json.dumps({'storage':{'sessions_root':str(root/'sessions')}}))
+            selection=lambda mid:{'profile_id':mid,'engine_release':'seko-0.1.13-cvw.1'}
+            server_sessions={};server_jobs={};guard=threading.Lock();requests=[]
+            class FakeClient:
+                def __init__(self,base):pass
+                def request(self,path,body=None,**kwargs):
+                    time.sleep(.005)
+                    with guard:
+                        requests.append(path)
+                        if path=='/api/auth/login':return {'user':{'username':'fixture','status':'active'}}
+                        if path=='/api/whitebox/settings':return {'models':[{**x,'engine_release':'seko-0.1.13-cvw.1'} for x in models]}
+                        if path=='/api/sessions':
+                            sid='session-'+str(len(server_sessions));server_sessions[sid]=selection(body['model_id'])
+                            return {'session':{'id':sid,'model_selection':server_sessions[sid]}}
+                        if path.endswith('/references'):return {'items':[]}
+                        if path.endswith('/jobs'):
+                            sid=path.split('/')[3];key=kwargs['headers']['Idempotency-Key']
+                            if key not in server_jobs:server_jobs[key]={'id':'job-'+sid,'model_selection':server_sessions[sid],'status':'QUEUED'}
+                            return {'job':server_jobs[key]}
+                    raise AssertionError(path)
+            argv=['batch','--dataset',str(root),'--models',str(root/'models.json'),'--account',str(root/'account.json'),
+                  '--out',str(root/'ledger'),'--config',str(root/'config.json'),'--base-url','http://fixture.invalid','--workers','4']
+            with patch.object(m,'Client',FakeClient),patch('sys.argv',argv+['--limit','3']),contextlib.redirect_stdout(io.StringIO()):m.main()
+            self.assertEqual(len(server_jobs),3)
+            with patch.object(m,'Client',FakeClient),patch('sys.argv',argv),contextlib.redirect_stdout(io.StringIO()):m.main()
+            self.assertEqual(len(server_jobs),4);self.assertEqual(len(server_sessions),4)
+            rows=json.loads((root/'ledger/submissions.json').read_text());self.assertEqual(len(rows),4)
+            self.assertEqual({r['job_id'] for r in rows.values()},{r['id'] for r in server_jobs.values()})
+            self.assertTrue(all(not r['session_create_pending'] for r in rows.values()))
+            before=len(requests)
+            with patch.object(m,'Client',FakeClient),patch('sys.argv',argv),contextlib.redirect_stdout(io.StringIO()):m.main()
+            self.assertEqual(len(server_jobs),4);self.assertNotIn('/api/sessions',requests[before:])
+            first=next(iter(rows.values()));first.pop('job_id');first.pop('session_id');first['session_create_pending']=True
+            (root/'ledger/submissions.json').write_text(json.dumps(rows));before=len(server_sessions)
+            with patch.object(m,'Client',FakeClient),patch('sys.argv',argv),self.assertRaisesRegex(RuntimeError,'outcome unknown'):m.main()
+            self.assertEqual(len(server_sessions),before)
     def fixture(self, root, indexed=True):
         tasks, records = [], []
         for group, short in [('seko','S001'),('general','G001')]:

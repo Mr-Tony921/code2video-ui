@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Resume a dataset through authenticated dev HTTP APIs; never writes queue records directly."""
-import argparse, hashlib, http.cookiejar, itertools, json, mimetypes, os, re, time, urllib.request, uuid
+import argparse, concurrent.futures, copy, hashlib, http.cookiejar, itertools, json, mimetypes, os, re, threading, time, urllib.request, uuid
 from pathlib import Path
 
 
@@ -157,6 +157,7 @@ def main():
     parser.add_argument('--group', action='append', choices=['seko', 'general'], help='Submit selected input group(s), sharing the same full batch ledger')
     parser.add_argument('--task', action='append', help='Submit selected short IDs first, sharing the full batch ledger; omit when resuming all')
     parser.add_argument('--limit', type=int, default=0, help='Total submissions including earlier runs; 0 means all')
+    parser.add_argument('--workers', type=int, default=1, choices=range(1, 9), help='Bounded HTTP submission concurrency; does not change generation slots')
     parser.add_argument('--release', default='seko-0.1.13-cvw.1')
     args = parser.parse_args()
     tasks = load_tasks(args.dataset)
@@ -189,6 +190,7 @@ def main():
     index = args.out / 'submissions.json'
     rows = json.loads(index.read_text()) if index.exists() else {}
     total = sum(bool(row.get('job_id')) for row in rows.values())
+    pending = []
     for task in tasks:
         if args.group and task['group'] not in args.group:
             continue
@@ -196,59 +198,98 @@ def main():
             continue
         for model in models:
             key = task['short_id'] + ':' + model['profile_id']
-            row = rows.setdefault(key, {'task_id': task['short_id'], 'group': task['group'],
+            if not rows.get(key, {}).get('job_id'):
+                pending.append((task, model))
+    if args.limit:
+        pending = pending[:max(0, args.limit - total)]
+    for task, model in pending:
+        key = task['short_id'] + ':' + model['profile_id']
+        row = rows.get(key, {})
+        if row.get('session_create_pending') and not row.get('session_id'):
+            raise RuntimeError('Session creation outcome unknown for ' + key + '; reconcile before resuming')
+    lock, clients = threading.Lock(), threading.local()
+    if args.workers == 1:
+        clients.client = client
+
+    def submit_one(pair):
+        nonlocal total
+        task, model = pair
+        key = task['short_id'] + ':' + model['profile_id']
+        with lock:
+            row = copy.deepcopy(rows.get(key) or {'task_id': task['short_id'], 'group': task['group'],
                                        'model': model['model'], 'profile_id': model['profile_id'],
                                        'source_prompt_sha256': task['prompt_sha256'],
                                        'submitted_prompt_sha256': task['submitted_sha256'],
                                        **{k: task[k] for k in ('dataset_version', 'cohort') if k in task}})
-            if row.get('job_id'):
-                continue
-            if args.limit and total >= args.limit:
-                print(json.dumps({'submitted': total, 'planned': len(tasks)*len(models), 'limited': True}), flush=True)
-                return
-            if not row.get('session_id'):
-                if row.get('session_create_pending'):
-                    raise RuntimeError('Session creation outcome unknown for ' + key + '; reconcile before resuming')
-                row['session_create_pending'] = True
-                row['session_create_started_at'] = time.time()
+        def persist():
+            # Each worker owns its row. All durable ledger writes merge snapshots
+            # under one lock; no thread can overwrite another task's receipt.
+            with lock:
+                rows[key] = copy.deepcopy(row)
                 write(index, rows)
-                # Session creation has no server idempotency contract: never blindly repeat a lost response.
-                created = client.request('/api/sessions', {'mode': 'blockout_3d', 'model_id': model['profile_id']})
-                session = created['session']
-                assert session['model_selection']['profile_id'] == model['profile_id']
-                assert session['model_selection']['engine_release'] == args.release
-                row['session_id'] = session['id']
-                row['session_create_pending'] = False
-                row['model_selection'] = session['model_selection']
-                write(index, rows)
-            sid = row['session_id']
-            remote = client.request(f'/api/sessions/{sid}/references', retry=True)['items']
-            assert len(remote) <= len(task['attachments'])
-            verified = []
-            for i, asset in enumerate(task['attachments']):
-                source = within(args.dataset, asset['package_path'])
-                filename = f'reference-{i+1:03d}{source.suffix}'
-                if i >= len(remote):
-                    uploaded = client.upload(sid, filename, source.read_bytes())
-                    remote.append(uploaded['item'])
-                item = remote[i]
-                assert item['original_name'] == filename and item['stored_name'] == filename
-                stored = within(sessions / sid / 'references', item['stored_name'])
-                assert sha(stored.read_bytes()) == asset['sha256'], 'Uploaded reference mismatch'
-                verified.append({'order': i+1, 'stored_name': item['stored_name'], 'sha256': asset['sha256']})
-            row['references'] = verified
-            write(index, rows)
-            idem = job_idempotency_key(manifest, key, row)
-            reply = client.request(f'/api/sessions/{sid}/jobs', {'prompt': task['submitted_prompt'], 'enhance': False},
-                                   headers={'Idempotency-Key': idem}, retry=True)
-            job = reply['job']
-            assert job['model_selection']['profile_id'] == model['profile_id']
-            assert job['model_selection']['engine_release'] == args.release
-            row.update(job_id=job['id'], idempotency_key=idem, submitted_at=time.time(), status_at_submit=job['status'])
+        if not hasattr(clients, 'client'):
+            clients.client = Client(args.base_url)
+            logged_in = clients.client.request('/api/auth/login', {'username': account['username'], 'password': account['password']})['user']
+            assert logged_in['username'] == account['username'] and logged_in['status'] == 'active'
+        active_client = clients.client
+        if not row.get('session_id'):
+            if row.get('session_create_pending'):
+                raise RuntimeError('Session creation outcome unknown for ' + key + '; reconcile before resuming')
+            row['session_create_pending'] = True
+            row['session_create_started_at'] = time.time()
+            persist()
+            # Session creation has no server idempotency contract: never blindly repeat a lost response.
+            created = active_client.request('/api/sessions', {'mode': 'blockout_3d', 'model_id': model['profile_id']})
+            session = created['session']
+            assert session['model_selection']['profile_id'] == model['profile_id']
+            assert session['model_selection']['engine_release'] == args.release
+            row['session_id'] = session['id']
+            row['session_create_pending'] = False
+            row['model_selection'] = session['model_selection']
+            persist()
+        sid = row['session_id']
+        remote = active_client.request(f'/api/sessions/{sid}/references', retry=True)['items']
+        assert len(remote) <= len(task['attachments'])
+        verified = []
+        for i, asset in enumerate(task['attachments']):
+            source = within(args.dataset, asset['package_path'])
+            filename = f'reference-{i+1:03d}{source.suffix}'
+            if i >= len(remote):
+                uploaded = active_client.upload(sid, filename, source.read_bytes())
+                remote.append(uploaded['item'])
+            item = remote[i]
+            assert item['original_name'] == filename and item['stored_name'] == filename
+            stored = within(sessions / sid / 'references', item['stored_name'])
+            assert sha(stored.read_bytes()) == asset['sha256'], 'Uploaded reference mismatch'
+            verified.append({'order': i+1, 'stored_name': item['stored_name'], 'sha256': asset['sha256']})
+        row['references'] = verified
+        persist()
+        idem = job_idempotency_key(manifest, key, row)
+        reply = active_client.request(f'/api/sessions/{sid}/jobs', {'prompt': task['submitted_prompt'], 'enhance': False},
+                                      headers={'Idempotency-Key': idem}, retry=True)
+        job = reply['job']
+        assert job['model_selection']['profile_id'] == model['profile_id']
+        assert job['model_selection']['engine_release'] == args.release
+        row.update(job_id=job['id'], idempotency_key=idem, submitted_at=time.time(), status_at_submit=job['status'])
+        with lock:
+            rows[key] = copy.deepcopy(row)
             write(index, rows)
             total += 1
             print(json.dumps({'submitted': total, 'task': task['short_id'], 'model': model['model'],
                               'session_id': sid, 'job_id': job['id'], 'status': job['status']}, ensure_ascii=False), flush=True)
+    if args.workers == 1:
+        for pair in pending:
+            submit_one(pair)
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
+            futures = [pool.submit(submit_one, pair) for pair in pending]
+            try:
+                for future in concurrent.futures.as_completed(futures):
+                    future.result()
+            except BaseException:
+                for future in futures:
+                    future.cancel()
+                raise
     print(json.dumps({'submitted': total, 'planned': len(tasks)*len(models), 'selected_groups': args.group or ['seko', 'general'], 'selected_groups_submitted': True, 'complete': total == len(tasks)*len(models)}), flush=True)
 
 
