@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Resume a dataset through authenticated dev HTTP APIs; never writes queue records directly."""
-import argparse, hashlib, http.cookiejar, json, mimetypes, os, time, urllib.request, uuid
+import argparse, hashlib, http.cookiejar, itertools, json, mimetypes, os, re, time, urllib.request, uuid
 from pathlib import Path
 
 
@@ -35,21 +35,86 @@ def within(root, name):
 
 
 def load_tasks(root):
-    groups = [json.loads((root / (group + '-100.json')).read_text())['prompts'] for group in ('seko', 'general')]
-    if [len(group) for group in groups] != [100, 100]:
-        raise ValueError('Expected 100 Seko and 100 general tasks')
+    root = Path(root)
+    groups, versions = [], set()
+    for name in ('seko', 'general'):
+        candidates = [p for p in root.glob(name + '-*.json') if re.fullmatch(name + r'-\d+\.json', p.name)]
+        if len(candidates) != 1:
+            raise ValueError('Expected exactly one numbered task file for ' + name)
+        path = candidates[0]
+        envelope = json.loads(path.read_text())
+        group = envelope['prompts']
+        if not group or len(group) != int(path.stem.rsplit('-', 1)[1]):
+            raise ValueError('Task count does not match ' + path.name)
+        if any(t['group'] != name for t in group):
+            raise ValueError('Task belongs to the wrong input group')
+        if envelope.get('dataset_version'):
+            versions.add(envelope['dataset_version'])
+        for task in group:
+            if task.get('dataset_version'):
+                versions.add(task['dataset_version'])
+        groups.append(group)
+    if len(versions) > 1:
+        raise ValueError('Mixed dataset versions')
+    # A package input index defines the exact submitted bytes. Legacy packages
+    # without one retain their original prose behavior and resume hashes.
+    indexed = {}
+    index = root / 'tasks.jsonl'
+    if index.exists():
+        for line in index.read_text().splitlines():
+            item = json.loads(line)
+            if item['short_id'] in indexed:
+                raise ValueError('Duplicate indexed task')
+            indexed[item['short_id']] = item
     tasks = []
-    for pair in zip(*groups):
+    for pair in itertools.zip_longest(*groups):
         for task in pair:
-            assert sha(task['prompt'].encode()) == task['prompt_sha256']
-            assert [a['order'] for a in task['attachments']] == list(range(1, len(task['attachments']) + 1))
+            if task is None:
+                continue
+            if sha(task['prompt'].encode()) != task['prompt_sha256']:
+                raise ValueError('Prompt hash mismatch: ' + task['short_id'])
+            if [a['order'] for a in task['attachments']] != list(range(1, len(task['attachments']) + 1)):
+                raise ValueError('Invalid attachment order: ' + task['short_id'])
             for asset in task['attachments']:
-                assert sha(within(root, asset['package_path']).read_bytes()) == asset['sha256']
-            # Business normalization is supplied by the dataset; prose remains byte-for-byte original.
+                if sha(within(root, asset['package_path']).read_bytes()) != asset['sha256']:
+                    raise ValueError('Reference hash mismatch: ' + task['short_id'])
             prompt = within(root, task['business_input_file']).read_text() if task['group'] == 'seko' else task['prompt']
+            if task['group'] == 'seko' and task.get('business_input_sha256') and sha(prompt.encode()) != task['business_input_sha256']:
+                raise ValueError('Business input hash mismatch: ' + task['short_id'])
+            if indexed:
+                item = indexed.get(task['short_id'])
+                if not item or item['group'] != task['group'] or item['task_id'] != task['id']:
+                    raise ValueError('Input index mismatch: ' + task['short_id'])
+                if item.get('dataset_version') != task.get('dataset_version') or item.get('cohort') != task.get('cohort'):
+                    raise ValueError('Input provenance mismatch: ' + task['short_id'])
+                data = within(root, item['input_file']).read_bytes()
+                if sha(data) != item['input_sha256']:
+                    raise ValueError('Indexed input hash mismatch: ' + task['short_id'])
+                exact = data.decode('utf-8')
+                if (exact != prompt if task['group'] == 'seko' else exact.rstrip('\n') != task['prompt']):
+                    raise ValueError('Indexed input differs from task: ' + task['short_id'])
+                prompt = exact
             tasks.append({**task, 'submitted_prompt': prompt, 'submitted_sha256': sha(prompt.encode())})
-    assert len({t['short_id'] for t in tasks}) == 200
+    if len({t['short_id'] for t in tasks}) != len(tasks) or len({t['id'] for t in tasks}) != len(tasks):
+        raise ValueError('Duplicate task identity')
+    if index.exists() and set(indexed) != {t['short_id'] for t in tasks}:
+        raise ValueError('Input index does not cover exactly the task set')
     return tasks
+
+
+def batch_contract(tasks, models, account, release, version=2):
+    result = {'account': account, 'release': release, 'models': models,
+              'tasks': [{'id': t['short_id'], 'source_prompt_sha256': t['prompt_sha256'],
+                         'submitted_prompt_sha256': t['submitted_sha256'],
+                         'references': [{k: a[k] for k in ('order', 'package_path', 'sha256')} for a in t['attachments']]}
+                        for t in tasks]}
+    if version == 2:
+        result['manifest_version'] = 2
+        for item, task in zip(result['tasks'], tasks):
+            item.update({k: task[k] for k in ('group', 'dataset_version', 'cohort') if k in task})
+    elif version != 1:
+        raise ValueError('Unsupported batch manifest version')
+    return result
 
 
 class Client:
@@ -90,10 +155,13 @@ def main():
     parser.add_argument('--base-url', required=True)
     parser.add_argument('--config', type=Path, default=Path('config/backend.json'))
     parser.add_argument('--group', action='append', choices=['seko', 'general'], help='Submit selected input group(s), sharing the same full batch ledger')
+    parser.add_argument('--task', action='append', help='Submit selected short IDs first, sharing the full batch ledger; omit when resuming all')
     parser.add_argument('--limit', type=int, default=0, help='Total submissions including earlier runs; 0 means all')
-    parser.add_argument('--release', default='seko-0.1.12-cvw.1')
+    parser.add_argument('--release', default='seko-0.1.13-cvw.1')
     args = parser.parse_args()
     tasks = load_tasks(args.dataset)
+    if args.task and set(args.task) - {t['short_id'] for t in tasks}:
+        parser.error('Unknown selected task ID')
     models = json.loads(args.models.read_text())
     assert models and len({m['profile_id'] for m in models}) == len(models)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -110,14 +178,12 @@ def main():
         assert allowed[m['profile_id']]['engine_release'] == args.release
     raw = json.loads(args.config.read_text())
     sessions = Path(raw['storage']['sessions_root']) / raw['storage'].get('sessions_subdir', 'sessions')
-    contract = {'account': user['username'], 'release': args.release, 'models': models,
-                'tasks': [{'id': t['short_id'], 'source_prompt_sha256': t['prompt_sha256'],
-                           'submitted_prompt_sha256': t['submitted_sha256'],
-                           'references': [{k: a[k] for k in ('order', 'package_path', 'sha256')} for a in t['attachments']]}
-                          for t in tasks]}
     manifest = args.out / 'manifest.json'
+    previous = json.loads(manifest.read_text()) if manifest.exists() else None
+    contract = batch_contract(tasks, models, user['username'], args.release,
+                              previous.get('manifest_version', 1) if previous else 2)
     if manifest.exists():
-        assert json.loads(manifest.read_text()) == contract, 'Batch inputs changed; refusing to mix datasets/models'
+        assert previous == contract, 'Batch inputs changed; refusing to mix datasets/models'
     else:
         write(manifest, contract)
     index = args.out / 'submissions.json'
@@ -126,12 +192,15 @@ def main():
     for task in tasks:
         if args.group and task['group'] not in args.group:
             continue
+        if args.task and task['short_id'] not in args.task:
+            continue
         for model in models:
             key = task['short_id'] + ':' + model['profile_id']
             row = rows.setdefault(key, {'task_id': task['short_id'], 'group': task['group'],
                                        'model': model['model'], 'profile_id': model['profile_id'],
                                        'source_prompt_sha256': task['prompt_sha256'],
-                                       'submitted_prompt_sha256': task['submitted_sha256']})
+                                       'submitted_prompt_sha256': task['submitted_sha256'],
+                                       **{k: task[k] for k in ('dataset_version', 'cohort') if k in task}})
             if row.get('job_id'):
                 continue
             if args.limit and total >= args.limit:

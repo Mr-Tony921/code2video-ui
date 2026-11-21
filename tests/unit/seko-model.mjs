@@ -63,7 +63,7 @@ test('allowlisted batch model is pinned without changing the global default or e
  const cfg={...raw,whitebox:{...raw.whitebox,model_access:{batch:[saved.profile_id]}}};
  const user={id:'batch',status:'active'};
  const selected=sekoSelectionForUser(cfg,user,saved.profile_id);
- assert.equal(selected.profile_id,saved.profile_id);assert.equal(selected.skill_version,'0.1.12');
+ assert.equal(selected.profile_id,saved.profile_id);assert.equal(selected.skill_version,'0.1.13');
  assert.equal(sekoConnection(cfg,selected).model,'batch-second');
  assert.equal(sekoSettings(cfg,user).models.length,2);
  assert.equal(sekoSettings(cfg,{id:'peer',status:'active'}).models.length,1);
@@ -72,4 +72,14 @@ test('allowlisted batch model is pinned without changing the global default or e
  assert.throws(()=>sekoSelectionForUser(cfg,user,'seko-00000000000000000000000000000000'),e=>e.status===403);
  assert.equal('api_key'in selected,false);
  assert.equal(sekoSelection(raw).profile_id,before.profile_id);
+});
+
+test('public skill metadata follows the configured release including rollback',()=>{
+ for(const version of ['0.1.12','0.1.13']){
+  const release=`seko-${version}-cvw.1`;
+  const settings=sekoSettings({...raw,whitebox:{...raw.whitebox,seko_release:release}});
+  assert.equal(settings.skills[0].version,version);assert.equal(settings.skills[0].release,release);
+  assert.equal(settings.default_skills.configured[0].release,release);
+  assert.equal(settings.models[0].engine_release,release);
+ }
 });
