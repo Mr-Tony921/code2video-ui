@@ -16,6 +16,7 @@ class Batch(unittest.TestCase):
             server_sessions={};server_jobs={};guard=threading.Lock();requests=[]
             class FakeClient:
                 def __init__(self,base):pass
+                def fork(self):return FakeClient('http://fixture.invalid')
                 def request(self,path,body=None,**kwargs):
                     time.sleep(.005)
                     with guard:
@@ -35,6 +36,7 @@ class Batch(unittest.TestCase):
                   '--out',str(root/'ledger'),'--config',str(root/'config.json'),'--base-url','http://fixture.invalid','--workers','4']
             with patch.object(m,'Client',FakeClient),patch('sys.argv',argv+['--limit','3']),contextlib.redirect_stdout(io.StringIO()):m.main()
             self.assertEqual(len(server_jobs),3)
+            self.assertEqual(requests.count('/api/auth/login'),1)
             with patch.object(m,'Client',FakeClient),patch('sys.argv',argv),contextlib.redirect_stdout(io.StringIO()):m.main()
             self.assertEqual(len(server_jobs),4);self.assertEqual(len(server_sessions),4)
             rows=json.loads((root/'ledger/submissions.json').read_text());self.assertEqual(len(rows),4)

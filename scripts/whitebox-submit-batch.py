@@ -120,8 +120,17 @@ def batch_contract(tasks, models, account, release, version=2):
 class Client:
     def __init__(self, base):
         self.base = base.rstrip('/')
+        self.cookies = http.cookiejar.CookieJar()
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}),
-                                                  urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+                                                  urllib.request.HTTPCookieProcessor(self.cookies))
+
+    def fork(self):
+        # Reuse one ordinary authenticated session, but keep per-thread HTTP
+        # handlers/cookie state independent. Avoid simultaneous password logins.
+        client = Client(self.base)
+        for cookie in self.cookies:
+            client.cookies.set_cookie(copy.copy(cookie))
+        return client
 
     def request(self, path, body=None, *, headers=None, retry=False):
         headers = dict(headers or {})
@@ -228,9 +237,7 @@ def main():
                 rows[key] = copy.deepcopy(row)
                 write(index, rows)
         if not hasattr(clients, 'client'):
-            clients.client = Client(args.base_url)
-            logged_in = clients.client.request('/api/auth/login', {'username': account['username'], 'password': account['password']})['user']
-            assert logged_in['username'] == account['username'] and logged_in['status'] == 'active'
+            clients.client = client.fork()
         active_client = clients.client
         if not row.get('session_id'):
             if row.get('session_create_pending'):
