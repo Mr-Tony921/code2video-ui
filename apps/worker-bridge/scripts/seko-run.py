@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """One job process, one immutable Seko round. Queue/lease/cancellation belong to dev."""
-import contextlib,hashlib,importlib.util,json,os,shutil,subprocess,sys,time,traceback,zipfile
+import contextlib,hashlib,importlib.util,json,os,shutil,subprocess,sys,time,traceback,zipfile,signal
 from pathlib import Path
 
 def read(p):return json.loads(Path(p).read_text())
@@ -50,7 +50,18 @@ def business_input(raw):
     if begin<0:return None
     try:value,end=json.JSONDecoder().raw_decode(raw[begin:])
     except ValueError:return None
-    if not isinstance(value,dict) or value.get('version')!=2 or not isinstance(value.get('segments'),list):return None
+    if not isinstance(value,dict) or not isinstance(value.get('segments'),list) or not isinstance(value.get('work_prompt'),str):return None
+    if value.get('version',2)!=2:raise ValueError('Unsupported structured story version; expected 2 or omit version')
+    # Public business contract has no transport version or duplicate time fields.
+    # Explicit values always survive for normal validation; never repair conflicts.
+    value={**value,'version':2};segments=[];cursor=0.0
+    for segment in value['segments']:
+        if not isinstance(segment,dict) or not isinstance(segment.get('id'),str) or not isinstance(segment.get('prompt'),str):raise ValueError('Each segment needs id, duration and original prompt')
+        duration=segment.get('duration')
+        if type(duration) not in (int,float) or not 0<duration<=300:raise ValueError('Segment duration must be a positive number <=300')
+        seg={**segment};seg.setdefault('title',seg['id']);seg.setdefault('start',cursor);seg.setdefault('end',cursor+duration);seg.setdefault('resolved_duration',duration)
+        segments.append(seg);cursor+=duration
+    value['segments']=segments;value.setdefault('duration',cursor)
     prefix=raw[:begin].strip();suffix=raw[begin+end:].strip()
     surrounding='\n'.join(part for part in (prefix,suffix) if part)
     if surrounding:value={**value,'work_prompt':value.get('work_prompt','')+'\n用户附加说明（原文）：\n'+surrounding}
@@ -95,7 +106,7 @@ def main():
             # Only opt-in releases use compact intake. Existing pinned releases
             # and all follow-up routing keep their established behavior.
             from seko_engine import intake as engine_intake
-            if args['release']=='seko-0.1.12-cvw.1':
+            if args['release'] in ('seko-0.1.12-cvw.1','seko-0.1.13-cvw.1','seko-0.1.13-rc.1'):
                 intake_spec=importlib.util.spec_from_file_location('seko_web_intake',Path(__file__).with_name('seko-intake.py'));intake_mod=importlib.util.module_from_spec(intake_spec);intake_spec.loader.exec_module(intake_mod)
                 decision=intake_mod.decide(provider,parse_json,turns,images,write,work,engine_intake)
             else:
@@ -163,6 +174,9 @@ def main():
 
 if __name__=='__main__':
     completed=False
+    def interrupted(signum, frame):
+        raise SystemExit(128+signum)
+    signal.signal(signal.SIGTERM, interrupted)
     try:
         main();completed=True
     except Exception as e:

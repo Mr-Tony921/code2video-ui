@@ -7,8 +7,8 @@ user-text additions, or extra model/repair calls are introduced.
 import copy
 import re
 
-POLICY = 'web-unspecified-duration-plan-v2'
-GENERATED_SHOT = re.compile(r'(?im)^([ \t]*)Shot[ \t]*(\d+)[ \t]*[:：.)-][ \t]*')
+POLICY = 'web-unspecified-duration-plan-v3'
+GENERATED_SHOT = re.compile(r'(?im)^([ \t]*)Shot[ \t]*(\d+)[ \t]*[:：.)\-–—][ \t]*')
 
 def canonical_plan_markers(raw):
     """Only generated prose plans: retain original source and raw model decisions."""

@@ -36,3 +36,6 @@ __pycache__/
 /assets/whitebox-seko/releases/seko-0.1.6-cvw.*
 /assets/whitebox-seko/releases/seko-0.1.7-cvw.*
 /assets/whitebox-seko/releases/seko-0.1.8-cvw.*
+
+# Immutable experiment engine retained in local runtime for replay.
+/assets/whitebox-seko/releases/seko-0.1.13-rc.1

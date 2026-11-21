@@ -45,6 +45,10 @@ with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as tmp:
     assert len([e for e in trace if e['kind']=='model_error']) == 1
     assert len([e for e in trace if e['kind']=='tool_result']) == 2
     assert all('seconds' not in e and 'started_at' not in e for e in trace)
+    error = next(e for e in trace if e['kind'] == 'model_error')
+    assert error['response_available'] is False and 'response_file' not in error and 'failure_receipt' not in error
+    round_summary = json.loads((Path(tmp)/'diagnostics/round.json').read_text())
+    assert round_summary['started_at'] <= round_summary['finished_at'] and round_summary['elapsed_seconds'] >= 0 and round_summary['complete'] is False
     assert len(measurements) == 5 and all(e['seconds'] >= 0 for e in measurements)
     assert 'fixture-private-key' not in '\n'.join(p.read_text() for p in Path(tmp).rglob('*') if p.is_file())
 print('seko audit passed')

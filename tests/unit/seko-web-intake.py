@@ -45,6 +45,14 @@ class Intake(unittest.TestCase):
         self.assertTrue(raw['planned_segments'][0]['prompt'].startswith('Shot 1:'))
         self.assertEqual(w['intake-policy.json']['generated_shot_marker_changes'][0]['markers'],2)
         self.assertEqual(len(p.calls),1)
+    def test_generated_english_dash_markers_preserve_words_and_raw_decision(self):
+        for dash in ['—','–','-']:
+            raw={'action':'generate','planned_segments':[{'duration':10,'prompt':'Shot 1 '+dash+' Put the bowl down.\nShot 2 '+dash+' Sit together.'}]}
+            result,p,w=self.decide('Keep the bowl upright, then sit.',raw)
+            self.assertIn('分镜1 Put the bowl down.',result['input']['segments'][0]['prompt'])
+            self.assertEqual(w['intake-decision.json'],raw)
+            self.assertEqual(len(p.calls),1)
+
     def test_marker_normalization_does_not_rewrite_source_spans_or_story_words(self):
         raw={'action':'generate','segments':[{'first_line':1,'last_line':2,'duration':12,'title':'Shot 1: A'}]}
         self.assertEqual(web.canonical_plan_markers(raw),(raw,[]))

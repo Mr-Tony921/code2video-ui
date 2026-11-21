@@ -98,3 +98,20 @@ Seko 的 source.js 依赖 helpers/runtime，默认 ZIP 同时包含 source、pro
 仅经确认需要重提的条目可记录 `submission_attempt`（正整数）和 `prior_attempts`，以生成新的幂等键；普通中断恢复必须沿用原回执，不自动增加 attempt。首次提交的旧幂等键保持兼容。新增回归：`python tests/unit/seko-web-intake.py`、`python tests/unit/whitebox-batch.py`（亦纳入 `scripts/check-seko.py`）。
 
 同日宿主策略 v2：英文自由文本的模型规划可能使用 `Shot 1:` 等行首编号。只在模型新生成的 `planned_segments.prompt` 中，将明确的英文数字镜头标记规范成引擎要求的 `分镜1`；不改用户原文、原始响应或按原文 span 组装的段落。原始决定仍为 intake-decision.json，有变更时另存 intake-effective-decision.json 与 marker 变更清单，不增加调用。不同宿主版本以每轮 host_sha256 区分，早期失败不自动重提。
+
+
+## 0.1.13 刚性人物候选（2026-11-21）
+
+发布物 `seko-0.1.13-cvw.1` 与定向生产复测 `seko-0.1.13-rc.1` 的引擎文件 SHA 完全相同。16条原输入独立整案复测全部成片，14条完成模型有限自检；这不等于16条独立视觉质量全通过。原400条、旧引擎与会话固定版本不回写。dev默认仍是0.1.12；需要显式选择新release验收，不仅凭可渲染率切换。完整生产审计与图片保留在 runtime/production-audit-20261121，不进入Git。
+
+需要肢体的角色采用单圆柱刚性臂/腿，旋转肩/髋，手锚点固定于臂末端。禁止手锚点position/scale动画及非均匀人物scale；持物parent到手。简单人物仍可仅用圆柱和球。重大拉伸/穿插不是可选表演简化，轻微接触误差仍按粗白模标准处理。坐姿、交接和关键遮挡仍可能出错，不能将自检通过作为人工质量验收。旧序列化手臂保留原回放行为。
+
+新增Node源码语法预检：浏览器启动前给准确行号与临近源码，缺buildScene返回值有明确提示。首稿＋最多2修正、追问一次编辑＋最多1修正及low/high档位不变。没有新增模型审查调用。
+
+业务最小JSON：`{"work_prompt":"原故事与参考绑定","segments":[{"id":"seg_01","duration":12,"prompt":"【镜头01】\n时长：12s\n人物A把盒子放到桌上。"}]}`。HTTP prompt仍为字符串。无需业务提交version/start/end/resolved_duration/总时长，宿主确定性补齐缺失项；明确冲突仍交给规范校验拒绝，原文保留。附件按顺序独立上传。模型生成的英文`Shot 1 —`也规范化，用户原文不改写。
+
+隔离复测支持 `node scripts/whitebox-acceptance.mjs --worker WORKER_ID --out NEW_DIR --prompt INPUT --references REFS --release seko-0.1.13-cvw.1 --profile SAVED_PROFILE_ID`。profile只读取既有连接并复制到独立测试配置，不更改管理员默认。续改使用原报告`--resume`，不允许中途换模型。
+
+在具备Chrome/FFmpeg及`/opt/videokit/venv/bin/python`的dev worker运行 `SEKO_TEST_RELEASE=seko-0.1.13-cvw.1 /opt/videokit/venv/bin/python scripts/check-seko.py`。该入口包含新刚性肢体、语法行号、精简JSON与轨迹错误分支的回归。front机缺worker运行依赖，不作为完整集成测试执行机。
+
+轨迹只引用实际存在的失败响应文件，并用response_available说明缺失；诊断增加round.json。SIGTERM尽可能完成落盘；SIGKILL/断电/租约丢失仍可能留下不完整调用，不能补造模型回复。GPT加密推理块与Opus实际返回thinking/signature按原样留存，不承诺上游未返回的CoT。

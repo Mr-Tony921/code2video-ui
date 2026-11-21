@@ -4,9 +4,9 @@ import {readFileSync,writeFileSync,mkdirSync,copyFileSync,existsSync,readdirSync
 import {join,resolve,dirname,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID,createHash} from 'node:crypto';
-const help='Usage: node scripts/whitebox-acceptance.mjs --worker WORKER --out NEW_DIR --prompt FILE [--references DIR] [--release RELEASE]\nFollowup: node scripts/whitebox-acceptance.mjs --resume REPORT_JSON --prompt FILE\nRun on the chosen dev worker in tmux. Does not submit to the public queue. Uses administrator whitebox model settings. Never use a real session/storage root as --out.';
+const help='Usage: node scripts/whitebox-acceptance.mjs --worker WORKER --out NEW_DIR --prompt FILE [--references DIR] [--release RELEASE] [--profile SAVED_PROFILE_ID]\nFollowup: node scripts/whitebox-acceptance.mjs --resume REPORT_JSON --prompt FILE\nRun on the chosen dev worker in tmux. Does not submit to the public queue. Uses administrator whitebox model settings. Never use a real session/storage root as --out.';
 const argv=process.argv.slice(2);if(argv.includes('--help')){console.log(help);process.exit(0);}
-const a={};for(let i=0;i<argv.length;i+=2){if(!['--worker','--out','--prompt','--references','--resume','--release'].includes(argv[i])||!argv[i+1])throw new Error(help);a[argv[i].slice(2)]=argv[i+1];}
+const a={};for(let i=0;i<argv.length;i+=2){if(!['--worker','--out','--prompt','--references','--resume','--release','--profile'].includes(argv[i])||!argv[i+1])throw new Error(help);a[argv[i].slice(2)]=argv[i+1];}
 if(!a.prompt||(!a.resume&&(!a.worker||!a.out)))throw new Error(help);
 const R=resolve(dirname(fileURLToPath(import.meta.url)),'..'),raw=JSON.parse(readFileSync(join(R,'config/backend.json')));
 for(const line of readFileSync(join(R,'runtime/.secrets'),'utf8').split('\n')){const i=line.indexOf('=');if(i>0&&!process.env[line.slice(0,i)])process.env[line.slice(0,i)]=line.slice(i+1);}
@@ -22,7 +22,8 @@ const model=await import('../apps/shared/seko-model.mjs');
 const actual={...raw,model_settings:{...raw.model_settings,root:raw.model_settings?.root??join(raw.storage.root,'model-settings')}};
 const {config}=await import('../apps/worker-bridge/src/config.mjs');config.raw.model_settings={root:join(D,'models')};
 if(a.release){if(previous)throw new Error('A resumed case keeps its pinned release');if(!/^seko-[\w.-]+$/.test(a.release))throw new Error('Invalid candidate release');config.raw.whitebox={...config.raw.whitebox,seko_release:a.release};}
-if(!previous){const admin=model.sekoAdminModel(actual);model.saveSekoModel(config.raw,model.prepareSekoConnection(actual,admin));}
+if(previous&&a.profile)throw new Error('A resumed case keeps its pinned model');
+if(!previous){const connection=a.profile?model.sekoConnection(actual,a.profile):model.prepareSekoConnection(actual,model.sekoAdminModel(actual));model.saveSekoModel(config.raw,connection);}
 const selection=previous?.model??model.sekoSelection(config.raw);
 if(previous&&!previous.completed?.meta)throw new Error('Only refine a completed acceptance result');
 const refdir=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,sid,'references');mkdirSync(refdir,{recursive:true});

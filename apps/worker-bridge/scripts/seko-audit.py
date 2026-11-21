@@ -14,6 +14,7 @@ class RoundAudit:
         self.tool_sequence = 0
         self.secret = os.environ.get('CVW_SEKO_API_KEY', '')
         self.started = time.monotonic()
+        self.started_at = time.time()
         self.event('user', prompt_file='../prompt.md', prompt_sha256=hashlib.sha256(args['prompt'].encode()).hexdigest(),
                    job_id=args['job_id'], model=args['model'], release=args['release'])
 
@@ -57,8 +58,11 @@ class RoundAudit:
                               transport_file=capture + '/transport.json')
                 return result
             except BaseException as e:
+                pointers={}
+                if (audit.work / capture / 'response.raw').is_file():pointers['response_file']=capture + '/response.raw'
+                if (audit.work / capture / 'receipt.json').is_file():pointers['failure_receipt']=capture + '/receipt.json'
                 audit.event('model_error', operation_id=operation_id, error=audit.clean(e),
-                            response_file=capture + '/response.raw')
+                            response_available='response_file' in pointers, **pointers)
                 audit.measure(operation_id, began, at, stage=stage, complete=False,
                               transport_file=capture + '/transport.json')
                 raise
@@ -95,4 +99,6 @@ class RoundAudit:
         self.provider.call = self.original_call
         subprocess.run = self.original_run
         self.event('round_end', complete=complete, result_file='result.json')
-        self.measure('round', self.started, None, complete=complete)
+        self.measure('round', self.started, self.started_at, complete=complete)
+        summary={'started_at':self.started_at,'finished_at':time.time(),'elapsed_seconds':time.monotonic()-self.started,'complete':complete,'note':'Round elapsed includes media transfer and video; per-operation diagnostics separate stages. Absent server response is not fabricated.'}
+        (self.diagnostics/'round.json').write_text(json.dumps(summary,indent=2),encoding='utf-8')
