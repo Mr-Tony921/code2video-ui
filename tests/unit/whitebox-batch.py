@@ -5,8 +5,11 @@ ROOT=Path(__file__).resolve().parents[2]
 spec=importlib.util.spec_from_file_location('batch',ROOT/'scripts/whitebox-submit-batch.py')
 m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 class Batch(unittest.TestCase):
+    def tempdir(self):
+        folder=ROOT/"runtime/test-tmp";folder.mkdir(parents=True,exist_ok=True)
+        return tempfile.TemporaryDirectory(dir=folder)
     def test_concurrent_submission_preserves_receipts_limits_and_idempotent_resume(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root)
             models=[{'profile_id':'one','model':'model-one'},{'profile_id':'two','model':'model-two'}]
             (root/'models.json').write_text(json.dumps(models))
@@ -73,7 +76,7 @@ class Batch(unittest.TestCase):
         if indexed:(root/'tasks.jsonl').write_text('\n'.join(json.dumps(r) for r in records)+'\n')
         return tasks
     def test_variable_sized_package_preserves_exact_business_and_prose_inputs(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root)
             tasks=m.load_tasks(root)
             self.assertEqual([t['short_id'] for t in tasks],['S001','G001'])
@@ -85,7 +88,7 @@ class Batch(unittest.TestCase):
             manifest=m.batch_contract(tasks,[],'account','release')
             self.assertEqual(manifest['tasks'][0]['cohort'],'new_200')
     def test_legacy_package_preserves_original_resume_hashes_and_contract_shape(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root,indexed=False)
             tasks=m.load_tasks(root)
             self.assertEqual(tasks[1]['submitted_prompt'],tasks[1]['prompt'])
@@ -93,19 +96,19 @@ class Batch(unittest.TestCase):
             self.assertEqual(set(manifest),{'account','release','models','tasks'})
             self.assertEqual(set(manifest['tasks'][0]),{'id','source_prompt_sha256','submitted_prompt_sha256','references'})
     def test_corrupt_input_rejected_before_queue_submission(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root)
             (root/'G001.txt').write_text('changed')
             with self.assertRaisesRegex(ValueError,'hash mismatch'):m.load_tasks(root)
     def test_mixed_versions_and_ambiguous_package_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root)
             p=root/'general-1.json';data=json.loads(p.read_text());data['dataset_version']='0.3.0';p.write_text(json.dumps(data))
             with self.assertRaisesRegex(ValueError,'Mixed dataset'):m.load_tasks(root)
             (root/'general-2.json').write_text(p.read_text())
             with self.assertRaisesRegex(ValueError,'exactly one'):m.load_tasks(root)
     def test_task_count_and_reference_hash_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root)
             p=root/'general-1.json';data=json.loads(p.read_text())
             data['prompts'][0]['attachments']=[{'order':1,'package_path':'image.jpg','sha256':m.sha(b'original')}]
@@ -114,7 +117,7 @@ class Batch(unittest.TestCase):
             p.rename(root/'general-2.json')
             with self.assertRaisesRegex(ValueError,'count'):m.load_tasks(root)
     def test_index_outside_package_and_missing_identity_rejected(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with self.tempdir() as tmp:
             root=Path(tmp);self.fixture(root)
             p=root/'tasks.jsonl';items=[json.loads(x) for x in p.read_text().splitlines()]
             items[0]['input_file']='../outside.txt';p.write_text('\n'.join(json.dumps(x) for x in items))
