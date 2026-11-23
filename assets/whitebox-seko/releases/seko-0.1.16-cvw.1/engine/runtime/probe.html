@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset="utf-8"><script type="importmap">{"imports":{"three":"/vendor/three.module.js"}}</script><style>body{margin:0}canvas{display:block}</style></head><body><script type="module">
+import * as THREE from 'three';
+import {createHost} from '/runtime/helpers.js';
+import {compileProject,loadProject,structuralChecks} from '/runtime/project.js';
+let view,renderer;
+window.build=async ({task,hash,legacy,width,height})=>{
+ const host=createHost(task),module=await import('/source.js');
+ const result=await module.buildScene({THREE,...host,task});
+ const project=compileProject(host,result,task,hash,{legacy});
+ await window.load({project,width,height});
+ return {project,checks:structuralChecks(project,task)};
+};
+window.load=async ({project,width=640,height=360})=>{
+ view?.dispose();view=loadProject(project);
+ if(!renderer){renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setPixelRatio(1);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.appendChild(renderer.domElement);}
+ renderer.setSize(width,height);view.camera.aspect=width/height;
+ window.frame(0);return true;
+};
+window.frame=(t,capture=false)=>{
+ const state=view.setTime(t);renderer.render(view.scene,view.camera);
+ return {state,jpeg:capture?renderer.domElement.toDataURL('image/jpeg',.8).split(',')[1]:null};
+};
+window.hardware=()=>{const gl=renderer.getContext(),ext=gl.getExtension('WEBGL_debug_renderer_info');return {three:THREE.REVISION,renderer:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER)};};
+window.checkFocus=check=>{view.setTime(check.time);return view.inspectFocus(check);};
+window.ready=true;
+</script></body></html>

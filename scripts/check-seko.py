@@ -14,6 +14,8 @@ if (engine/'tests/rigid-limbs.test.mjs').exists():
  commands+=[['node','--test',str(engine/'tests/runtime.test.mjs'),str(engine/'tests/rigid-limbs.test.mjs'),'tests/unit/whitebox-syntax-preflight.mjs']]
 if (engine/'tests/motion-human.test.mjs').exists():
  commands+=[['node','--test',str(engine/'tests/motion-human.test.mjs')],[py,str(engine/'tests/test_repair_policy.py')]]
+if (engine/'tests/coarse-boundary.test.mjs').exists():
+ commands+=[['node','--test',str(engine/'tests/coarse-boundary.test.mjs')],[py,str(engine/'tests/test_coarse_boundary.py')]]
 commands+=[['node','--test','tests/integration/seko-runner.mjs']]
 rows=[]
 for i,cmd in enumerate(commands):

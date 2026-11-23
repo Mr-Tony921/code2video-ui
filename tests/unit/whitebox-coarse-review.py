@@ -49,11 +49,16 @@ class CoarseReview(unittest.TestCase):
         self.assertEqual(out['issues'], [])
         self.assertEqual(out['shots'][0]['contact_verification'][0]['status'], 'not_disproved_not_certified')
 
-    def test_clearly_floating_prop_overrides_model_pass(self):
+    def test_contact_distance_respects_versioned_acceptance_policy(self):
         out = self.assess(.15)
-        self.assertEqual(out['shots'][0]['core'], 'missing')
-        self.assertTrue(out['issues'][0]['repairable'])
-        self.assertEqual(out['issues'][0]['code'], 'contact_contradiction')
+        if out.get('contract') == 'coarse-outcome-v3':
+            self.assertEqual(out['shots'][0]['core'], 'met')
+            self.assertEqual(out['issues'], [])
+            self.assertEqual(out['shots'][0]['contact_verification'][0]['status'], 'separation_observed_advisory')
+        else:
+            self.assertEqual(out['shots'][0]['core'], 'missing')
+            self.assertTrue(out['issues'][0]['repairable'])
+            self.assertEqual(out['issues'][0]['code'], 'contact_contradiction')
 
     def test_even_large_geometry_cannot_hide_a_visible_8cm_gap(self):
         big = [[0, 0, 0], [100, 100, 100]]
