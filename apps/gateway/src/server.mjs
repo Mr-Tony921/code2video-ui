@@ -1251,7 +1251,8 @@ const routes = {
      * 那条同步路径都照旧。
      */
     const brief = new URL(req.url, 'http://x').searchParams.get('brief') === '1';
-    const sessions = await store.listSessionsByUser(u.id);
+    // Background polling needs no active-session fallback or historical session scan.
+    const sessions = brief ? [] : await store.listSessionsByUser(u.id);
     const all = await store.listJobs({ userId: u.id });
     const running = all.filter((j) => !store.isTerminal(j.status));
     // 已完成列表：放开到 200。

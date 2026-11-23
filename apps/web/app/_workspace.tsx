@@ -2,11 +2,10 @@
 /**
  * 主工作区。
  *
- * 恢复流程（任务书 §8.3）：查登录 → 本地候选 ID → 服务端 active-context 兜底
- * → 校验归属 → 拉快照 → 恢复 UI → 订阅事件。
- * 永不相信浏览器关闭前缓存的状态。
+ * 登录/刷新默认打开新对话入口；历史会话仅在用户选择后加载。
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { JobCard } from '@/components/JobCard';
 import { Sidebar } from '@/components/Sidebar';
 import { ExperimentSkills } from '@/components/ExperimentSkills';
@@ -21,8 +20,6 @@ import { ExampleDialog } from '@/components/ExampleDialog';
 import { ExampleList } from '@/components/ExampleList';
 import { NewSessionDialog, WelcomeDialog } from '@/components/Dialogs';
 import { AuthPage } from '@/components/AuthPage';
-import { AdminPanel } from '@/components/AdminPanel';
-import { HistoryPanel } from '@/components/HistoryPanel';
 import { useBoot } from '@/features/useSession';
 import { useJobStream, usePresence, useTick } from '@/features/useJobStream';
 import { api, ApiError } from '@/lib/api';
@@ -31,6 +28,9 @@ import { clean } from '@/lib/sanitize';
 import { broadcast, onBroadcast } from '@/lib/local-state';
 import type { ConfiguredSkill, ExperimentalModel, ExperimentalSkillsInput, ExamplePrompt, Job, Mode, OutOfScopeNotice, ReferenceManifest } from '@/lib/types';
 import { isTerminal } from '@/lib/types';
+
+const AdminPanel = dynamic(() => import('@/components/AdminPanel').then(m => m.AdminPanel), { ssr: false });
+const HistoryPanel = dynamic(() => import('@/components/HistoryPanel').then(m => m.HistoryPanel), { ssr: false });
 
 /** 对外模型名与版本。技术实现细节不外露（见 lib/sanitize.ts）。 */
 const MODEL_NAME = 'SenseNova 6.8 Code2Video';
@@ -109,6 +109,8 @@ export default function Workspace() {
   /** 是否做 prompt 增强，默认开。点击示例会自动关闭（示例已是增强结果） */
   const [enhance, setEnhance] = useState(true);
   const [examples, setExamples] = useState<ExamplePrompt[]>([]);
+  const [examplesLoaded, setExamplesLoaded] = useState(false);
+  const [examplesLoading, setExamplesLoading] = useState(false);
   const [outOfScope, setOutOfScope] = useState<OutOfScopeNotice | null>(null);
   const [refs, setRefs] = useState<ReferenceManifest | null>(null);
   const currentReferenceSession = useRef<string | null>(null);
@@ -165,19 +167,7 @@ export default function Workspace() {
     !!boot.user,
   );
 
-  /**
-   * 侧栏「进行中」需要定时刷新：别的对话里跑的任务不会通过当前 SSE 推过来，
-   * 不轮询就永远看不到（用户反馈"正在执行的任务不在对话历史里"）。
-   *
-   * ★ 这里调 refreshRunning，不是 reload。
-   *   reload 会打 me + active-context + getSession 三个请求，而 active-context
-   *   的全量响应 dev 实测 **652 KB / 124 条，99% 是不会变的已完成历史**。
-   *   每 20 秒重发一遍，线上实测把前端出口填到 88.9 KB/s，
-   *   而入口只有 43~71 KB/s —— 我们在要 1.3~2 倍于管子能给的量，
-   *   超额部分变成排队，视频/首屏/SSE 全堵在后面。
-   *   refreshRunning 只取 brief 的 running_jobs（约 1 KB），
-   *   并在「running 集合变小」时才补一次全量。
-   */
+  // 后台只轮询进行中与维护状态；任务结束时按需读取最多20条最近结果。
   useEffect(() => {
     if (!boot.user) return;
     const t = setInterval(() => { void boot.refreshRunning(); }, 20_000);
@@ -218,11 +208,14 @@ export default function Workspace() {
   }, [boot.session]);
   useEffect(() => { void loadRefs(); }, [loadRefs]);
 
-  // 示例 prompt：登录后拉一次即可，不随会话变化
-  useEffect(() => {
-    if (!boot.user) return;
-    api.examples().then((r) => setExamples(r.examples)).catch(() => setExamples([]));
-  }, [boot.user]);
+  // 示例内容按需读取，避免登录时与用户操作争抢传输。
+  const loadExamples = useCallback(async () => {
+    if (examplesLoading) return;
+    setExamplesLoading(true);
+    try { const r = await api.examples(); setExamples(r.examples); setExamplesLoaded(true); }
+    catch { setToast('示例暂时无法加载，请重试'); }
+    finally { setExamplesLoading(false); }
+  }, [examplesLoading]);
 
   // 首次使用说明
   useEffect(() => {
@@ -273,12 +266,17 @@ export default function Workspace() {
   }, [boot.jobs]);
 
   useEffect(() => {
+    if (!showNewSession || pendingMode !== 'experimental') return;
     if (!boot.user?.can_use_experimental) { setModels([]); return; }
+    let active = true;
     api.experimentalModels().then(r => {
+      if (!active) return;
       setModels(r.models); setModelId(current => r.models.some(m => m.profile_id === current) ? current : r.models[0]?.profile_id || '');
-    }).catch(() => setModels([]));
-  }, [boot.user?.id, boot.user?.can_use_experimental]);
+    }).catch(() => { if (active) setModels([]); });
+    return () => { active = false; };
+  }, [boot.user?.id, boot.user?.can_use_experimental, showNewSession, pendingMode]);
   useEffect(() => {
+    if (!showNewSession || pendingMode !== 'blockout_3d') return;
     if (!boot.user?.can_use_blockout_3d && boot.user?.role !== 'admin') return;
     let active = true;
     api.whiteboxSettings().then(r => {
@@ -289,7 +287,7 @@ export default function Workspace() {
       setWhiteboxModelId(r.default_model_id);
     }).catch(() => { if (active) setWhiteboxModels([]); });
     return () => { active = false; };
-  }, [boot.user?.can_use_blockout_3d, boot.user?.role]);
+  }, [boot.user?.id, boot.user?.can_use_blockout_3d, boot.user?.role, showNewSession, pendingMode]);
   useEffect(() => {
     if (showNewSession && pendingMode === 'blockout_3d') setWhiteboxModelId(whiteboxDefaultId);
   }, [showNewSession, pendingMode, whiteboxDefaultId]);
@@ -300,7 +298,7 @@ export default function Workspace() {
   }, [boot.session?.id]);
 
   const submit = useCallback(async (text: string, idemKey: string) => {
-    if (!boot.session) return;
+    if (!boot.session || boot.switching) return;
     setOutOfScope(null);
     if (referenceBusy) { setToast('请等待参考素材上传完成后再生成'); return; }
     try {
@@ -360,7 +358,7 @@ export default function Workspace() {
     if (m === 'experimental' || m === 'blockout_3d') { setShowNewSession(true); return; }
     if (!boot.session || boot.session.mode !== m) {
       try {
-        await boot.createSession(m);
+        if (!await boot.createSession(m)) return;
         setFocusJobId(null);
         setEnhance(true);                      // 换模式=新会话，扩写回到默认开启
         broadcast({ type: 'session-changed' });
@@ -373,7 +371,7 @@ export default function Workspace() {
   const doNewSession = useCallback(async () => {
     setShowNewSession(false);
     try {
-      await boot.createSession(pendingMode, pendingMode === 'experimental' ? { model_id: modelId, builtin_skills: newBuiltin } : undefined);
+      if (!await boot.createSession(pendingMode, pendingMode === 'experimental' ? { model_id: modelId, builtin_skills: newBuiltin } : undefined)) return;
       setFocusJobId(null);
       setEnhance(true);                        // 新对话回到默认：扩写开启
       broadcast({ type: 'session-changed' });
@@ -401,7 +399,7 @@ export default function Workspace() {
     setExBusy(true);
     try {
       const hadRunning = boot.runningJobs.length;
-      await boot.createSession(ex.mode);
+      if (!await boot.createSession(ex.mode)) return;
       setPendingMode(ex.mode);
       setFocusJobId(null);
       setInjected(ex.prompt);
@@ -429,26 +427,16 @@ export default function Workspace() {
    * 1.4.0 起续跑是 cc --resume，提交错会话等于 resume 错对话，后果更重。
    */
   const pickJob = useCallback(async (j: Job) => {
+    if (boot.switching) return;
     const cross = !!j.session_id && j.session_id !== boot.session?.id;
-    /**
-     * ★ 先把聚焦切过去，再去切会话。
-     *
-     * 原来是等 switchSession 全部完成后才 setFocusJobId —— 那段时间里
-     * 界面已经换成了新会话的数据，聚焦却还停在旧任务上，于是卡片／过程框
-     * 先跳到一个错配状态、再跳到正确状态（用户反馈「跳来跳去」）。
-     * 先设聚焦则中间态是一致的：显示的就是用户刚点的那个任务。
-     * `job` 的解析本来就会校验 id 属于 activeId，所以提前设不会显示错数据。
-     */
-    const prev = focusJobId;
-    setFocusJobId(j.id);
-    if (!cross) return;
+    if (!cross) { setFocusJobId(j.id); return; }
     try {
-      await boot.switchSession(j.session_id!);
+      // 载入时禁用提交，快照与聚焦一起切换，避免看着A却提交到B。
+      if (await boot.switchSession(j.session_id!)) setFocusJobId(j.id);
     } catch (e) {
-      setFocusJobId(prev);                       // 切不过去就退回原聚焦，绝不留在「看A提交进B」
       setToast(e instanceof ApiError ? `无法切换到该对话：${e.message}` : '无法切换到该对话');
     }
-  }, [boot, focusJobId]);
+  }, [boot]);
 
   /**
    * 本次提交会「基于哪个对话继续」。
@@ -497,7 +485,7 @@ export default function Workspace() {
   }, [boot.session?.id, boot.runningJobs, job]);
 
   /* ── 加载中 / 未登录 ── */
-  if (boot.loading) return <div className="center"><p className="muted">正在恢复会话…</p></div>;
+  if (boot.loading) return <div className="center"><p className="muted">正在确认登录…</p></div>;
   if (boot.error === 'UNAUTHENTICATED') return <AuthPage onDone={boot.reload} />;
   if (!boot.user) {
     return (
@@ -525,7 +513,7 @@ export default function Workspace() {
             const allowed = canUse(m.id);
             return (
               <button key={m.id} data-mode={m.id} aria-pressed={pendingMode === m.id}
-                      disabled={!allowed}
+                      disabled={!allowed || boot.switching}
                       title={allowed ? undefined : '需管理员授予白模预演权限'}
                       onClick={() => void switchMode(m.id)}>
                 {m.label}
@@ -557,6 +545,7 @@ export default function Workspace() {
       {/* SSE 降级不再弹横幅：它会盖住正文，且前端已自动轮询兜底，
           用户无需知道传输方式。状态改由过程框标题的小圆点体现。 */}
       {!online && <div className="banner">网络连接中断，正在重连…</div>}
+      {boot.switching && <div className="banner" role="status">正在打开对话…</div>}
       {degraded && (
         <div className="banner">
           该对话的后端进程已失联，无法提交新任务。请新建对话；已完成的产物仍可访问。
@@ -580,6 +569,10 @@ export default function Workspace() {
           focusedJobId={activeId}
           onPickJob={(j: Job) => { void pickJob(j); }}
         >
+          {!examplesLoaded && <button className="btn full" disabled={examplesLoading} onClick={() => void loadExamples()}>
+            {examplesLoading ? '正在加载示例…' : '查看示例参考'}
+          </button>}
+          {examplesLoaded && examples.length === 0 && <p className="tiny">暂无示例参考</p>}
           <ExampleList
             examples={examples}
             mode={boot.session?.mode ?? pendingMode}
@@ -602,9 +595,9 @@ export default function Workspace() {
           <div className="stream">
             {!boot.session && (
               <div className="card">
-                <h2 style={{ marginTop: 0, fontSize: 17 }}>开始创作</h2>
+                <h2 style={{ marginTop: 0, fontSize: 17 }}>开始新对话</h2>
                 <p className="muted" style={{ marginBottom: 0 }}>
-                  点击左侧「新建对话」开始。单次生成可能需要 1~2 小时，期间请保持页面开启。
+                  选择创作模式并点击「新建对话」。已有任务可从「进行中」或「创作历史」继续查看。
                 </p>
               </div>
             )}
@@ -667,9 +660,9 @@ export default function Workspace() {
               canBlockout={!!boot.user.can_use_blockout_3d || boot.user.role === 'admin'} /> : undefined}
             experimental={boot.session?.mode === 'experimental'}
             sessionId={boot.session?.id ?? null}
-            disabled={!boot.session || degraded || sessionBusy || referenceBusy || locked || (boot.session.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1')}
+            disabled={!boot.session || boot.switching || degraded || sessionBusy || referenceBusy || locked || (boot.session.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1')}
             disabledReason={
-              boot.session?.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1' ? '历史白模对话已只读保留，请新建对话使用新版白模' : locked ? '系统正在更新，请稍候…'
+              boot.switching ? '正在打开对话…' : boot.session?.mode === 'blockout_3d' && boot.session.model_selection?.harness !== 'seko-v1' ? '历史白模对话已只读保留，请新建对话使用新版白模' : locked ? '系统正在更新，请稍候…'
                 : !boot.session ? '请先新建对话'
                 : degraded ? '该对话的后端进程已失联，请新建对话'
                 : referenceBusy ? '参考素材正在上传，请等待完成后再生成'
@@ -730,7 +723,7 @@ export default function Workspace() {
         open={showNewSession}
         runningJobs={boot.runningJobs}
         onConfirm={doNewSession}
-        confirmDisabled={(pendingMode === 'experimental' && (!modelId || modelId === '__custom__')) || (pendingMode === 'blockout_3d' && !whiteboxModelId)}
+        confirmDisabled={boot.switching || (pendingMode === 'experimental' && (!modelId || modelId === '__custom__')) || (pendingMode === 'blockout_3d' && !whiteboxModelId)}
         onCancel={() => { setShowNewSession(false); if (boot.session) setPendingMode(boot.session.mode); }}
       >
         {pendingMode === 'blockout_3d' && <div style={{ marginBottom: 14 }}>

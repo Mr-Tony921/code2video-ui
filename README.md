@@ -43,6 +43,12 @@ python3 scripts/service.py bridge start cvw-codex-4055  # 10.120.4.55
 
 热更新用 `bash scripts/hot-update.sh run`：设置维护态、先 Bridge 后 Gateway、检查任务认领、清除维护态并执行部署检查。该命令不构建前端。重启失败时返回失败；维护状态有到期时间。
 
+## 工作区首屏（1.5.7）
+
+登录、刷新默认显示新对话入口，不自动恢复本地或服务端最近会话，也不自动创建空会话。首屏仅等待登录验证；进行中和维护状态通过后台brief请求更新，brief不扫描历史会话。用户点「创作历史」后才读取历史，点选任务仅取一次归属校验快照。示例及新建时的模型设置按需加载；现有草稿、后台任务、历史视频和续改绑定保持保留。
+
+真实浏览器回归：在有Chrome的dev worker运行 `node scripts/browser-startup-check.mjs`，验证首屏、带缓存刷新、慢后台请求、历史回看及新白模默认skill。只创建一个普通test空会话，不启动模型任务；报告与截图写入runtime/deployment。
+
 ## 账户和验证
 
 `test` 是普通用户，授予 3D 功能权限；`test-peer` 是普通用户、无 3D 权限，用于验证跨用户隔离。均无管理员角色。测试凭据分别保存在 `runtime/test-account.json`、`runtime/test-peer-account.json`（权限 600），不写入日志。

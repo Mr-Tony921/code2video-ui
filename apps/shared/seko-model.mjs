@@ -7,7 +7,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { normalizeConnection } from './model-settings.mjs';
 export const SEKO_HARNESS = 'seko-v1';
-export const SEKO_RELEASE = 'seko-0.1.13-cvw.1';
+export const SEKO_RELEASE = 'seko-0.1.16-cvw.1';
 export const isSeko = selection => selection?.harness === SEKO_HARNESS;
 const fail = (text, status = 400) => Object.assign(new Error(text), { status, code: 'WHITEBOX_MODEL_INVALID' });
 const root = raw => join(raw.model_settings?.root ?? join(process.env.CVW_STORAGE_ROOT ?? raw.storage.root, 'model-settings'), 'whitebox');
@@ -73,7 +73,7 @@ export function sekoSelection(raw, profileId = null) {
   const manifest = JSON.parse(readFileSync(join(fileURLToPath(new URL('../../', import.meta.url)), 'assets/whitebox-seko/releases', release, 'RELEASE.json')));
   return { ...view(e, false), harness: SEKO_HARNESS, engine_release: release, skill_version: manifest.skill_version, engine_sha256: createHash('sha256').update(JSON.stringify(manifest.files)).digest('hex') };
 }
-export const sekoSkill = { id: 'seko-blockout', name: 'Seko Blockout', version: '0.1.13', release: SEKO_RELEASE };
+export const sekoSkill = { id: 'seko-blockout', name: 'Seko Blockout', version: '0.1.16', release: SEKO_RELEASE };
 /** Optional operator allowlist: public callers may select only saved profiles granted to their user id. */
 export function sekoSelectionForUser(raw, user, requestedId) {
   const selected = sekoSelection(raw);

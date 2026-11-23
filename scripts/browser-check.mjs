@@ -36,7 +36,7 @@ try {
   assert.ok(content.includes('v' + version), 'Frontend version differs from VERSION');
   assert.ok(!content.includes('管理后台'));
   checks.push('ordinary user logs in; no admin controls; environment label visible');
-  // Login can restore an empty session; select a completed task through the actual history UI.
+  // Startup is empty; select a completed task through the actual history UI.
   await (await page.$('::-p-text(创作历史)')).click();
   await page.waitForSelector('.admin-panel video', { timeout: 30_000 });
   await (await page.$('::-p-text(回到该任务)')).click();
@@ -55,7 +55,8 @@ try {
   await page.reload({ waitUntil: 'networkidle2' });
   await page.waitForSelector('textarea');
   assert.ok(!(await page.$('input[autocomplete=username]')));
-  checks.push('login and session survive reload');
+  assert.ok(await page.$('h2::-p-text(开始新对话)'));
+  checks.push('login survives reload; conversations are loaded only when selected');
   assert.equal(errors.length, 0, errors.join('\n'));
   await writeFile(join(out, 'report.json'), JSON.stringify({ checks, media, errors }, null, 2));
   console.log(JSON.stringify({ checks, media, errors }, null, 2));

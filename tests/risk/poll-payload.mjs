@@ -48,18 +48,15 @@ t('★ 定时器里不再出现 reload（否则又会拉全量）',
 const us = strip(read('apps/web/features/useSession.ts'));
 t('refreshRunning 存在并被导出', /const refreshRunning = useCallback/.test(us)
   && /return \{ \.\.\.state, reload, refreshRunning/.test(us));
-const rr = us.slice(us.indexOf('const refreshRunning'), us.indexOf('return { ...state, reload'));
-t('★ refreshRunning 只打 brief 的 activeContext', /api\.activeContext\(\{ brief: true \}\)/.test(rr));
-t('★ refreshRunning 不调 me（那是 reload 的事）', !/api\.me\(/.test(rr));
-t('★ refreshRunning 不调 getSession', !/api\.getSession\(/.test(rr));
-t('★ refreshRunning 绝不设置 recentJobs（空数组会让"已完成"整列消失）',
-  !/recentJobs/.test(rr));
-t('★ 用 ref 同步判断"有任务消失"，不在 setState updater 里赋闭包变量',
-  /runningIdsRef\.current\.some/.test(rr) && !/let vanished = false/.test(rr));
-t('★ running 集合变小时补一次完整 reload（否则别的会话完成后"已完成"不更新）',
-  /if \(vanished\) await reload\(true\)/.test(rr));
-t('reload 里把 recent_completed_jobs 当可选处理（brief 响应没有这个键）',
-  /recentJobs:\s*ctx\.recent_completed_jobs \?\? \[\]/.test(us));
+const rr = us.slice(us.indexOf('const refreshRunning'), us.indexOf('const reload ='));
+t('refreshRunning only requests brief status', /api\.activeContext\(\{ brief: true \}\)/.test(rr));
+t('background status never authenticates again or fetches a session', !/api\.(me|getSession)\(/.test(rr));
+t('completion fetches bounded recent jobs without a full history reload',
+  /if \(vanished\)/.test(rr) && /api\.myJobs\('recent'\)/.test(rr) && !/reload\(true\)/.test(rr));
+t('completion merges previous recent results instead of clearing them',
+  /mergeCompleted\(s\.recentJobs, recent\.jobs\)/.test(rr));
+t('startup never restores a local or server-selected conversation',
+  !/loadContext|ctx\.active_session|api\.activeContext\(\)/.test(us));
 
 const apiTs = strip(read('apps/web/lib/api.ts'));
 t('api.activeContext 接受 brief 参数', /activeContext:\s*\(opts\?:\s*\{ brief\?: boolean \}\)/.test(apiTs));
