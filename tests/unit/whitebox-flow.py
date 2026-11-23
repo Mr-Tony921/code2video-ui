@@ -43,5 +43,5 @@ class Flow(unittest.TestCase):
    keys=p['animation']['tracks'][0]['keys'];keys[0]['value']=[1,0,0];keys[-1]['value']=[1,0,0]
   self.assertEqual(self.scope(change,init),{'s0','s4','s5'})
  def test_phase_policy_keeps_camera_geometry_and_budget_but_not_initial_authoring_steps(self):
-  text=phase_skill('review');self.assertNotIn('## Initial story',text);self.assertIn('Static-first camera',text);self.assertIn('separate cylinder arms',text);self.assertIn('at most two corrections',text);self.assertIn('## Initial story',phase_skill('author'))
+  text=phase_skill('review');self.assertNotIn('## Initial story',text);self.assertIn('Static-first camera',text);self.assertEqual(text[text.index('## Minimal readable geometry'):],phase_skill('author')[phase_skill('author').index('## Minimal readable geometry'):]);self.assertIn('at most two corrections',text);self.assertIn('## Initial story',phase_skill('author'))
 if __name__=='__main__':unittest.main()

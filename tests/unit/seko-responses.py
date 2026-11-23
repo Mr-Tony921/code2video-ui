@@ -1,7 +1,10 @@
+import sys
 import importlib.util,json,tempfile,threading,unittest,os,base64
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler,HTTPServer
 ROOT=Path(__file__).resolve().parents[2]
+E=ROOT/'assets/whitebox-seko/releases'/os.environ.get('SEKO_TEST_RELEASE','seko-0.1.13-cvw.1')/'engine'
+sys.path.insert(0,str(E/'python'))
 spec=importlib.util.spec_from_file_location('seko_provider',ROOT/'apps/worker-bridge/scripts/seko-provider.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
 class Responses(unittest.TestCase):
  def test_actual_responses_media_memory_raw_capture_and_incomplete_guards(self):
@@ -30,7 +33,10 @@ class Responses(unittest.TestCase):
     self.assertEqual(result['text'],'{"ok":true}');self.assertTrue(result['reasoning_present']);body=seen[0]
     for unexpected in ['messages','max_tokens','response_format','thinking']:self.assertNotIn(unexpected,body)
     self.assertFalse(body['store']);self.assertEqual(body['reasoning'],{'effort':'high'});self.assertEqual(body['include'],['reasoning.encrypted_content']);self.assertEqual(body['text'],{'format':{'type':'json_object'}})
-    content=body['input'][0]['content'];self.assertEqual(content[0]['type'],'input_text');self.assertIn('authoritative geometry',content[0]['text']);self.assertIn('keep exact latest requested edit',content[0]['text']);self.assertNotIn('old'*10,content[0]['text'])
+    content=next(item['content'] for item in body['input'] if item['role']=='user');self.assertEqual(content[0]['type'],'input_text');self.assertIn('authoritative geometry',content[0]['text']);self.assertIn('keep exact latest requested edit',content[0]['text']);self.assertNotIn('old'*10,content[0]['text'])
+    if (E/'python/seko_engine/policy.py').exists():
+     from seko_engine.policy import SYSTEM_PROMPT
+     self.assertEqual(body['input'][0],{'role':'system','content':SYSTEM_PROMPT});self.assertNotIn('tools',body)
     images=[b for b in content if b['type']=='input_image'];self.assertEqual(len(images),100)
     for b in images:
      with Image.open(BytesIO(base64.b64decode(b['image_url'].split(',',1)[1]))) as im:self.assertLessEqual(max(im.size),1024)

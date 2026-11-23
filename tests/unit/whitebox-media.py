@@ -39,12 +39,16 @@ class Media(unittest.TestCase):
     t=Path(t);image=t/'fixture.jpg';image.write_bytes(fixture());original=hashlib.sha256(image.read_bytes()).hexdigest();cfg={'kind':'tokenhub','endpoint':'http://127.0.0.1:'+str(server.server_port),'model':'fixture','family':'deepseek','protocol':'chat','http_timeout_seconds':10};config=t/'config.json';config.write_text(json.dumps({'models':{'x':cfg}}));host.Provider.count=0;host.Provider.capture_root=t/'capture';host.Provider.image_optimizer=staticmethod(optimize_image);p=host.Provider(config,'x');p.call('Describe the image',[('image1',image),('image2',image)],'low',False)
     capture=t/'capture/0001';m=json.loads((capture/'metadata.json').read_text());self.assertEqual(len(m['media']),2);self.assertEqual(m['context_policy']['compression_model_calls'],0);self.assertEqual(m['context_policy']['repair_budget_used'],0)
     import base64
-    sent=[x['image_url']['url'] for x in requests[0]['messages'][0]['content'] if x['type']=='image_url'];self.assertEqual(len(sent),2)
+    if (E/'python/seko_engine/policy.py').exists():
+     from seko_engine.policy import SYSTEM_PROMPT,SYSTEM_SHA256
+     self.assertEqual(requests[0]['messages'][0],{'role':'system','content':SYSTEM_PROMPT});self.assertEqual(m['system_policy']['sha256'],SYSTEM_SHA256)
+    sent=[x['image_url']['url'] for x in next(m['content'] for m in requests[0]['messages'] if m['role']=='user') if x['type']=='image_url'];self.assertEqual(len(sent),2)
     for uri,media in zip(sent,m['media']):
      self.assertTrue(uri.startswith('data:image/webp;base64,'));data=base64.b64decode(uri.split(',',1)[1]);self.assertEqual(Path(media['path']).suffix,'.webp');self.assertEqual(data,Path(media['path']).read_bytes());self.assertEqual(media['sha256'],hashlib.sha256(data).hexdigest());self.assertEqual(media['original_sha256'],original);self.assertEqual(media['encoding'],'bounded_webp')
     self.assertEqual(hashlib.sha256(image.read_bytes()).hexdigest(),original)
     cfg.update(family='opus',protocol='anthropic');config.write_text(json.dumps({'models':{'x':cfg}}))
     def must_not_run(*args):raise AssertionError('Unverified channel used WebP optimizer')
     host.Provider.image_optimizer=staticmethod(must_not_run);host.Provider(config,'x').call('Describe',[('image',image)],'low',False);self.assertEqual(requests[-1]['messages'][0]['content'][-1]['source']['media_type'],'image/jpeg')
+    if (E/'python/seko_engine/policy.py').exists():self.assertEqual(requests[-1]['system'],SYSTEM_PROMPT);self.assertNotIn('tools',requests[-1])
   finally:server.shutdown();server.server_close();thread.join()
 if __name__=='__main__':unittest.main()

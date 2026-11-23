@@ -64,6 +64,10 @@ class Provider:
         if effort not in ('low','medium','high'):raise ValueError('Invalid effort')
         if self.cfg['kind']=='tokenhub' and not self.secret:raise ValueError('Missing configured model key')
         Provider.count+=1;start=time.monotonic();anthropic=self.cfg.get('protocol')=='anthropic';responses=self.cfg.get('protocol')=='responses'
+        try:
+            from seko_engine.policy import SYSTEM_PROMPT,POLICY_VERSION,SYSTEM_SHA256
+        except ImportError:
+            SYSTEM_PROMPT='';POLICY_VERSION=None;SYSTEM_SHA256=None
         limit=int(self.cfg.get('max_context_tokens') or 262144)
         output=min(self.cfg.get('max_output_tokens') or 98304, max(4096,limit//3))
         budget=limit-output-4096
@@ -74,13 +78,13 @@ class Provider:
         kept=list(turns);removed=[]
         def compose():return prompt+('\nSAVED_CONVERSATION (recent turns verbatim; earlier edits are in CURRENT_SOURCE/latest delivered project):\n'+json.dumps(kept,ensure_ascii=False) if kept else '')
         text=compose()
-        while len(text.encode())+len(images)*4096>budget and len(kept)>1:
+        while len(text.encode())+len(SYSTEM_PROMPT.encode())+len(images)*4096>budget and len(kept)>1:
             removed.append(kept.pop(0));text=compose()
         # An upper bound above the limit is not proof that actual tokens exceed it.
         # Keep necessary source/evidence intact and let the model service enforce
         # its tokenizer's real limit. A confirmed limit error is a control failure,
         # never an instruction to spend a scene-repair attempt.
-        upper_bound_exceeded=len(text.encode())+len(images)*4096>budget
+        upper_bound_exceeded=len(text.encode())+len(SYSTEM_PROMPT.encode())+len(images)*4096>budget
         content=[{'type':'input_text' if responses else 'text','text':text}];media=[]
         for label,p in images:
             data,mime,provenance=model_image(p,self.capture_root,self.image_optimizer if self.family=='deepseek' and not anthropic else None);encoded=base64.b64encode(data).decode()
@@ -101,6 +105,10 @@ class Provider:
             elif self.family=='opus':settings.update(thinking={'type':'adaptive'},output_config={'effort':effort})
             if json_mode and not anthropic:settings['response_format']={'type':'json_object'}
             body={'model':self.cfg['model'],'messages':[{'role':'user','content':content}],**settings}
+        if SYSTEM_PROMPT:
+            if responses:body['input'].insert(0,{'role':'system','content':SYSTEM_PROMPT})
+            elif anthropic:body['system']=SYSTEM_PROMPT
+            else:body['messages'].insert(0,{'role':'system','content':SYSTEM_PROMPT})
         endpoint=self.cfg['endpoint'].rstrip('/')+('/v1/responses' if responses else '/v1/messages' if anthropic else '/v1/chat/completions')
         headers={'Content-Type':'application/json'}
         if anthropic:headers['anthropic-version']='2023-06-01'
@@ -110,7 +118,7 @@ class Provider:
             if capture:
                 capture.mkdir(parents=True,exist_ok=True)
                 (capture/name).write_text(json.dumps(value,ensure_ascii=False,indent=2))
-        save('request.json',body);save('metadata.json',{'endpoint':endpoint,'stage':getattr(self,'current_stage','intake'),'model':self.cfg['model'],'protocol':self.cfg.get('protocol'),'media':media,'effort':effort,'started_at':time.time(),'context_policy':{'max_tokens':limit,'reserved_output_tokens':output,'text_utf8_upper_bound':len(text.encode()),'images':len(images),'kept_rounds':len(kept),'archived_earlier_rounds':len(removed),'source_and_current_request_truncated':False,'local_upper_bound_exceeded':upper_bound_exceeded,'token_limit_authority':'model_service; local upper bound only trims redundant history','compression_model_calls':0,'repair_budget_used':0}})
+        save('request.json',body);save('metadata.json',{'endpoint':endpoint,'stage':getattr(self,'current_stage','intake'),'model':self.cfg['model'],'protocol':self.cfg.get('protocol'),'media':media,'effort':effort,'started_at':time.time(),'system_policy':{'version':POLICY_VERSION,'sha256':SYSTEM_SHA256,'present':bool(SYSTEM_PROMPT),'tools_mode':'host_orchestrated_no_native_tools'},'context_policy':{'max_tokens':limit,'reserved_output_tokens':output,'text_utf8_upper_bound':len(text.encode()),'images':len(images),'kept_rounds':len(kept),'archived_earlier_rounds':len(removed),'source_and_current_request_truncated':False,'local_upper_bound_exceeded':upper_bound_exceeded,'token_limit_authority':'model_service; local upper bound only trims redundant history','compression_model_calls':0,'repair_budget_used':0}})
         encoded_body=json.dumps(body).encode()
         transport={'request_bytes':len(encoded_body),'connect_seconds':0,'submit_seconds':0,'response_headers_seconds':0,'response_body_seconds':0}
         # Measure phases; do not confuse slow upload with reasoning or skill reflection.

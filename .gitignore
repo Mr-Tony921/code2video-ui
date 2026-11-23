@@ -39,3 +39,6 @@ __pycache__/
 
 # Immutable experiment engine retained in local runtime for replay.
 /assets/whitebox-seko/releases/seko-0.1.13-rc.1
+
+# Superseded 0.1.14 experiment; frozen replay stays in runtime legacy-releases.
+/assets/whitebox-seko/releases/seko-0.1.14-cvw.1

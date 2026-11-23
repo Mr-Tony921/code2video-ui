@@ -22,7 +22,7 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
  const server=http.createServer(async(req,res)=>{
   let text='';for await(const c of req)text+=c;
   const b=JSON.parse(text);requests.push(b);assert.equal(req.headers.authorization,undefined);
-  const p=b.messages[0].content[0].text;
+  const p=b.messages.find(m=>m.role==='user').content[0].text;
   if(p.includes('CONTROL_CONTEXT_FIXTURE') && p.includes('CURRENT_REVIEW_SCOPE:')) { res.statusCode=400;res.end(JSON.stringify({error:{code:'context_length_exceeded',message:'maximum context length exceeded'}}));return; }
   let answer;
   if(p.includes('SOURCE_LINES:')) {
@@ -122,7 +122,7 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
   const contextCompletion=await contextFinished;assert.ok(contextCompletion.meta,JSON.stringify(contextCompletion));
   const contextDir=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,contextSid,'rounds',contextJid,'seko');
   const contextResult=JSON.parse(readFileSync(join(contextDir,'result.json')));assert.equal(contextResult.status,'renderable_with_issues');assert.equal(contextResult.repairs,0);assert.ok(contextResult.issues.some(x=>x.message?.includes('上下文超限')));
-  assert.equal(requests.filter(b=>b.messages[0].content[0].text.includes('CONTROL_CONTEXT_FIXTURE')).length,2);
+  assert.equal(requests.filter(b=>b.messages.find(m=>m.role==='user').content[0].text.includes('CONTROL_CONTEXT_FIXTURE')).length,2);
   const receipt=JSON.parse(readFileSync(join(contextDir,'capture/0002/receipt.json')));assert.equal(receipt.failure_kind,'context_limit');
 
  } finally {for(const {jid} of ids)if(runner.getJob(jid))await runner.cancelJob(jid,'cleanup',.1);server.closeAllConnections();await new Promise(r=>server.close(r));}
