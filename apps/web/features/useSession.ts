@@ -10,11 +10,13 @@ export type Boot = {
   user: User | null; permissions: Permissions | null;
   session: SessionInfo | null; binding: SessionBinding | null;
   jobs: Job[]; activeJob: Job | null; runningJobs: Job[]; recentJobs: Job[];
+  historyLoading: boolean; historyError: string | null;
   maintenance: Maintenance; error: string | null;
 };
 const EMPTY: Boot = {
   loading: true, switching: false, user: null, permissions: null, session: null,
   binding: null, jobs: [], activeJob: null, runningJobs: [], recentJobs: [],
+  historyLoading: true, historyError: null,
   maintenance: { active: false }, error: null,
 };
 type SessionSnapshot = {
@@ -31,11 +33,32 @@ export function useBoot() {
   const navigation = useRef(0);
   const reloadId = useRef(0);
   const polling = useRef(false);
+  const historyRequest = useRef(0);
   const unauthenticated = useCallback(() => {
     navigation.current++;
     reloadId.current++;
+    historyRequest.current++;
     setState({ ...EMPTY, loading: false, error: 'UNAUTHENTICATED' });
   }, []);
+
+  // Restore the sidebar automatically, independently of auth and navigation.
+  // This endpoint lists jobs without scanning or restoring session snapshots.
+  const refreshHistory = useCallback(async () => {
+    const userId = stateRef.current.user?.id;
+    if (!userId) return;
+    const request = ++historyRequest.current;
+    setState(s => ({ ...s, historyLoading: true, historyError: null }));
+    try {
+      const history = await api.history();
+      if (request !== historyRequest.current || stateRef.current.user?.id !== userId) return;
+      setState(s => ({ ...s, historyLoading: false, historyError: null,
+        recentJobs: mergeCompleted(s.recentJobs, history.completed) }));
+    } catch (e) {
+      if (request !== historyRequest.current || stateRef.current.user?.id !== userId) return;
+      if (e instanceof ApiError && e.status === 401) { unauthenticated(); return; }
+      setState(s => ({ ...s, historyLoading: false, historyError: '历史加载失败，请重试。' }));
+    }
+  }, [unauthenticated]);
 
   // Background status never selects a conversation or loads full history.
   const refreshRunning = useCallback(async () => {
@@ -87,6 +110,7 @@ export function useBoot() {
 
   useEffect(() => { void reload(); }, [reload]);
   useEffect(() => { if (state.user) void refreshRunning(); }, [state.user?.id, refreshRunning]);
+  useEffect(() => { if (state.user) void refreshHistory(); }, [state.user?.id, refreshHistory]);
 
   const adopt = useCallback((snap: SessionSnapshot) => {
     const user = stateRef.current.user;
@@ -132,5 +156,5 @@ export function useBoot() {
     }
   }, [adopt, unauthenticated]);
 
-  return { ...state, reload, refreshRunning, createSession, switchSession };
+  return { ...state, reload, refreshRunning, refreshHistory, createSession, switchSession };
 }

@@ -111,6 +111,7 @@ export default function Workspace() {
   const [examples, setExamples] = useState<ExamplePrompt[]>([]);
   const [examplesLoaded, setExamplesLoaded] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
+  const examplesRequest = useRef(false);
   const [outOfScope, setOutOfScope] = useState<OutOfScopeNotice | null>(null);
   const [refs, setRefs] = useState<ReferenceManifest | null>(null);
   const currentReferenceSession = useRef<string | null>(null);
@@ -208,14 +209,16 @@ export default function Workspace() {
   }, [boot.session]);
   useEffect(() => { void loadRefs(); }, [loadRefs]);
 
-  // 示例内容按需读取，避免登录时与用户操作争抢传输。
+  // 登录后自动补载示例，不让它阻塞首屏。
   const loadExamples = useCallback(async () => {
-    if (examplesLoading) return;
+    if (examplesRequest.current) return;
+    examplesRequest.current = true;
     setExamplesLoading(true);
     try { const r = await api.examples(); setExamples(r.examples); setExamplesLoaded(true); }
     catch { setToast('示例暂时无法加载，请重试'); }
-    finally { setExamplesLoading(false); }
-  }, [examplesLoading]);
+    finally { examplesRequest.current = false; setExamplesLoading(false); }
+  }, []);
+  useEffect(() => { if (boot.user) void loadExamples(); }, [boot.user?.id, loadExamples]);
 
   // 首次使用说明
   useEffect(() => {
@@ -562,6 +565,8 @@ export default function Workspace() {
         <Sidebar
           session={boot.session} binding={boot.binding}
           runningJobs={boot.runningJobs} recentJobs={boot.recentJobs}
+          historyLoading={boot.historyLoading} historyError={boot.historyError}
+          onRetryHistory={() => void boot.refreshHistory()}
           onNewSession={() => { if (locked) { setToast('系统正在更新，请稍候…'); return; } setShowNewSession(true); }}
           // 显示「当前在看的这个任务」所属的会话 ID，而不是固定的 boot.session.id。
           // 用户切到别的对话后，报障时复制的必须是那个对话的 ID。

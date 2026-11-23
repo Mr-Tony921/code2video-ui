@@ -27,12 +27,16 @@ function selStyle(on: boolean): React.CSSProperties {
 
 export function Sidebar({
   session, binding, runningJobs, recentJobs, onNewSession, onPickJob, children,
+  historyLoading, historyError, onRetryHistory,
   focusedSessionId, focusedJobId,
 }: {
   session: SessionInfo | null;
   binding: SessionBinding | null;
   runningJobs: Job[];
   recentJobs: Job[];
+  historyLoading: boolean;
+  historyError: string | null;
+  onRetryHistory: () => void;
   onNewSession: () => void;
   onPickJob: (job: Job) => void;
   /**
@@ -129,15 +133,20 @@ export function Sidebar({
         </Collapsible>
       )}
 
-      {recentJobs.length > 0 && (
-        <Collapsible title="已完成" count={recentJobs.length} storageKey="done">
+        <Collapsible title="已完成" count={historyLoading && !recentJobs.length ? '加载中' : recentJobs.length} storageKey="done">
+          {historyLoading && <p className="tiny" role="status">正在加载历史对话…</p>}
+          {historyError && <div className="note warn" role="status">
+            {historyError}
+            <button className="linkbtn tiny" disabled={historyLoading} onClick={onRetryHistory}>重新加载历史</button>
+          </div>}
+          {!historyLoading && !historyError && !recentJobs.length && <p className="tiny">暂无已完成的对话</p>}
           {/* 可滚动：历史多了也能翻到早先的成片。
               原来后端只返回 10 条、这里又不滚动，跑过十几个任务后
               早先的（比如一个跑了 2 小时的品牌片）直接找不到。 */}
           <div style={{ maxHeight: 420, overflowY: 'auto', overscrollBehavior: 'contain',
                         paddingRight: 2 }}>
           {recentJobs.map((j) => (
-            <div key={j.id} className="card compact click" style={selStyle(j.id === focusedJobId)}
+            <div key={j.id} data-history-job={j.id} className="card compact click" style={selStyle(j.id === focusedJobId)}
                  aria-current={j.id === focusedJobId ? 'true' : undefined}
                  onClick={() => onPickJob(j)}>
               <div className="row" style={{ fontSize: 13 }}>
@@ -159,7 +168,6 @@ export function Sidebar({
           ))}
           </div>
         </Collapsible>
-      )}
 
       {children}
     </aside>

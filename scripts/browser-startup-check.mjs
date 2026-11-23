@@ -2,20 +2,21 @@
 import puppeteer from '../runtime/previs-deps/node_modules/puppeteer-core/lib/esm/puppeteer/puppeteer-core.js';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 import assert from 'node:assert/strict';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const cfg = JSON.parse(await readFile(join(root, 'config/backend.json'), 'utf8'));
 assert.equal(cfg.environment.name, 'dev');
 const base = 'http://' + cfg.deployment.web.host + ':' + cfg.deployment.web.port;
 const baseline = process.argv.includes('--baseline');
-const out = join(root, 'runtime/deployment/seko-0.1.16-20261123', baseline ? 'browser-before' : 'browser-after');
+const out = resolve(root, process.env.CVW_BROWSER_CHECK_OUT ?? `runtime/validation/browser-startup-${Date.now()}`);
+assert(out.startsWith(resolve(root, 'runtime') + sep), 'browser evidence must stay inside runtime');
 await mkdir(out, {recursive:true});
 const credentials = JSON.parse(await readFile(join(root, 'runtime/test-account.json'), 'utf8'));
 const browser = await puppeteer.launch({executablePath:cfg.runtime_binaries.chrome_bin_host,headless:true,
  args:['--no-sandbox','--disable-dev-shm-usage'],userDataDir:join(out,'profile')});
 const report={baseline,base,checks:[],phases:[],errors:[]};
-let phase, held=[],holdStatus=false;
+let phase, held=[],holdStatus=false,holdHistory=false,holdExamples=false,failHistory=false;
 try {
  const context=await browser.createBrowserContext(),page=await context.newPage();
  await page.setViewport({width:1440,height:1000});
@@ -31,7 +32,10 @@ try {
  });
  await page.setRequestInterception(true);
  page.on('request',r=>{
-  if(holdStatus&&new URL(r.url()).pathname==='/api/me/active-context')held.push(r);
+  const path=new URL(r.url()).pathname;
+  if(failHistory&&path==='/api/me/history'){
+   failHistory=false;void r.respond({status:503,contentType:'application/json',body:JSON.stringify({error:'test history unavailable'})});
+  } else if((holdStatus&&path==='/api/me/active-context')||(holdHistory&&path==='/api/me/history')||(holdExamples&&path==='/api/examples'))held.push(r);
   else void r.continue();
  });
  const start=name=>{phase={name,requests:[],responses:[]};report.phases.push(phase);return performance.now();};
@@ -44,7 +48,6 @@ try {
   const paths=p.requests.map(r=>r.path);
   assert(!paths.some(p=>p==='/api/me/active-context'),'full history must not load at startup');
   assert(!paths.some(p=>/^\/api\/sessions\/[^/]+$/.test(p)),'no automatic old session');
-  assert(!paths.some(p=>p==='/api/me/history'||p==='/api/examples'),'history/examples are on demand');
   assert(!paths.some(p=>p.includes('/events')),'no event replay at startup');
  };
  await page.goto(base,{waitUntil:'domcontentloaded'});
@@ -57,7 +60,10 @@ try {
  if(!baseline){
   assertLight(phase);
   assert(await page.$('h2::-p-text(开始新对话)'));
-  report.checks.push('login opens new conversation without loading history or an old session');
+  await page.waitForSelector('.sidebar [data-history-job]',{timeout:60000});
+  assert.equal(phase.requests.filter(r=>r.path==='/api/me/history').length,1);
+  assert.equal(phase.requests.filter(r=>r.path==='/api/examples').length,1);
+  report.checks.push('login opens new conversation and automatically restores sidebar history/examples');
  }
  const welcome=await page.$('dialog[open] button');if(welcome)await welcome.click();
  // Seed a real existing conversation in localStorage, as returning users have.
@@ -77,7 +83,8 @@ try {
  if(!baseline){
   assertLight(phase);
   assert(await page.$('h2::-p-text(开始新对话)'));
-  report.checks.push('refresh ignores a valid saved conversation and starts empty');
+  await page.waitForSelector('.sidebar [data-history-job]',{timeout:60000});
+  report.checks.push('refresh starts empty while retaining the automatically loaded history list');
   // A slow status endpoint cannot block the workspace or change its selection.
   holdStatus=true;
   const slowStart=start('delayed-background-status');
@@ -90,6 +97,54 @@ try {
   await page.waitForNetworkIdle({idleTime:200,timeout:10000}).catch(()=>{});
   assert(await page.$('h2::-p-text(开始新对话)'));
   report.checks.push('delayed background status does not block or restore a conversation');
+  // Hold history/examples before they reach the server: the workspace must
+  // already be visible, and releasing them must restore the original sidebar.
+  holdHistory=true;holdExamples=true;
+  const pendingBackground=Promise.all(['/api/me/history','/api/examples'].map(path=>
+   page.waitForRequest(r=>new URL(r.url()).pathname===path,{timeout:10000})));
+  const backgroundStart=start('delayed-history-and-examples');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForSelector('h2::-p-text(开始新对话)',{timeout:10000});
+  phase.workspace_ms=Math.round(performance.now()-backgroundStart);
+  await pendingBackground;
+  assert(await page.$('.sidebar ::-p-text(正在加载历史对话)'));
+  assert(await page.$('.sidebar ::-p-text(正在加载示例)'));
+  assert.equal((await page.$$('.sidebar [data-history-job]')).length,0);
+  assertLight(phase);
+  await page.screenshot({path:join(out,'background-loading.png')});
+  holdHistory=false;holdExamples=false;for(const r of held)await r.continue();held=[];
+  await page.waitForSelector('.sidebar [data-history-job]',{timeout:60000});
+  phase.history_visible_ms=Math.round(performance.now()-backgroundStart);
+  await page.waitForFunction(()=>!document.querySelector('.sidebar')?.textContent?.includes('正在加载示例'),{timeout:30000});
+  assert(await page.$('h2::-p-text(开始新对话)'));
+  assert.equal((await page.$$('.sidebar [data-history-job]')).length,Math.min(200,history.completed.length));
+  await page.screenshot({path:join(out,'history-restored.png')});
+  report.checks.push('slow history/examples show loading states, then populate automatically without selecting a session');
+
+  failHistory=true;
+  const retryStart=start('history-failure-and-retry');
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForSelector('h2::-p-text(开始新对话)',{timeout:10000});
+  phase.workspace_ms=Math.round(performance.now()-retryStart);
+  await page.waitForSelector('button::-p-text(重新加载历史)');
+  assert(await page.$('h2::-p-text(开始新对话)'));
+  await (await page.$('button::-p-text(重新加载历史)')).click();
+  await page.waitForSelector('.sidebar [data-history-job]',{timeout:60000});
+  assert.equal(phase.requests.filter(r=>r.path==='/api/me/history').length,2);
+  report.checks.push('history failure stays local and one retry restores the list');
+
+  start('sidebar-history-selection');
+  const card=await page.$('.sidebar [data-history-job]');
+  const cardId=await card.evaluate(el=>el.getAttribute('data-history-job'));
+  const sidebarResponse=page.waitForResponse(r=>/^\/api\/sessions\/[^/]+$/.test(new URL(r.url()).pathname));
+  await card.click();
+  const sidebarSelected=await (await sidebarResponse).json();
+  assert(sidebarSelected.jobs.some(j=>j.id===cardId));
+  await page.waitForFunction(id=>document.querySelector('a[href$="/archive"]')?.getAttribute('href')?.includes(id),{},sidebarSelected.session.id);
+  assert.equal(phase.requests.filter(r=>/^\/api\/sessions\/[^/]+$/.test(r.path)).length,1);
+  report.checks.push('sidebar history opens the correct existing conversation with one session request');
+  phase=null;await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForSelector('.sidebar [data-history-job]',{timeout:60000});
   start('explicit-history-selection');
   await (await page.$('button::-p-text(创作历史)')).click();
   await page.waitForSelector('.admin-panel .card button');
@@ -131,8 +186,8 @@ try {
 } catch(e) {
  report.failure=e.message;throw e;
 } finally {
- holdStatus=false;for(const r of held)await r.continue().catch(()=>{});
+ holdStatus=false;holdHistory=false;holdExamples=false;for(const r of held)await r.continue().catch(()=>{});
  await writeFile(join(out,'report.json'),JSON.stringify(report,null,2)+'\n');
- console.log(JSON.stringify({path:out,checks:report.checks,phases:report.phases.map(p=>({name:p.name,workspace_ms:p.workspace_ms,api_requests:p.requests.length,response_bytes:p.responses.reduce((s,r)=>s+r.bytes,0)})),failure:report.failure,errors:report.errors},null,2));
+ console.log(JSON.stringify({path:out,checks:report.checks,phases:report.phases.map(p=>({name:p.name,workspace_ms:p.workspace_ms,history_visible_ms:p.history_visible_ms,api_requests:p.requests.length,response_bytes:p.responses.reduce((s,r)=>s+r.bytes,0)})),failure:report.failure,errors:report.errors},null,2));
  await browser.close();
 }
