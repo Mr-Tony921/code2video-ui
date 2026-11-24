@@ -151,11 +151,25 @@ test('HTTP enforces fresh experimental permissions, binds model and skills, bypa
       body: { kind: 'tokenhub', endpoint: 'https://default.example.test', model: 'default-sfb', api_key: 'fixture-c2v-key' } })).model;
     const standard = (await req('/api/sessions', { body: { mode: 'coding_to_video', model_id: 'fixture' }, expected: 201 })).session;
     assert.equal(standard.model_selection.profile_id, c2v.profile_id); // User-supplied model_id is ignored for C2V.
+    const withDefault = (await req('/api/experimental/models')).models;
+    assert.equal(withDefault[0].profile_id, c2v.profile_id);
+    assert.ok(!JSON.stringify(withDefault).includes('fixture-c2v-key'));
+    const defaultExperiment = (await req('/api/sessions', { body: { mode: 'experimental',
+      model_id: c2v.profile_id, builtin_skills: 'coding_to_video' }, expected: 201 })).session;
+    assert.deepEqual(defaultExperiment.model_selection, standard.model_selection);
     await req('/api/admin/models/c2v', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
       body: { kind: 'intranet', endpoint: 'http://127.0.0.1:2', model: 'new-default' } });
     const standardJob = (await req(`/api/sessions/${standard.id}/jobs`, { body: { prompt: 'fixed C2V conversation', enhance: false,
       idempotency_key: 'fixed-c2v' }, expected: 202 })).job;
     assert.equal(standardJob.model_selection.model, 'default-sfb');
+    const defaultAnatomy = (await req(`/api/sessions/${defaultExperiment.id}/jobs`, { body: {
+      prompt: 'current C2V default plus anatomy', idempotency_key: 'default-anatomy',
+      experimental_skills: { builtin: 'coding_to_video', configured: catalog } }, expected: 202 })).job;
+    assert.equal(defaultAnatomy.model_selection.model, 'default-sfb');
+    assert.deepEqual(defaultAnatomy.experimental_skills.skills, ['anatomy']);
+    const savedEnhancer = (await req('/api/admin/models/enhancement', { method: 'PATCH', as: 'fixture-admin', role: 'admin',
+      body: { kind: 'intranet', endpoint: 'http://127.0.0.1:3', model: 'private-enhancer' } })).model;
+    await req('/api/sessions', { body: { mode: 'experimental', model_id: savedEnhancer.profile_id }, expected: 403 });
     const newer = (await req('/api/sessions', { body: { mode: 'coding_to_video' }, expected: 201 })).session;
     assert.equal(newer.model_selection.model, 'new-default');
     await req('/api/admin/models/c2v', { method: 'PATCH', body: { kind: 'intranet', endpoint: 'evil', model: 'wrong' }, expected: 403 });

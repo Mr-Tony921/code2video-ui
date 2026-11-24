@@ -96,6 +96,12 @@ export function canUsePersonalModel(raw, selection, owner) {
   try { const e = record(raw, selection); return e.purpose === 'experimental' && e.owner_id === owner; }
   catch { return false; }
 }
+// The same immutable C2V defaults are already available in ordinary C2V sessions.
+// Keeping old snapshots valid also lets an owned experimental session resume after a default change.
+export function isC2VModel(raw, selection) {
+  try { return record(raw, selection).purpose === 'c2v'; }
+  catch { return false; }
+}
 export function prepareConnection(raw, purpose, owner, input) {
   if (!['c2v', 'enhancement', 'experimental'].includes(purpose)) throw fail('模型用途无效');
   let prior = pointer(raw, purpose, owner).entry;

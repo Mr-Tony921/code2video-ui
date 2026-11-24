@@ -42,7 +42,7 @@ import { configuredSkills } from '../../shared/experimental-catalog.mjs';
 import { prepareSkillRevision } from '../../shared/experimental-skills.mjs';
 import { streamSessionArchive } from '../../shared/session-archive.mjs';
 import { modelSettingsRoutes } from './model-settings-routes.mjs';
-import { isManagedModel, canUsePersonalModel, lastPersonalModel, c2vModelSnapshot } from '../../shared/model-settings.mjs';
+import { isManagedModel, canUsePersonalModel, isC2VModel, lastPersonalModel, c2vModelSnapshot } from '../../shared/model-settings.mjs';
 
 async function experimentalUser(req) {
   const signed = currentUser(req);
@@ -58,7 +58,8 @@ function builtinPermission(user, builtin) {
 }
 
 function canUseExperimentalModel(user, selection) {
-  if (isManagedModel(selection)) return canUsePersonalModel(config.raw, selection, user.id);
+  if (isManagedModel(selection)) return canUsePersonalModel(config.raw, selection, user.id)
+    || (isC2VModel(config.raw, selection) && canUseExperimentalModel(user, 'intranet-default'));
   const profileId = selection?.profile_id ?? selection;
   const profile = config.raw.experimental.models?.find(p => p.id === profileId && p.enabled !== false);
   if (!profile || !Object.hasOwn(profile, 'allowed_user_ids')) return true;
@@ -787,6 +788,8 @@ const routes = {
     const models = experimentalModels(config.raw).filter(p => canUseExperimentalModel(user, p.profile_id))
       .map(({ endpoint, ...p }) => p);
     const personal = lastPersonalModel(config.raw, user.id);
+    const c2v = c2vModelSnapshot(config.raw);
+    if (c2v && canUseExperimentalModel(user, c2v)) models.unshift(c2v);
     return json(res, 200, { models: personal ? [...models, personal] : models });
   },
 

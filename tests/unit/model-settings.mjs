@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizeConnection, normalizeEndpoint, saveModel, lastPersonalModel, adminModelViews,
-  resolveManagedModel, c2vModelSnapshot, canUsePersonalModel, prepareConnection, checkConnection } from '../../apps/shared/model-settings.mjs';
+  resolveManagedModel, c2vModelSnapshot, canUsePersonalModel, isC2VModel, prepareConnection, checkConnection } from '../../apps/shared/model-settings.mjs';
 import { modelSettingsRoutes } from '../../apps/gateway/src/model-settings-routes.mjs';
 const raw = { model_settings: { root: join(TEST_TMP_ROOT, 'model-settings') },
   model: { base_url: 'http://original-model:8000', model: 'original', max_context_tokens: 524288 },
@@ -49,9 +49,14 @@ test('C2V defaults preserve old credential snapshots and leave primary/whitebox 
   const one = saveModel(raw, 'c2v', 'admin', input);
   assert.equal(c2vModelSnapshot(raw).profile_id, one.profile_id);
   assert.equal(canUsePersonalModel(raw, one, 'admin'), false);
+  assert.equal(isC2VModel(raw, one), true);
+  assert.equal(isC2VModel(raw, { ...one, revision: 'stale' }), false);
+  assert.equal(isC2VModel(raw, lastPersonalModel(raw, 'alice')), false);
+  assert.equal(isC2VModel(raw, saveModel(raw, 'enhancement', 'admin', input)), false);
   const two = saveModel(raw, 'c2v', 'admin', { kind: 'intranet', endpoint: '10.0.0.2:8000', model: 'next' });
   assert.equal(c2vModelSnapshot(raw).profile_id, two.profile_id);
   assert.equal(resolveManagedModel(raw, one).model, 'sfb');
+  assert.equal(isC2VModel(raw, one), true);
   assert.equal(resolveManagedModel(raw, two).apiKey, 'sk-local-proxy');
   assert.equal(adminModelViews(raw).c2v.has_key, false);
   assert.equal(JSON.stringify(raw), original);
