@@ -15,7 +15,7 @@ class Batch(unittest.TestCase):
             (root/'models.json').write_text(json.dumps(models))
             (root/'account.json').write_text(json.dumps({'username':'fixture','password':'fixture-only'}))
             (root/'config.json').write_text(json.dumps({'storage':{'sessions_root':str(root/'sessions')}}))
-            selection=lambda mid:{'profile_id':mid,'engine_release':'seko-0.1.16-cvw.1'}
+            selection=lambda mid:{'profile_id':mid,'engine_release':'seko-0.1.17-cvw.1'}
             server_sessions={};server_jobs={};guard=threading.Lock();requests=[]
             class FakeClient:
                 def __init__(self,base):pass
@@ -25,7 +25,7 @@ class Batch(unittest.TestCase):
                     with guard:
                         requests.append(path)
                         if path=='/api/auth/login':return {'user':{'username':'fixture','status':'active'}}
-                        if path=='/api/whitebox/settings':return {'models':[{**x,'engine_release':'seko-0.1.16-cvw.1'} for x in models]}
+                        if path=='/api/whitebox/settings':return {'models':[{**x,'engine_release':'seko-0.1.17-cvw.1'} for x in models]}
                         if path=='/api/sessions':
                             sid='session-'+str(len(server_sessions));server_sessions[sid]=selection(body['model_id'])
                             return {'session':{'id':sid,'model_selection':server_sessions[sid]}}

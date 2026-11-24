@@ -75,6 +75,10 @@ def main():
     start=time.monotonic();engine=Path(args['engine']);sys.path.insert(0,str(engine/'python'))
     spec=importlib.util.spec_from_file_location('seko_host_provider',Path(__file__).with_name('seko-provider.py'));mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod)
     from seko_engine import harness
+    release_intake=None
+    if (engine/'python/seko_engine/intake.py').is_file():
+        from seko_engine import intake as release_intake
+    noninteractive=getattr(release_intake,'NONINTERACTIVE',False)
     from seko_engine.provider import parse_json
     harness.Provider=mod.Provider
     mod.Provider.capture_root=work/'capture'
@@ -96,6 +100,7 @@ def main():
     supplied_business_input = initial is not None
     compact_intake = not latest and (engine/'python/seko_engine/intake.py').is_file()
     intake_seconds=0
+    input_assumptions=[]
     if initial is None:
         context={}
         if latest:
@@ -112,10 +117,19 @@ def main():
             else:
                 decision=engine_intake.decide(provider,parse_json,turns,images,write,work)
         else:
-            reply=provider.call(INTAKE+'\nLATEST_DELIVERED_PROJECT:'+json.dumps(context,ensure_ascii=False)+'\nREFERENCE_ATTACHMENTS:'+json.dumps([{'id':f'reference_{i+1}','filename':label} for i,(label,_) in enumerate(images)],ensure_ascii=False),[],effort='low',json_mode=True)
+            routing=INTAKE
+            if noninteractive:
+                routing=routing.replace('Ask a question for missing required story/duration or contradictions;', 'Do not ask questions; resolve nonessential ambiguity conservatively and record assumptions;').replace('ambiguous changes use clarify','ambiguous changes use the smallest conservative refine with assumptions')
+                routing=routing.replace('{"action":"clarify","text":"concise question in user\'s language"}', '{"action":"error","text":"concrete unsupported mandatory constraint"}')
+                routing+='\nCURRENT RELEASE: Never return clarify or wait for the user. Existing-scene edits preserve timing unless explicitly changed. Include assumptions as concise statements. Impossible mandatory constraints return action:error with a concrete explanation.'
+            reply=provider.call(routing+'\nLATEST_DELIVERED_PROJECT:'+json.dumps(context,ensure_ascii=False)+'\nREFERENCE_ATTACHMENTS:'+json.dumps([{'id':f'reference_{i+1}','filename':label} for i,(label,_) in enumerate(images)],ensure_ascii=False),[],effort='low',json_mode=True)
             decision=parse_json(reply['text'])
         intake_seconds=time.monotonic()-t
         write(work/'intake.json',decision)
+        if noninteractive:
+            if decision.get('action')=='clarify':raise ValueError('模型未提供可直接执行的修改方案；已保留原工程，本轮未修改。')
+            if decision.get('action')=='error':raise ValueError(decision.get('text') or 'Input cannot be resolved without violating mandatory constraints')
+            input_assumptions=release_intake.decision_assumptions(decision)
         if decision.get('action') in ('clarify','answer'):
             text=decision.get('text','').strip()
             if not text:raise ValueError('Empty conversational response')
@@ -155,6 +169,8 @@ def main():
     for r in task.get('references',[]):r.pop('local_path',None)
     write(export/'task.json',task)
     (export/'README.txt').write_text('Seko Three.js 工程\nsource.js 为模型生成的 buildScene ES module，依赖 runtime/helpers.js 与 Three.js 0.180.0。\nproject.json 为已编译的可回放工程。业务建议使用 runtime/project.js 的 loadProject(project)，逐帧 setTime(绝对秒)，并调用 renderer.render(view.scene, view.camera)。\n人物/镜头/时间轴由 project.json 提供；运行时不包含模型 key，不需要模型调用。\n本包由平台按实际依赖打包。three / puppeteer 版本见 package-lock.json，视频渲染不属于业务接入要求。\n')
+    if noninteractive:
+        write(export/'input-decisions.json',{'assumptions':input_assumptions,'policy':'noninteractive-conservative','original_user_text_modified':False})
     manifest={str(p.relative_to(export)):sha(p) for p in sorted(export.rglob('*')) if p.is_file()};write(export/'MANIFEST.json',manifest)
     zip_path=work/'source.zip'
     with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as z:
@@ -169,7 +185,9 @@ def main():
     issues=read(source.parent/'issues.json') if (source.parent/'issues.json').exists() else []
     if result.get('error'):issues.append({'code':'engine_error','message':result['error']})
     message='白模工程与视频已生成，可预览视频或下载工程。'+('仍有未确认或已知质量问题，请结合结果说明检查。' if result['status']!='self_checked' else '已通过有限自检，效果请以预览为准。')
-    final={'harness':'seko-v1','release':args['release'],'job_id':args['job_id'],'model':args['model'],'status':result['status'],'scene_success':True,'structure_pass':result.get('structure_pass'),'user_prompt':user,'message':message,'issues':issues,'repairs':result.get('repairs'),'repair_requests':result.get('repair_requests'),'repair_candidates_compiled':result.get('repair_candidates_compiled'),'selected_candidate':result.get('selected_candidate'),'stop_reason':result.get('stop_reason'),'system_prompt_sha256':result.get('system_prompt_sha256'),'duration':data['duration'],'shot_count':len(data['shot_plan']),'reference_count':len(task.get('references',[])), 'parent_job_id':latest[1]['job_id'] if latest else None,'finished_at':time.time(), 'export':{'file':'source.zip','sha256':sha(zip_path),'size_bytes':zip_path.stat().st_size},'timings':{**transport_timing,'intake_seconds':intake_seconds,'engineering_seconds':engineering,'model_seconds':result.get('model_seconds'),'tool_seconds':result.get('tool_seconds'),'video_seconds':time.monotonic()-render_start,'total_seconds':time.monotonic()-start}}
+    result_notes=release_intake.result_notes(input_assumptions,issues) if noninteractive else []
+    if result_notes:message+='\n'+'\n'.join(result_notes)
+    final={'input_assumptions':input_assumptions,'result_notes':result_notes,'harness':'seko-v1','release':args['release'],'job_id':args['job_id'],'model':args['model'],'status':result['status'],'scene_success':True,'structure_pass':result.get('structure_pass'),'user_prompt':user,'message':message,'issues':issues,'repairs':result.get('repairs'),'repair_requests':result.get('repair_requests'),'repair_candidates_compiled':result.get('repair_candidates_compiled'),'selected_candidate':result.get('selected_candidate'),'stop_reason':result.get('stop_reason'),'system_prompt_sha256':result.get('system_prompt_sha256'),'duration':data['duration'],'shot_count':len(data['shot_plan']),'reference_count':len(task.get('references',[])), 'parent_job_id':latest[1]['job_id'] if latest else None,'finished_at':time.time(), 'export':{'file':'source.zip','sha256':sha(zip_path),'size_bytes':zip_path.stat().st_size},'timings':{**transport_timing,'intake_seconds':intake_seconds,'engineering_seconds':engineering,'model_seconds':result.get('model_seconds'),'tool_seconds':result.get('tool_seconds'),'video_seconds':time.monotonic()-render_start,'total_seconds':time.monotonic()-start}}
     write(work/'result.json',final);emit('message',text=message);emit('complete',ok=True)
 
 if __name__=='__main__':

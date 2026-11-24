@@ -14,6 +14,7 @@ const runner=await import('../../apps/worker-bridge/src/job-runner.mjs');
 const source=readFileSync(new URL('./fixtures/seko-source.mjs',import.meta.url),'utf8');
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 const flowRelease=process.env.SEKO_TEST_RELEASE;
+const noninteractive = flowRelease && readFileSync(new URL(`../../assets/whitebox-seko/releases/${flowRelease}/engine/python/seko_engine/intake.py`,import.meta.url),'utf8').includes('NONINTERACTIVE = True');
 const fastIntake=process.env.SEKO_TEST_FAST_INTAKE==='1';
 const naturalPrompt=(fastIntake?'人物A向右移动并停下。总共4秒。\n片段1：移动\n时长：2秒\n分镜1 人物A向右移动。\n片段2：停下\n时长：2秒\n分镜1 人物A停下。':'人物A向右移动并停下。总共4秒。\n片段1：移动，2秒\n分镜1 人物A向右移动。\n片段2：停下，2秒\n分镜1 人物A停下。');
 const prompt='用户要求：完整故事一次生成。\n'+JSON.stringify({version:2,duration:4,work_prompt:'人物A向右移动并停下。',segments:[{id:'a',title:'移动',start:0,end:2,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A向右移动。'},{id:'b',title:'停下',start:2,end:4,duration:2,resolved_duration:2,prompt:'【镜头1】时长：2秒 人物A停下。'}]});
@@ -29,8 +30,9 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
     assert.ok(p.includes('人物A向右移动并停下。'));
     answer=JSON.stringify({action:'generate',segments:[{title:'移动',first_line:2,last_line:3,duration:2},{title:'停下',first_line:4,last_line:5,duration:2}]});
   } else if(p.includes('intake stage for a Seko')) {
+    if(noninteractive){assert.ok(!p.includes('{"action":"clarify"'));assert.ok(p.includes('Never return clarify or wait for the user'));}
     const current=JSON.parse(p.split('SAVED_CONVERSATION (recent turns verbatim; earlier edits are in CURRENT_SOURCE/latest delivered project):\n')[1]).at(-1).user;
-    answer=JSON.stringify(current.includes('先解释人物') ? {action:'answer',text:'当前工程有一名人物。'} : current.includes('改好看点') ? {action:'clarify',text:'请说明希望调整哪个镜头或人物。'} : {action:'refine',request:'修改第一镜头相机'});
+    answer=JSON.stringify(current.includes('先解释人物') ? {action:'answer',text:'当前工程有一名人物。'} : current.includes('改好看点') ? (noninteractive ? {action:'answer',text:'已有工程保留。当前没有明确修改范围，采用维持原方案的保守处理。'} : {action:'clarify',text:'请说明希望调整哪个镜头或人物。'}) : {action:'refine',request:'修改第一镜头相机'});
   } else if(p.includes('CURRENT CALL: Refine')) {
     const numbered=p.includes('CURRENT_SOURCE_SHA256:');
     if(numbered){
@@ -92,7 +94,7 @@ test('new whitebox harness uses shared execution slots, cancels only its own pro
     const dir=join(config.storage.sessionsRoot,config.storage.sessionsSubdir,ids[0].sid,'rounds',jid,'seko');
     return {dir,result:JSON.parse(readFileSync(join(dir,'result.json')))};
   };
-  const clarify=await runFollowup('改好看点');assert.equal(clarify.result.status,'waiting_user');assert.equal(clarify.result.scene_success,false);assert.equal(existsSync(join(clarify.dir,'output/final.mp4')),false);
+  if(noninteractive){const conservative=await runFollowup('改好看点');assert.equal(conservative.result.status,'answered');assert.ok(!conservative.result.message.includes('？'));} else {const clarify=await runFollowup('改好看点');assert.equal(clarify.result.status,'waiting_user');assert.equal(clarify.result.scene_success,false);assert.equal(existsSync(join(clarify.dir,'output/final.mp4')),false);}
   const answer=await runFollowup('先解释人物');assert.equal(answer.result.status,'answered');assert.equal(answer.result.scene_success,false);
   const edited=await runFollowup('只把第一镜头相机焦距稍微调近一点，其余保持不变');assert.equal(edited.result.scene_success,true);assert.equal(edited.result.parent_job_id,ids[0].jid);assert.equal(edited.result.repairs,0);assert.equal(hash(sourceZip),before);
   const job=JSON.parse(readFileSync(join(edited.dir,'run/job.json')));assert.equal(job.kind,'source_refinement');assert.equal(job.max_repairs,1);

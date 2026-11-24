@@ -2,6 +2,7 @@ import os
 import sys,json,tempfile,unittest,copy,re
 from pathlib import Path
 R=Path(__file__).resolve().parents[2];E=R/'assets/whitebox-seko/releases'/os.environ.get('SEKO_TEST_RELEASE','seko-0.1.10-cvw.1')/'engine';sys.path.insert(0,str(E/'python'))
+from seko_engine import intake
 from seko_engine.intake import assemble
 from seko_engine.evidence import changed_shots
 from seko_engine.harness import phase_skill
@@ -21,7 +22,9 @@ class Flow(unittest.TestCase):
   with self.assertRaises(ValueError):assemble({'action':'generate','planned_segments':[{'duration':20,'prompt':'分镜1 改写'}]},'分镜1 用户的详细内容')
   for segments in [[{'first_line':1,'last_line':3,'duration':10},{'first_line':2,'last_line':3,'duration':10}],[{'first_line':1,'last_line':1,'duration':20}]]:
    with self.assertRaises(ValueError):assemble({'action':'generate','segments':segments},'分镜1 原文\n内容\n分镜2 另一镜')
-  self.assertEqual(assemble({'action':'clarify','text':'希望多长时间？'},'一段追逐')[0]['action'],'clarify')
+  if getattr(intake,'NONINTERACTIVE',False):
+   with self.assertRaises(ValueError):assemble({'action':'clarify','text':'希望多长时间？'},'一段追逐')
+  else:self.assertEqual(assemble({'action':'clarify','text':'希望多长时间？'},'一段追逐')[0]['action'],'clarify')
  def scope(self,change,old_change=None):
   with tempfile.TemporaryDirectory() as temp:
    root=Path(temp);old={'duration':60,'shot_plan':[{'id':f's{i}','start':i*10,'end':(i+1)*10,'camera_plan':{'mode':'static'}} for i in range(6)],'animation':{'tracks':[]},'reference_usage':[]}

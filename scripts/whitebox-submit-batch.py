@@ -167,7 +167,7 @@ def main():
     parser.add_argument('--task', action='append', help='Submit selected short IDs first, sharing the full batch ledger; omit when resuming all')
     parser.add_argument('--limit', type=int, default=0, help='Total submissions including earlier runs; 0 means all')
     parser.add_argument('--workers', type=int, default=1, choices=range(1, 9), help='Bounded HTTP submission concurrency; does not change generation slots')
-    parser.add_argument('--release', default='seko-0.1.16-cvw.1')
+    parser.add_argument('--release', default='seko-0.1.17-cvw.1')
     args = parser.parse_args()
     tasks = load_tasks(args.dataset)
     if args.task and set(args.task) - {t['short_id'] for t in tasks}:

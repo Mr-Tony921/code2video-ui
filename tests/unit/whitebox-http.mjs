@@ -73,7 +73,7 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
     await users.setBlockout3d('test', true);
     const settings = await req('/api/whitebox/settings');
     assert.match(settings.default_model_id,/^seko-/);
-    assert.equal(settings.default_skills.configured[0].version,'0.1.16');
+    assert.equal(settings.default_skills.configured[0].version,'0.1.17');
     await req('/api/sessions', { body: { mode: 'blockout_3d', model_id: 'seko-00000000000000000000000000000000' }, expected: 403 });
     assert.equal(settings.fixed_model,true); assert.equal(settings.fixed_skill,true);
     assert.ok(!JSON.stringify(settings).includes('fixture-key'));
@@ -97,7 +97,7 @@ test('whitebox HTTP binds model and one skill, isolates permissions and disables
     const body = { prompt: 'A moving cube', enhance: true, max_runtime_seconds: 600, idempotency_key: 'whitebox-first' };
     const first = (await req(`/api/sessions/${session.id}/jobs`, { body, expected: 202 })).job;
     assert.equal(first.max_runtime_seconds, 0); assert.equal(first.enhancement.reason, 'whitebox');
-    assert.equal(first.model_selection.engine_release,'seko-0.1.16-cvw.1');
+    assert.equal(first.model_selection.engine_release,'seko-0.1.17-cvw.1');
     assert.equal(first.experimental_skills.builtin, 'none');
     const dup = await req(`/api/sessions/${session.id}/jobs`, { body });
     assert.equal(dup.job.id, first.id); assert.equal(dup.idempotent_replay, true);

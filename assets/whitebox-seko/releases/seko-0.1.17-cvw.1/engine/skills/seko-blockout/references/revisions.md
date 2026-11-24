@@ -1,0 +1,19 @@
+# Bounded follow-up edits
+
+Input is the latest project, expected base_revision, user request, and optional segment/shot/entity scope. Resolve target names to stable IDs. Preserve source timing and untouched narrative. A local request is one candidate plus at most one correction; no whole-story aesthetic re-review.
+
+Supported first-release edit operations are `translate` (local delta), `freeze_position` (hold a local position), `rotation` (absolute Euler radians), and `visible` (boolean), all over explicit intervals. Parent children follow automatically. Record boundary discontinuities and directly dependent camera targets. Do not claim unsupported complex edits succeeded; report the required extension rather than silently editing a different target. Do not overwrite an accepted/benchmark artifact; create a new project revision.
+
+Operations contain only entity_id, kind, start, end and the corresponding value field. Record rationale and source user request separately in the receipt. A scene boundary alone is not an excuse to move other actors. Verify the changed interval and its two boundaries, and compare unaffected intervals. Retain the previous project for undo. The revision store reads the latest saved workspace head, including manual edits, and checks that head again before publication. A stale revision fails with a conflict, not last-writer-wins replacement. For a request to freeze from an interval's beginning use state at its actual start, not a later midpoint.
+
+Camera A1: preserve the latest shot camera_plan outside the requested edit scope. If an edit changes camera motion or framing, update that shot's recommendation and executable keys together; prefer a safe fixed view unless the user's story or explicit camera request needs motion. Moving a subject can require a directly dependent reframing, but is not permission to replan unrelated shots. Source-refinement hosts must apply the same rule from the main skill/source contract even when this scoped-operation document is not read.
+
+
+0.1.16 acceptance boundary: static holding/standing/sitting/support intersections and rough contact are allowed while the coarse relation remains readable. No repair for grip precision, gait or fine poses. Clear root travel through a solid obstacle, wrong route/destination, significant ownership drift, wrong facing/POV or hidden key result remains reviewable. These quality findings never prevent last-renderable delivery and never extend the existing correction cap. Contact distances are advisory; co-moving props are not stationary path obstacles. Technical, coarse quality, allowed detail and provider failure are reported separately. Ordinary stories do not acquire Seko segment/shot obligations they never requested.
+
+## 0.1.17 targeted changes
+
+- Clear ordinary stories without specified duration are timed in the existing intake call (0 < total <=300s). Explicit timing and verbatim user text stay authoritative; nonessential ambiguities resolve conservatively and are reported with the video; unusable input/contradictory mandatory timing fails explicitly without waiting for a reply. Generated English shot-marker normalization is deterministic and preserves raw decisions.
+- Optional contact citation errors become unavailable diagnostic entries, not failure of otherwise valid shot/image review. Missing shots, invalid JSON or invented image references still fail the contract. No extra review call.
+- Second correction receives only new/regressed or technical recovery targets; previously attempted semantic findings are recorded read-only. Initial two/follow-up one correction caps stay unchanged.
+- Authoring emphasizes shared movement for carried furniture, continuous release transforms, event-time framing and positive visibility evidence. No new rigs, physics, extra review rounds or expanded evidence budget.

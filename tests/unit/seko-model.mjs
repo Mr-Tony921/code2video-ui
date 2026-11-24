@@ -63,7 +63,7 @@ test('allowlisted batch model is pinned without changing the global default or e
  const cfg={...raw,whitebox:{...raw.whitebox,model_access:{batch:[saved.profile_id]}}};
  const user={id:'batch',status:'active'};
  const selected=sekoSelectionForUser(cfg,user,saved.profile_id);
- assert.equal(selected.profile_id,saved.profile_id);assert.equal(selected.skill_version,'0.1.16');
+ assert.equal(selected.profile_id,saved.profile_id);assert.equal(selected.skill_version,'0.1.17');
  assert.equal(sekoConnection(cfg,selected).model,'batch-second');
  assert.equal(sekoSettings(cfg,user).models.length,2);
  assert.equal(sekoSettings(cfg,{id:'peer',status:'active'}).models.length,1);
@@ -75,7 +75,7 @@ test('allowlisted batch model is pinned without changing the global default or e
 });
 
 test('public skill metadata follows the configured release including rollback',()=>{
- for(const version of ['0.1.12','0.1.13','0.1.16']){
+ for(const version of ['0.1.12','0.1.13','0.1.16','0.1.17']){
   const release=`seko-${version}-cvw.1`;
   const settings=sekoSettings({...raw,whitebox:{...raw.whitebox,seko_release:release}});
   assert.equal(settings.skills[0].version,version);assert.equal(settings.skills[0].release,release);
@@ -88,8 +88,8 @@ test('promoting the release preserves existing selections and their model creden
  const old=sekoSelection({...raw,whitebox:{...raw.whitebox,seko_release:'seko-0.1.13-cvw.1'}});
  const pinned=JSON.stringify(old), connection=sekoConnection(raw,old);
  const current=sekoSelection(raw);
- assert.equal(current.engine_release,'seko-0.1.16-cvw.1');
- assert.equal(current.skill_version,'0.1.16');
+ assert.equal(current.engine_release,'seko-0.1.17-cvw.1');
+ assert.equal(current.skill_version,'0.1.17');
  assert.notEqual(current.engine_sha256,old.engine_sha256);
  assert.equal(current.profile_id,old.profile_id);
  assert.equal(JSON.stringify(old),pinned);
