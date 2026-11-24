@@ -127,3 +127,8 @@ tmux -L cvw-codex attach -t cvw-codex-gateway
 ## dev 实验模式
 
 管理员在用户页显式授予实验权限，用户可选择服务端配置的模型，关闭内置 skill 并粘贴或上传自定义 skill。模型配置、工作区留存和验收入口见 [EXPERIMENTAL_MODE.md](docs/EXPERIMENTAL_MODE.md)。所有模式支持下载完整会话。
+
+
+## Seko C2V benchmark
+
+独立本地测试台和固定测试集见 [tools/c2v-bench/README.md](tools/c2v-bench/README.md)。包含 19 条业务需求、15 条可执行案例、Anatomy 适配 gate 与普通 Web API 提交/评价工具。原始媒体和运行证据位于 `runtime/c2v-bench/`，不进入 Git；不改变现有生成、模型默认值或白模流程。

@@ -1,0 +1,257 @@
+{
+  "01-mindflow": {
+    "explanation_target": "exterior_product",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Product Launch",
+      "excerpt": "为 AI 效率管理 App「Mindflow」制作一条 20 秒的产品发布视频，16:9。使用上传的三张产品 UI 设计图。**核心卖点：**① AI 智能助手，帮助分析项目、制定计划；② 项目数据看板，集中查看项目状态与关键指标；③ 智能任务管理，追踪任务进度与截止时间"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "02-manus-template": {
+    "explanation_target": "template",
+    "subject_defined": false,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "这是风格/skill 说明，缺少具体产品名称或网站。"
+    ],
+    "source_evidence": {
+      "category": "Product Launch",
+      "excerpt": "Turn a product name or website URL into a Manus 2.0 style launch video: a 75-120 second film with kinetic type on a porcelain canvas, New-word slot dividers, the product's real interface with camera push-ins, glass cards on landscape plates"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "03-hush-buds": {
+    "explanation_target": "exterior_product",
+    "subject_defined": false,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "原要求需要真人展示视频，但只提供产品图；C2V 不负责合成真人视频。"
+    ],
+    "source_evidence": {
+      "category": "Product showcase",
+      "excerpt": "为无线蓝牙耳机品牌 Hush Buds 制作一条 20 秒的新品发布视频，16:9。\n产品定位： 主打舒适佩戴、沉浸式聆听体验的无线耳机。\n核心卖点：\n1. 沉浸式降噪，减少外界干扰。\n2. 轻巧舒适，适合长时间佩戴。\n3. 简约精致的外观设计，适合日常使用。\n视频要求： 结合真人展示视频与产品动效，呈现耳机使用场景、产品外观和核心卖点。整体采用简洁现代的科技广告风格，通过真人镜头、产品特写、动态文字和流畅转场完成新品发布视频。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "04-paper-template": {
+    "explanation_target": "template",
+    "subject_defined": false,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "缺少已准备好的模板及品牌字段，不能按占位符直接生产。"
+    ],
+    "source_evidence": {
+      "category": "Paper Trail",
+      "excerpt": "请使用当前已准备好的 Paper Trail 模板 制作一条完整品牌短片，请注意品牌个性化的发散泛化。\n\n我的资料：\n品牌／产品：{{品牌名、产品名和一句话介绍}}\n品牌符号：{{上传图片或者进行简单描述}}\n故事核心：{{这个符号或设计细节从何而来、为何重要}}\n档案年代与人物：{{年代、人物类型；没有真实史料时请标为虚构创意}}\n品牌强调色：{{色号；留空则沿用模板橙色}}\n我提供的图片和文案：{{附件及必须使用的内容；留空可按故事创作}}\n音乐：{{沿用模板配乐／提供自"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "05-coffee-journey": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Paper Trail",
+      "excerpt": "制作一条纸张拼贴动画，讲述一颗咖啡豆从种植园到城市咖啡馆的旅程。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "06-protein-age": {
+    "explanation_target": "typography",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "艺术字解说",
+      "excerpt": "不同年龄段的人需要多少蛋白质"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "07-sleep-age": {
+    "explanation_target": "typography",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "艺术字解说",
+      "excerpt": "不同年龄段的人所需的睡眠时长"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "08-microwave": {
+    "explanation_target": "physical_internal_structure",
+    "subject_defined": true,
+    "needs_parts_relationships": true,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "内部结构拆解",
+      "excerpt": "微波炉的原理"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "09-reel-projector": {
+    "explanation_target": "physical_internal_structure",
+    "subject_defined": true,
+    "needs_parts_relationships": true,
+    "requires_3d": true,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "内部结构拆解",
+      "excerpt": "帮我为「Seko REEL 01」制作一条三维产品展示片。产品是「复古 35 毫米双盘胶片放映机」，外观重点是「双盘胶片与精密机械结构」。通过产品全貌和细节特写，重点展示「片门与压片板、输片齿轮与胶片、灯室与聚光镜」，整体氛围为「复古、精密、有机械感」。片头展示产品名称，主标语是「把光放进胶片」，结尾展示「Seko · 放映开始」。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "10-time-pause": {
+    "explanation_target": "scene_or_system",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "3D场景演绎",
+      "excerpt": "如果你拥有暂停时间的超能力，会发生什么？"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "11-airtag": {
+    "explanation_target": "scene_or_system",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "3D场景演绎",
+      "excerpt": "没有 GPS 和网络连接的 AirTag，为什么能够被远程定位？"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "12-earth-tunnel": {
+    "explanation_target": "scene_or_system",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "3D场景演绎",
+      "excerpt": "如果挖一条贯穿地球的隧道，然后跳进去，会发生什么？"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "13-sitcom-template": {
+    "explanation_target": "template",
+    "subject_defined": false,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "主题、指定台词、片尾等尚未填写；示例值不是确认需求。"
+    ],
+    "source_evidence": {
+      "category": "扁平卡通",
+      "excerpt": "Make a 60-second 16:9 cartoon sitcom episode for [who will watch, e.g. people who follow our channel], playing [where, e.g. YouTube and Shorts]. Use only the names, facts and lines below as given; invent the story, the jokes and an original"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "14-postit": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "扁平卡通",
+      "excerpt": "用马克笔手绘漫画动画讲述便利贴是如何被意外发明的"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "15-neighbor": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "矢量图",
+      "excerpt": "帮我做一个品牌名为「NEIGHBOR」的「邻里社区」品牌宣传视频，讲述邻居问候的温暖日常，内容包含：「问好、归属、关心、美好、共享、相遇、日常、互助」八个主题，标语为「每一声问好，都让我们更近一点」，最后结尾「好邻居，从问好开始」。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "16-no-sleep": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Violet Flat",
+      "excerpt": "如果连续几天不睡觉，你的大脑和身体会发生什么变化？"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "17-caffeine": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Violet Flat",
+      "excerpt": "喝下一杯咖啡后，咖啡因是如何影响大脑的？"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "18-animal-vision": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Pixel Night",
+      "excerpt": "如果人类拥有不同动物的视觉能力，看到的世界会是什么样子？"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "19-civilization": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Pixel Night",
+      "excerpt": "以游戏闯关的形式，展示人类文明从石器时代到太空时代的发展，每个关卡解锁对应时代的关键科技。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  }
+}

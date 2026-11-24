@@ -1,0 +1,273 @@
+const $ = (s) => document.querySelector(s),
+  esc = (s) =>
+    String(s ?? "").replace(
+      /[&<>"']/g,
+      (c) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[c],
+    );
+let boot,
+  models = [],
+  runs = [],
+  stats = [],
+  tab = "cases",
+  current,
+  plan = null,
+  showcase = 0;
+const fmt = (s) =>
+  s == null
+    ? "未测"
+    : s < 60
+      ? `${s.toFixed(1)} 秒`
+      : `${(s / 60).toFixed(1)} 分`;
+const verdict = (x) =>
+  x === true ? "通过" : x === false ? "未通过" : "待检查";
+const qname = {
+  pass: "达标",
+  partial: "部分达标",
+  fail: "不达标",
+  unreviewed: "待人工评价",
+};
+async function api(path, body) {
+  const r = await fetch(path, {
+    method: body === undefined ? "GET" : "POST",
+    headers:
+      body === undefined
+        ? {}
+        : { "Content-Type": "application/json", "X-Bench-Token": boot.csrf },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const d = await r.json();
+  if (!r.ok) throw Error(d.error || "请求失败");
+  return d;
+}
+function notice(t = "") {
+  $("#notice").textContent = t;
+}
+function video(src) {
+  return `<video controls playsinline preload="none" src="${esc(src)}"></video><div class="video-note">默认 2× 浏览 · 核对动作、切换和音画同步时请选 1× <button class="speed" data-speed="1">1×</button> <button class="speed" data-speed="2">2×</button></div>`;
+}
+function setupVideos() {
+  document.querySelectorAll("video").forEach((v) => {
+    v.defaultPlaybackRate = 2;
+    v.playbackRate = 2;
+  });
+}
+function account() {
+  $("#account").innerHTML = boot.user
+    ? `<span class="badge neutral">${esc(boot.user.username)}</span><button data-action="logout">退出</button>`
+    : '<button data-action="login">登录 dev</button>';
+}
+function selectCase(id) {
+  current = boot.suite.cases.find((c) => c.id === id) || boot.suite.cases[0];
+  plan = null;
+  history.replaceState(null, "", `?case=${current.id}&tab=${tab}`);
+  render();
+}
+function asset(aid) {
+  return boot.suite.assets.find((a) => a.id === aid);
+}
+function reference(c) {
+  const r = c.reference_outputs[0];
+  if (!r)
+    return '<p class="muted">业务未提供参考成片。不用其它案例的内容补作答案。</p>';
+  const src = r.asset_id
+    ? "/media/" + r.asset_id
+    : "/reference?url=" + encodeURIComponent(r.url);
+  return (
+    video(src) +
+    `<p class="meta">业务参考 · 模型未知 · 原文注明“不是理想效果”<br>${esc(r.inspection_note || "")}${r.url ? ` · <a target="_blank" rel="noreferrer" href="${esc(r.url)}">原始外链</a>` : ""}</p>`
+  );
+}
+function runCard(r) {
+  const e = r.evaluation || {},
+    j = r.job || {},
+    m = j.model_selection || r.model_requested;
+  return `<section class="panel"><div class="runhead">${esc(m.model)}</div><div class="meta">${esc(r.cohort)} · 套件 ${esc(r.suite_version)} · ${esc(r.state)} · ${esc(r.case.skill_policy)}<br>${esc(r.job_id || r.id)}</div>${j.result_asset?.playable ? video(`/api/run/${r.id}/media`) : '<p class="empty">' + (r.job_id ? "尚无可播放的最终产物" : "计划已保存，尚未提交") + "</p>"}<div class="meta">执行 ${fmt(e.execution_seconds)} / 排队 ${fmt(e.queue_seconds)} / 总计 ${fmt(e.total_seconds)}<br>完整解码：${verdict(e.render_verified)} · 硬要求：${verdict(e.hard_pass)} · 质量：${qname[e.quality] || "待评价"}</div>${r.last_error ? `<p class="warning">${esc(r.last_error)}</p>` : ""}<div class="actions">${!r.job_id ? `<button class="primary" data-run="${r.id}" data-op="submit">提交 / 恢复此计划</button>` : `<button data-run="${r.id}" data-op="refresh">刷新状态</button><a target="_blank" href="${esc(boot.dev_url)}/?session=${esc(r.session_id)}">dev 会话</a>`}${j.result_asset?.playable ? `<button data-run="${r.id}" data-op="probe">下载原片并完整解码</button><a href="/api/run/${r.id}/download">原片</a>` : ""}${r.job_id ? `<a href="/api/run/${r.id}/archive">完整轨迹归档</a>` : ""}</div>${r.state === "CREATING_SESSION" && !r.session_id ? `<div class="actions"><input placeholder="人工确认的 sess_…" id="bind-${r.id}"><button data-run="${r.id}" data-op="bind">绑定已创建会话</button></div>` : ""}<details><summary>版本与提交证据</summary><pre class="prompt">${esc(JSON.stringify({ model_requested: r.model_requested, model_actual: j.model_selection, skill_requested: r.skill_requested, skill_actual: j.experimental_skills, suite_sha256: r.suite_sha256, uploads: r.uploads, probe: r.probe, events: r.events }, null, 2))}</pre></details>${["COMPLETED", "FAILED", "CANCELLED", "OUT_OF_SCOPE"].includes(j.status) ? reviewForm(r) : ""}</section>`;
+}
+function reviewForm(r) {
+  const v = r.reviews.at(-1) || {};
+  return `<details><summary>人工评价（与模型自审分开）</summary><form class="review" data-run="${r.id}"><label>指令硬要求<select name="hard_instructions">${["unreviewed", "pass", "fail"].map((x) => `<option value="${x}" ${v.hard_instructions === x ? "selected" : ""}>${qname[x]}</option>`).join("")}</select></label><label>整体质量<select name="quality">${Object.keys(
+    qname,
+  )
+    .map(
+      (x) =>
+        `<option value="${x}" ${(v.quality || "unreviewed") === x ? "selected" : ""}>${qname[x]}</option>`,
+    )
+    .join(
+      "",
+    )}</select></label><label>结论与瑕疵<textarea name="note">${esc(v.note || "")}</textarea></label><label>证据：时间点、镜头或截图位置<textarea name="evidence">${esc(v.evidence || "")}</textarea></label><button>保存评价</button><p class="meta">历次评价保留，不覆盖；未检查项目保持“待人工评价”。</p></form></details>`;
+}
+function gatePanel(c) {
+  const g = c.skill_gate;
+  if (!g) return "";
+  return `<section class="panel"><h3>Anatomy 适配 gate <span class="badge ${g.status === "suitable" ? "" : "neutral"}">${esc(g.label)}</span></h3><p class="meta">${esc(g.version)} · 基于有原文依据的需求分类，不调用模型，也不是质量通过结论。</p><ul>${g.reasons.map(x => `<li>${esc(x)}</li>`).join("")}${g.adaptations.map(x => `<li>${esc(x)}</li>`).join("")}</ul><details><summary>分类依据与原文证据</summary><pre class="prompt">${esc(JSON.stringify(c.gate_intake, null, 2))}</pre></details></section>`;
+}
+function renderCases() {
+  const c = current;
+  const same = runs.filter((r) => r.case.id === c.id);
+  return `<div class="layout"><aside class="sidebar"><p class="meta">${boot.suite.cases.length} 条原始需求 · ${boot.suite.cases.filter(x=>x.status==="ready").length} 条可测试<br>${boot.suite.cases.filter(x=>x.status!=="ready").length} 条缺输入 · 业务参考模型均未知</p>${boot.suite.cases.map((x) => `<button class="case-btn ${x.id === c.id ? "active" : ""}" data-case="${x.id}">${esc(x.id.slice(0, 2))} ${esc(x.title)}<small>${esc(x.category)} · ${x.status === "ready" ? "可测试" : "待补输入"}</small></button>`).join("")}</aside><div><span class="badge">${esc(c.category)}</span><span class="badge ${c.status === "ready" ? "neutral" : "warn"}">${c.status === "ready" ? "可测试" : "待补输入"}</span><h2 style="margin-top:12px">${esc(c.title)}</h2>${c.block_reason ? `<p class="warning">${esc(c.block_reason)}</p>` : ""}<div class="two"><section class="panel"><h3>原始输入</h3><pre class="prompt">${esc(c.prompt_original)}</pre><div class="images">${c.input_assets.map((id) => `<figure><a href="/media/${id}" target="_blank"><img src="/media/${id}" alt="输入素材 ${esc(asset(id).name)}"></a><figcaption>${esc(asset(id).name)}</figcaption></figure>`).join("")}</div><p class="meta">${c.input_assets.length} 个输入附件。提交补充表格类型；结构案另明确 Anatomy 的视频适配。原始 prompt 保留，不补造品牌、时长或素材。</p><details><summary>查看最终提交 prompt</summary><pre class="prompt">${esc(c.prompt_submitted)}</pre></details></section><section class="panel"><h3>业务参考成片</h3>${reference(c)}</section></div>${gatePanel(c)}<section class="panel"><h3>验收要点</h3><p class="meta">${c.requirements.duration_seconds ? `明确时长 ${c.requirements.duration_seconds} 秒` : "未指定时长，不按参考片长判失败"} · ${c.requirements.aspect_ratio || "未指定画幅"} · ${esc(c.skill_policy)}</p><ul>${c.requirements.quality_checks.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${c.requirements.exact_text.length ? `<p class="meta">指定文案：${c.requirements.exact_text.map(esc).join(" / ")}</p>` : ""}</section><section class="panel"><h3>新建测试</h3><p class="meta">通过 dev 普通网页 API 上传输入、提交排队。模型和 skill 按计划留档；不修改线上默认值、不自动重跑。模型在目录中可选不代表当前连通。</p><div class="formrow"><label>当前可见模型<select id="model"><option value="">${boot.user ? "请选择模型" : "请先登录读取模型目录"}</option>${models.map((m) => `<option value="${esc(m.profile_id)}">${esc(m.name)}</option>`).join("")}</select></label><label>批次名<input id="cohort" value="c2v-0.1.0-${new Date().toISOString().slice(0, 10)}"></label></div><button id="plan" ${!boot.user || c.status !== "ready" ? "disabled" : ""}>预览并保存测试计划</button>${plan ? `<div class="warning" style="margin-top:16px">已保存计划：${esc(plan.id)}<br>模型：${esc(plan.model_requested.model)}<br>技能：${esc(plan.case.skill_policy)} · ${plan.case.input_assets.length} 张输入图<br>点击下方提交后才会消耗模型资源。<div class="actions"><button class="primary" data-run="${plan.id}" data-op="submit">确认此配置并提交</button></div></div>` : ""}</section><h3 style="margin-top:28px">本案结果对照 <small>${same.length} 条</small></h3>${same.length ? `<div class="cards">${same.map(runCard).join("")}</div>` : '<p class="empty">本版尚未生成；参考片不计为测试通过。</p>'}</div></div>`;
+}
+function renderResults() {
+  return `<h2>结果与统计</h2><p class="muted">按批次、模型版本、skill 版本分别统计。未检查不记为通过；任务完成不等于质量达标。</p><div class="metrics"><div class="metric"><strong>${runs.length}</strong><span>计划记录</span></div><div class="metric"><strong>${runs.filter((r) => r.job_id).length}</strong><span>已提交</span></div><div class="metric"><strong>${runs.filter((r) => r.evaluation?.render_verified === true).length}</strong><span>已完整解码通过</span></div><div class="metric"><strong>${runs.filter((r) => r.evaluation?.quality !== "unreviewed" && r.evaluation?.quality).length}</strong><span>已人工评价</span></div></div><section class="panel scroll"><table><thead><tr><th>批次 / 模型</th><th>技能</th><th>提交 / 结束</th><th>有视频 / 结束</th><th>解码通过 / 已检测</th><th>硬要求通过 / 已判定</th><th>质量达标 / 已评价</th><th>执行中位 / 最长</th></tr></thead><tbody>${stats.map((s) => `<tr><td>${esc(s.cohort)} · ${esc(s.suite_version)}<br>${esc(s.model)}<br><small>${esc(s.model_revision)}</small></td><td>${esc(s.policy)}<br><small>${esc(s.skill_revision.slice(0, 10))}</small></td><td>${s.submitted} / ${s.terminal}</td><td>${s.has_video} / ${s.terminal}</td><td>${s.render_verified} / ${s.render_verified + s.render_failed}</td><td>${s.hard_pass} / ${s.hard_pass + s.hard_fail}</td><td>${s.quality_pass} / ${s.reviewed}</td><td>${fmt(s.median_execution_seconds)} / ${fmt(s.max_execution_seconds)}</td></tr>`).join("") || '<tr><td colspan="8">暂无测试结果；尚未开展新一轮模型生成实验。</td></tr>'}</tbody></table></section><p class="meta">执行＝服务端 started_at→finished_at，包含模型、工具、自检与渲染。不能当作纯推理耗时；没有分项证据时不填推理时长。C2V 本版没有套用白模的 600 秒门槛。</p><section class="panel scroll"><table><thead><tr><th>案例</th><th>批次 / 模型</th><th>状态</th><th>硬要求 / 质量</th><th>操作</th></tr></thead><tbody>${runs.map((r) => `<tr><td><button data-case="${r.case.id}">${esc(r.case.title)}</button></td><td>${esc(r.cohort)}<br>${esc(r.model_requested.model)}</td><td>${esc(r.state)}</td><td>${verdict(r.evaluation?.hard_pass)} / ${qname[r.evaluation?.quality] || "待评价"}</td><td><button data-run="${r.id}" data-op="${r.job_id ? "refresh" : "submit"}">${r.job_id ? "刷新" : "提交 / 恢复"}</button></td></tr>`).join("")}</tbody></table></section>`;
+}
+function renderShowcase() {
+  const s = boot.baselines.showcases[showcase];
+  return `<h2>历史 Showcase</h2><p class="muted">7 个展示片均有远程 job 记录，实际模型为 Opus 5.5。它们不是本套业务测试的当前版本结果。</p><div class="showcase-list">${boot.baselines.showcases.map((x, i) => `<button class="${i === showcase ? "active" : ""}" data-showcase="${i}">${esc(x.title)}</button>`).join("")}</div><div class="two"><section class="panel"><h3>${esc(s.title)}</h3>${video("/showcase/" + s.id)}<p class="meta">${s.is_revision ? "这是追问修改结果，不能计为首轮通过。" : "历史展示，未按本版验收。"} · ${s.video.width}×${s.video.height} · ${s.video.duration_ms / 1000} 秒</p></section><section class="panel"><h3>可追溯信息</h3><p class="meta">实际模型：${esc(s.model_selection.model)}<br>模型 revision：${esc(s.model_selection.revision)}<br>builtin：${esc(s.experimental_skills.builtin)} · 自定义技能：${esc(s.experimental_skills.skills.join(", ") || "无")}<br>该轮执行墙钟：${fmt(s.wall_seconds)}（含工具、渲染，不是纯推理）<br>Job：${esc(s.job_id)}</p><pre class="prompt">${esc(s.prompt)}</pre></section></div><p class="warning">5 个历史片未启用内置 C2V，2 个挂了 Anatomy；其中一个仅留有本轮修改要求。不能与本套统一 C2V 策略直接比较通过率。</p>`;
+}
+function render() {
+  history.replaceState(null, "", `?case=${current.id}&tab=${tab}`);
+  account();
+  document
+    .querySelectorAll("nav button")
+    .forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+  $("#app").innerHTML =
+    tab === "cases"
+      ? renderCases()
+      : tab === "results"
+        ? renderResults()
+        : renderShowcase();
+  setupVideos();
+}
+async function updateRuns(draw = false) {
+  if (!boot.user) return;
+  const r = await api("/api/runs");
+  const changed =
+    JSON.stringify(runs.map((x) => [x.id, x.state, x.last_error, x.probe])) !==
+    JSON.stringify(r.runs.map((x) => [x.id, x.state, x.last_error, x.probe]));
+  runs = r.runs;
+  stats = r.summary;
+  if (draw) render();
+  else if (changed)
+    notice("任务状态有更新，点击“刷新结果”查看；正在播放的视频不会被重置。");
+}
+async function loadCatalog() {
+  if (boot.user) models = (await api("/api/catalog")).models;
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  try {
+    if (b.id === "refresh-view") {
+      await updateRuns(true);
+      notice("结果已刷新。");
+      return;
+    }
+    if (b.dataset.tab) {
+      tab = b.dataset.tab;
+      await updateRuns();
+      render();
+      return;
+    }
+    if (b.dataset.case) {
+      tab = "cases";
+      selectCase(b.dataset.case);
+      return;
+    }
+    if (b.dataset.showcase) {
+      showcase = Number(b.dataset.showcase);
+      render();
+      return;
+    }
+    if (b.dataset.speed) {
+      b.parentElement.previousElementSibling.playbackRate = Number(
+        b.dataset.speed,
+      );
+      return;
+    }
+    if (b.dataset.action === "login") {
+      $("#login").showModal();
+      return;
+    }
+    if (b.id === "close-login") {
+      $("#login").close();
+      return;
+    }
+    if (b.dataset.action === "logout") {
+      await api("/api/logout", {});
+      boot.user = null;
+      models = [];
+      runs = [];
+      stats = [];
+      render();
+      return;
+    }
+    if (b.id === "plan") {
+      b.disabled = true;
+      plan = await api("/api/plan", {
+        case_id: current.id,
+        model_id: $("#model").value,
+        cohort: $("#cohort").value,
+      });
+      await updateRuns();
+      notice("计划已保存。请核对配置，再点击提交。");
+      render();
+      return;
+    }
+    if (b.dataset.run) {
+      b.disabled = true;
+      const body =
+        b.dataset.op === "bind"
+          ? { session_id: $("#bind-" + b.dataset.run).value }
+          : {};
+      await api(`/api/run/${b.dataset.run}/${b.dataset.op}`, body);
+      notice(
+        b.dataset.op === "submit"
+          ? "提交处理已开始；不会因刷新或重复点击创建第二个任务。"
+          : "操作已开始，状态将在后台更新。",
+      );
+      setTimeout(() => updateRuns(true).catch((x) => notice(x.message)), 1200);
+    }
+  } catch (err) {
+    notice(err.message);
+    b.disabled = false;
+  }
+});
+document.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    const body = Object.fromEntries(new FormData(f));
+    if (f.id === "login-form") {
+      const r = await api("/api/login", body);
+      f.reset();
+      $("#login").close();
+      boot.user = r.user;
+      await loadCatalog();
+      await updateRuns();
+      notice();
+      render();
+    } else if (f.classList.contains("review")) {
+      await api(`/api/run/${f.dataset.run}/review`, body);
+      await updateRuns(true);
+      notice("评价已保存，历史记录保留。");
+    }
+  } catch (err) {
+    notice(err.message);
+  }
+});
+(async () => {
+  try {
+    boot = await api("/api/bootstrap");
+    const q = new URLSearchParams(location.search);
+    tab = ["cases", "results", "showcase"].includes(q.get("tab"))
+      ? q.get("tab")
+      : "cases";
+    current =
+      boot.suite.cases.find((c) => c.id === q.get("case")) ||
+      boot.suite.cases[0];
+    render();
+    if (boot.user) {
+      await loadCatalog();
+      await updateRuns(true);
+    }
+    setInterval(() => updateRuns(false).catch(() => {}), 15000);
+  } catch (err) {
+    notice(err.message);
+  }
+})();

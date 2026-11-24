@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>Seko · C2V 测试台</title
+  ><link rel="stylesheet" href="/style.css" />
+  <body>
+    <header>
+      <div>
+        <span class="eyebrow">SEKO / CODE TO VIDEO</span>
+        <h1>C2V 测试台 <small>0.1.0</small></h1>
+      </div>
+      <div id="account"></div>
+    </header>
+    <nav>
+      <button data-tab="cases" class="active">业务测试集</button
+      ><button data-tab="results">结果与统计</button
+      ><button data-tab="showcase">历史 Showcase</button
+      ><button id="refresh-view">刷新结果</button
+      ><a href="/api/export" target="_blank">导出 JSON</a
+      ><a href="/api/export.csv" target="_blank">导出 CSV</a>
+    </nav>
+    <div id="notice" role="status"></div>
+    <main id="app">正在读取测试集…</main>
+    <dialog id="login">
+      <form id="login-form">
+        <h2>登录 dev 普通账号</h2>
+        <p>使用现有网页账号。密码不落盘，模型密钥不进入测试台。</p>
+        <label
+          >用户名<input
+            name="username"
+            autocomplete="username"
+            required /></label
+        ><label
+          >密码<input
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+        /></label>
+        <div class="actions">
+          <button type="button" id="close-login">取消</button
+          ><button class="primary">登录</button>
+        </div>
+      </form>
+    </dialog>
+    <script src="/app.js"></script>
+  </body>
+</html>
