@@ -182,6 +182,13 @@ class Provider:
                 complete=finish in ('end_turn','stop_sequence')
             else:
                 choice=data['choices'][0];m=choice['message'];answer=m.get('content') or '';finish=choice.get('finish_reason');thinking=bool(m.get('reasoning_content') or m.get('reasoning'));complete=finish in ('stop','end_turn')
+            reason=(data.get('incomplete_details') or {}).get('reason')
+            if finish in ('length','max_tokens') or finish=='incomplete' and reason=='max_output_tokens':
+                # Opt-in exception exported by new frozen releases only. Old
+                # sessions retain their original generic incomplete-output path.
+                from seko_engine import provider as engine_provider
+                error_type=getattr(engine_provider,'OutputLimitError',None)
+                if error_type is not None:raise error_type(answer,reason or finish,output)
             if not complete or not isinstance(answer,str) or not answer.strip():raise ValueError('Incomplete model output: '+str(finish))
             seconds=time.monotonic()-start;result={'text':answer,'usage':data.get('usage'),'response_model':data.get('model'),'finish_reason':finish,'reasoning_present':thinking,'effort_requested':effort,'effort_effective':'provider mapping unverified','settings':settings,'attempts':[{'channel':self.cfg['model'],'seconds':seconds,'http':status}],'seconds':seconds}
             save('receipt.json',{'complete':True,'seconds':seconds,'http':status,'finish_reason':finish});return result
@@ -199,6 +206,9 @@ class Provider:
             raise RuntimeError(f'Model API HTTP {e.code}') from None
         except Exception as e:
             save('receipt.json',{'complete':False,'seconds':time.monotonic()-start,'error':self.clean(e)})
+            if getattr(e,'output_limit',False):
+                save('receipt.json',{'complete':False,'seconds':time.monotonic()-start,'error':self.clean(e),'failure_kind':'output_limit','finish_reason':e.finish_reason,'max_output_tokens':e.max_output_tokens})
+                raise
             raise RuntimeError(self.clean(e)) from None
 
         finally:

@@ -2,7 +2,7 @@
 import os,json,subprocess,time
 from pathlib import Path
 R=Path(__file__).resolve().parents[1];D=R/'runtime/validation'/('seko-check-'+str(time.time_ns()));D.mkdir(parents=True);(D/'tmp').mkdir(exist_ok=True)
-env={**os.environ,'TMPDIR':str(D/'tmp'),'PYTHONDONTWRITEBYTECODE':'1','SEKO_TEST_RELEASE':os.environ.get('SEKO_TEST_RELEASE','seko-0.1.17-cvw.1'),'SEKO_TEST_FAST_INTAKE':'1'}
+env={**os.environ,'TMPDIR':str(D/'tmp'),'PYTHONDONTWRITEBYTECODE':'1','SEKO_TEST_RELEASE':os.environ.get('SEKO_TEST_RELEASE','seko-0.1.18-cvw.1'),'SEKO_TEST_FAST_INTAKE':'1'}
 import sys
 py=sys.executable
 names=['seko-web-intake','seko-business-input','whitebox-batch','seko-audit','seko-responses','seko-memory','whitebox-prose-markers','whitebox-media','whitebox-transport','whitebox-flow','whitebox-input-boundaries','whitebox-intake-fast','whitebox-line-patches','whitebox-review-contract','whitebox-coarse-review','whitebox-curve-scope','whitebox-source-recovery','whitebox-hidden-scope','whitebox-visibility-scope']
@@ -18,6 +18,8 @@ if (engine/'tests/coarse-boundary.test.mjs').exists():
  commands+=[['node','--test',str(engine/'tests/coarse-boundary.test.mjs')],[py,str(engine/'tests/test_coarse_boundary.py')]]
 if (engine/'tests/test_targeted_policy.py').exists():
  commands+=[[py,str(engine/'tests/test_targeted_policy.py')],[py,str(engine/'tests/test_second_repair_flow.py')]]
+if (engine/'tests/test_output_recovery.py').exists():
+ commands+=[[py,str(engine/'tests/test_output_recovery.py')],[py,str(engine/'tests/test_shot_headings.py')],[py,'tests/unit/whitebox-output-limit.py']]
 commands+=[['node','--test','tests/integration/seko-runner.mjs']]
 rows=[]
 for i,cmd in enumerate(commands):
