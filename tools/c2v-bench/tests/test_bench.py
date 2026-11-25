@@ -6,6 +6,14 @@ sys.path.insert(0, str(ROOT / "bench"))
 from core import Store, evaluation, summary
 from gate import evaluate_gate, adapt_prompt
 from server import App, Handler, ThreadingHTTPServer
+from local_media import original_path, cached_original, download_original
+from core import digest_file
+
+class MediaResponse(io.BytesIO):
+    def __init__(self, data, status=200, headers=None):
+        super().__init__(data)
+        self.status = status
+        self.headers = headers or {}
 
 
 class Fake:
@@ -214,6 +222,20 @@ class BenchTests(unittest.TestCase):
         self.assertEqual(len(groups), 2)
         self.assertIsNone(groups[0]["median_execution_seconds"])
 
+    def test_cli_and_server_writes_share_process_lock(self):
+        r=self.plan();self.store.update(r['id'],r['owner'],counter=0)
+        code="""import sys,time
+sys.path.insert(0,sys.argv[1])
+from core import Store
+s=Store(sys.argv[2])
+for _ in range(20):
+ with s.lock:
+  r=s.get(sys.argv[3]);time.sleep(.001);s.update(r['id'],r['owner'],counter=r['counter']+1)
+"""
+        ps=[subprocess.Popen([sys.executable,'-c',code,str(ROOT/'bench'),str(self.store.root),r['id']]) for _ in range(2)]
+        for proc in ps:self.assertEqual(proc.wait(timeout=60),0)
+        self.assertEqual(self.store.get(r['id'])['counter'],40)
+
     def test_path_traversal(self):
         with self.assertRaises(PermissionError):
             self.app.path("../outside")
@@ -248,7 +270,8 @@ class BenchTests(unittest.TestCase):
             ],
             check=True,
         )
-        self.remote.open = lambda *args, **kwargs: fixture.open("rb")
+        self.store.update(r["id"], self.c["owner"], job={"status": "COMPLETED", "result_asset": {"playable": True, "size_bytes": fixture.stat().st_size}})
+        self.remote.open = lambda *args, **kwargs: MediaResponse(fixture.read_bytes())
         self.app.probe(r["id"], self.c)
         checked = self.store.get(r["id"], self.c["owner"])
         self.assertTrue(checked["probe"]["decode_ok"])
@@ -260,7 +283,9 @@ class BenchTests(unittest.TestCase):
             job_id="job_" + str(uuid.UUID(int=3)),
             job={"status": "COMPLETED", "result_asset": {"playable": True}},
         )
-        self.remote.open = lambda *args, **kwargs: io.BytesIO(b"not an mp4")
+        invalid = b"\x00\x00\x00\x18ftypisom" + b"invalid video" * 20
+        self.store.update(bad["id"], self.c["owner"], job={"status": "COMPLETED", "result_asset": {"playable": True, "size_bytes": len(invalid)}})
+        self.remote.open = lambda *args, **kwargs: MediaResponse(invalid)
         self.app.probe(bad["id"], self.c)
         self.assertFalse(self.store.get(bad["id"])["probe"]["decode_ok"])
 
@@ -309,6 +334,86 @@ class BenchTests(unittest.TestCase):
             conn.close()
             server.shutdown()
             server.server_close()
+
+    def local_fixture(self):
+        r = self.plan()
+        blob = b"0000ftypisom" + b"x" * 200
+        r = self.store.update(r["id"], self.c["owner"], job_id="job_" + str(uuid.UUID(int=12)),
+            job={"status": "COMPLETED", "result_asset": {"playable": True, "size_bytes": len(blob)}})
+        return r, blob
+
+    def test_original_resume_and_reuse_without_remote_call(self):
+        r, blob = self.local_fixture()
+        dest = original_path(self.app.root, r)
+        dest.parent.mkdir(parents=True)
+        dest.with_suffix('.part').write_bytes(blob[:20])
+        def resume(method, path, headers, timeout):
+            self.assertEqual(headers['Range'], 'bytes=20-')
+            self.assertEqual(path, '/api/assets/' + r['job_id'] + '/download')
+            return MediaResponse(blob[20:], 206, {'Content-Range': 'bytes 20-%d/%d' % (len(blob)-1,len(blob))})
+        self.remote.open = resume
+        self.assertEqual(download_original(self.app.root,self.store,r['id'],r['owner'],self.remote),dest)
+        self.assertEqual(dest.read_bytes(),blob)
+        self.remote.open = lambda *a,**kw: self.fail('verified original must not be downloaded again')
+        self.assertIsNone(evaluation(self.store.get(r['id']))['render_verified'])
+        self.assertEqual(download_original(self.app.root,self.store,r['id'],r['owner'],self.remote),dest)
+
+    def test_ignored_range_restarts_and_truncated_download_is_not_published(self):
+        r, blob = self.local_fixture()
+        dest=original_path(self.app.root,r)
+        dest.parent.mkdir(parents=True)
+        dest.with_suffix('.part').write_bytes(blob[:20])
+        self.remote.open=lambda *a,**kw: MediaResponse(blob)
+        download_original(self.app.root,self.store,r['id'],r['owner'],self.remote)
+        self.assertEqual(dest.read_bytes(),blob)
+        r2,_=self.local_fixture()
+        self.remote.open=lambda *a,**kw: MediaResponse(blob[:40])
+        with self.assertRaisesRegex(ValueError,'不完整'):
+            download_original(self.app.root,self.store,r2['id'],r2['owner'],self.remote,attempts=1)
+        self.assertIsNone(cached_original(self.app.root,self.store.get(r2['id'])))
+        self.assertFalse(original_path(self.app.root,r2).exists())
+
+    def test_parallel_ranges_reassemble_original_and_resume_prefix(self):
+        r, _ = self.local_fixture()
+        blob = b"0000ftypisom" + bytes(range(256)) * 1600
+        r = self.store.update(r['id'],r['owner'],job={'status':'COMPLETED','result_asset':{'playable':True,'size_bytes':len(blob)}})
+        dest=original_path(self.app.root,r);dest.parent.mkdir(parents=True)
+        dest.with_suffix('.part').write_bytes(blob[:251])
+        seen=[]
+        def ranged(method,path,headers,timeout):
+            start,end=map(int,headers['Range'][6:].split('-'));seen.append((start,end))
+            return MediaResponse(blob[start:end+1],206,{'Content-Range':'bytes %d-%d/%d'%(start,end,len(blob))})
+        self.remote.open=ranged
+        download_original(self.app.root,self.store,r['id'],r['owner'],self.remote,range_bytes=65536,range_workers=3)
+        self.assertEqual(dest.read_bytes(),blob)
+        self.assertEqual(min(a for a,b in seen),251)
+        self.assertEqual(max(b for a,b in seen),len(blob)-1)
+        self.assertEqual(self.store.get(r['id'])['local_original']['sha256'],hashlib.sha256(blob).hexdigest())
+
+    def test_local_media_range_and_owner_no_remote_dependency(self):
+        r, blob = self.local_fixture()
+        self.remote.open=lambda *a,**kw: MediaResponse(blob)
+        dest=download_original(self.app.root,self.store,r['id'],r['owner'],self.remote)
+        self.remote.open=lambda *a,**kw: self.fail('cached playback cannot use remote')
+        self.app.clients['mine']=self.c
+        self.app.clients['other']={**self.c,'owner':'http://example.test|test-peer'}
+        server=ThreadingHTTPServer(('127.0.0.1',0),Handler);server.app=self.app;server.showcase_root=None
+        threading.Thread(target=server.serve_forever,daemon=True).start()
+        conn=http.client.HTTPConnection('127.0.0.1',server.server_port)
+        try:
+            for endpoint in ['media','download']:
+                conn.request('GET','/api/run/'+r['id']+'/'+endpoint,headers={'Cookie':'bench_session=mine','Range':'bytes=10-30'})
+                res=conn.getresponse();self.assertEqual(res.status,206);self.assertEqual(res.read(),blob[10:31])
+                if endpoint=='download':self.assertIn('attachment',res.getheader('Content-Disposition'))
+            conn.request('GET','/api/run/'+r['id']+'/media',headers={'Cookie':'bench_session=other'})
+            res=conn.getresponse();self.assertEqual(res.status,403);res.read()
+            conn.request('GET','/api/run/'+r['id']+'/media')
+            res=conn.getresponse();self.assertEqual(res.status,403);res.read()
+            self.assertTrue(self.app.record(self.store.get(r['id']))['local_original_available'])
+            dest.unlink()
+            self.assertFalse(self.app.record(self.store.get(r['id']))['local_original_available'])
+        finally:
+            conn.close();server.shutdown();server.server_close()
 
 
 if __name__ == "__main__":

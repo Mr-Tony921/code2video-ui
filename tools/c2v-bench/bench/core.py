@@ -1,6 +1,6 @@
 """Versioned benchmark records, independent of the generation harness."""
 
-import copy, hashlib, json, os, statistics, threading, uuid
+import copy, fcntl, hashlib, json, os, statistics, threading, time, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -51,11 +51,54 @@ def seconds(a, b):
         return None
 
 
+def lock_file(file, timeout=30):
+    # Some shared filesystems return EAGAIN even for blocking flock; retry explicitly.
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fcntl.flock(file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return
+        except BlockingIOError:
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Benchmark record is busy; retry later")
+            time.sleep(0.02)
+
+
+class ProcessRLock:
+    """Serialize CLI download/export and server review writes without losing review history."""
+    def __init__(self, path):
+        self.path = path
+        self.thread_lock = threading.RLock()
+        self.local = threading.local()
+
+    def __enter__(self):
+        self.thread_lock.acquire()
+        depth = getattr(self.local, "depth", 0)
+        try:
+            if depth == 0:
+                self.local.file = self.path.open("a")
+                lock_file(self.local.file)
+            self.local.depth = depth + 1
+            return self
+        except Exception:
+            if depth == 0 and getattr(self.local, "file", None):
+                self.local.file.close()
+            self.thread_lock.release()
+            raise
+
+    def __exit__(self, *args):
+        self.local.depth -= 1
+        if self.local.depth == 0:
+            fcntl.flock(self.local.file, fcntl.LOCK_UN)
+            self.local.file.close()
+        self.thread_lock.release()
+
+
 class Store:
     def __init__(self, root):
         self.root = Path(root)
-        self.lock = threading.RLock()
         self.root.mkdir(parents=True, exist_ok=True)
+        self.lock = ProcessRLock(self.root / ".store.lock")
 
     def path(self, rid):
         if not isinstance(rid, str) or not rid.startswith("run_"):

@@ -1,6 +1,6 @@
 """Ordinary authenticated Web API only. Never access internal queue/store APIs."""
 
-import http.cookiejar, json, mimetypes, threading, urllib.error, urllib.request, uuid
+import copy, http.cookiejar, json, mimetypes, threading, urllib.error, urllib.request, uuid
 from pathlib import Path
 
 
@@ -55,6 +55,14 @@ class Remote:
             "POST", "/api/auth/login", {"username": username, "password": password}
         )
         return self.json("GET", "/api/auth/me")["user"]
+
+    def fork(self):
+        """Independent connection lock and copied ordinary login cookies for bounded downloads."""
+        child = Remote(self.base)
+        with self.lock:
+            for cookie in self.jar:
+                child.jar.set_cookie(copy.copy(cookie))
+        return child
 
     def upload(self, sid, path, note):
         boundary = "bench-" + uuid.uuid4().hex

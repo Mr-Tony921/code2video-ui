@@ -401,3 +401,12 @@ dialog::backdrop {
     font-size: 23px;
   }
 }
+
+/* Review originals side by side without changing the submission workflow. */
+.review-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.review-title h2 { margin: 10px 0 0; }
+.review-brief ul { margin-bottom: 0; }
+.review-layout .cards { align-items: start; }
+.reference-panel video { max-width: 720px; }
+.case-link { text-align: left; font-weight: 600; }
+.result-cell { min-width: 180px; margin-bottom: 8px; }

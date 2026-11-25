@@ -49,8 +49,8 @@ async function api(path, body) {
 function notice(t = "") {
   $("#notice").textContent = t;
 }
-function video(src) {
-  return `<video controls playsinline preload="none" src="${esc(src)}"></video><div class="video-note">默认 2× 浏览 · 核对动作、切换和音画同步时请选 1× <button class="speed" data-speed="1">1×</button> <button class="speed" data-speed="2">2×</button></div>`;
+function video(src, local = false) {
+  return `<video controls playsinline preload="${local ? "metadata" : "none"}" src="${esc(src)}"></video><div class="video-note">默认 2× 浏览 · 核对动作、切换和音画同步时请选 1× <button class="speed" data-speed="1">1×</button> <button class="speed" data-speed="2">2×</button></div>`;
 }
 function setupVideos() {
   document.querySelectorAll("video").forEach((v) => {
@@ -80,15 +80,27 @@ function reference(c) {
     ? "/media/" + r.asset_id
     : "/reference?url=" + encodeURIComponent(r.url);
   return (
-    video(src) +
+    video(src, true) +
     `<p class="meta">业务参考 · 模型未知 · 原文注明“不是理想效果”<br>${esc(r.inspection_note || "")}${r.url ? ` · <a target="_blank" rel="noreferrer" href="${esc(r.url)}">原始外链</a>` : ""}</p>`
   );
 }
+function modelName(r) {
+  return (r.job?.model_selection || r.model_requested).model;
+}
+function modelLabel(r) {
+  const name = modelName(r);
+  return name === "deepseek-c2v-v1" ? "自研 C2V · deepseek-c2v-v1" : name.startsWith("claude-opus") ? "Opus 5.5 · 对照" : name;
+}
+function runOrder(a, b) {
+  return (modelName(a) === "deepseek-c2v-v1" ? 0 : 1) - (modelName(b) === "deepseek-c2v-v1" ? 0 : 1) || modelName(a).localeCompare(modelName(b)) || a.created_at.localeCompare(b.created_at);
+}
+const reviewed = (r) => r.evaluation?.quality && r.evaluation.quality !== "unreviewed";
+const bytes = (n) => n == null ? "" : n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} GiB` : `${(n / 1024 ** 2).toFixed(1)} MiB`;
 function runCard(r) {
   const e = r.evaluation || {},
     j = r.job || {},
     m = j.model_selection || r.model_requested;
-  return `<section class="panel"><div class="runhead">${esc(m.model)}</div><div class="meta">${esc(r.cohort)} · 套件 ${esc(r.suite_version)} · ${esc(r.state)} · ${esc(r.case.skill_policy)}<br>${esc(r.job_id || r.id)}</div>${j.result_asset?.playable ? video(`/api/run/${r.id}/media`) : '<p class="empty">' + (r.job_id ? "尚无可播放的最终产物" : "计划已保存，尚未提交") + "</p>"}<div class="meta">执行 ${fmt(e.execution_seconds)} / 排队 ${fmt(e.queue_seconds)} / 总计 ${fmt(e.total_seconds)}<br>完整解码：${verdict(e.render_verified)} · 硬要求：${verdict(e.hard_pass)} · 质量：${qname[e.quality] || "待评价"}</div>${r.last_error ? `<p class="warning">${esc(r.last_error)}</p>` : ""}<div class="actions">${!r.job_id ? `<button class="primary" data-run="${r.id}" data-op="submit">提交 / 恢复此计划</button>` : `<button data-run="${r.id}" data-op="refresh">刷新状态</button><a target="_blank" href="${esc(boot.dev_url)}/?session=${esc(r.session_id)}">dev 会话</a>`}${j.result_asset?.playable ? `<button data-run="${r.id}" data-op="probe">下载原片并完整解码</button><a href="/api/run/${r.id}/download">原片</a>` : ""}${r.job_id ? `<a href="/api/run/${r.id}/archive">完整轨迹归档</a>` : ""}</div>${r.state === "CREATING_SESSION" && !r.session_id ? `<div class="actions"><input placeholder="人工确认的 sess_…" id="bind-${r.id}"><button data-run="${r.id}" data-op="bind">绑定已创建会话</button></div>` : ""}<details><summary>版本与提交证据</summary><pre class="prompt">${esc(JSON.stringify({ model_requested: r.model_requested, model_actual: j.model_selection, skill_requested: r.skill_requested, skill_actual: j.experimental_skills, suite_sha256: r.suite_sha256, uploads: r.uploads, probe: r.probe, events: r.events }, null, 2))}</pre></details>${["COMPLETED", "FAILED", "CANCELLED", "OUT_OF_SCOPE"].includes(j.status) ? reviewForm(r) : ""}</section>`;
+  return `<section class="panel"><div class="runhead">${esc(modelLabel(r))}</div><p class="meta">${esc(r.case.skill_policy)} · ${esc(r.state)} · ${r.local_original_available ? "本地原片 · 未转码" : "远程产物"}</p>${j.result_asset?.playable ? video(`/api/run/${r.id}/media`, !!r.local_original_available) : '<p class="empty">' + (r.job_id ? "尚无可播放的最终产物" : "计划已保存，尚未提交") + "</p>"}<div class="meta">成片 ${fmt(r.probe?.duration_seconds ?? (j.result_asset?.duration_ms / 1000 || null))} · ${r.probe?.width || j.result_asset?.width || "?"}×${r.probe?.height || j.result_asset?.height || "?"} · ${bytes(r.local_original?.bytes ?? j.result_asset?.size_bytes)}<br>执行 ${fmt(e.execution_seconds)} / 排队 ${fmt(e.queue_seconds)} / 总计 ${fmt(e.total_seconds)}<br>完整解码：${verdict(e.render_verified)} · 硬要求：${verdict(e.hard_pass)} · 质量：${qname[e.quality] || "待评价"}</div>${r.last_error ? `<p class="warning">${esc(r.last_error)}</p>` : ""}<div class="actions">${!r.job_id ? `<button class="primary" data-run="${r.id}" data-op="submit">提交 / 恢复此计划</button>` : `<button data-run="${r.id}" data-op="refresh">刷新状态</button><a target="_blank" href="${esc(boot.dev_url)}/?session=${esc(r.session_id)}">dev 会话</a>`}${j.result_asset?.playable ? `<button data-run="${r.id}" data-op="probe">${e.render_verified ? "重新解码检查" : "下载原片并完整解码"}</button><a href="/api/run/${r.id}/download">下载原片</a>` : ""}${r.job_id ? `<a href="/api/run/${r.id}/archive">完整轨迹归档</a>` : ""}</div>${r.state === "CREATING_SESSION" && !r.session_id ? `<div class="actions"><input placeholder="人工确认的 sess_…" id="bind-${r.id}"><button data-run="${r.id}" data-op="bind">绑定已创建会话</button></div>` : ""}<details><summary>本地路径、版本与提交证据</summary><pre class="prompt">${esc(JSON.stringify({ local_original: r.local_original, cohort: r.cohort, session_id: r.session_id, job_id: r.job_id, model_requested: r.model_requested, model_actual: j.model_selection, skill_requested: r.skill_requested, skill_actual: j.experimental_skills, suite_sha256: r.suite_sha256, uploads: r.uploads, probe: r.probe, events: r.events }, null, 2))}</pre></details>${["COMPLETED", "FAILED", "CANCELLED", "OUT_OF_SCOPE"].includes(j.status) ? reviewForm(r) : ""}</section>`;
 }
 function reviewForm(r) {
   const v = r.reviews.at(-1) || {};
@@ -110,11 +122,48 @@ function gatePanel(c) {
 }
 function renderCases() {
   const c = current;
-  const same = runs.filter((r) => r.case.id === c.id);
+  const same = runs.filter((r) => r.case.id === c.id).sort(runOrder);
   return `<div class="layout"><aside class="sidebar"><p class="meta">${boot.suite.cases.length} 条原始需求 · ${boot.suite.cases.filter(x=>x.status==="ready").length} 条可测试<br>${boot.suite.cases.filter(x=>x.status!=="ready").length} 条缺输入 · 业务参考模型均未知</p>${boot.suite.cases.map((x) => `<button class="case-btn ${x.id === c.id ? "active" : ""}" data-case="${x.id}">${esc(x.id.slice(0, 2))} ${esc(x.title)}<small>${esc(x.category)} · ${x.status === "ready" ? "可测试" : "待补输入"}</small></button>`).join("")}</aside><div><span class="badge">${esc(c.category)}</span><span class="badge ${c.status === "ready" ? "neutral" : "warn"}">${c.status === "ready" ? "可测试" : "待补输入"}</span><h2 style="margin-top:12px">${esc(c.title)}</h2>${c.block_reason ? `<p class="warning">${esc(c.block_reason)}</p>` : ""}<div class="two"><section class="panel"><h3>原始输入</h3><pre class="prompt">${esc(c.prompt_original)}</pre><div class="images">${c.input_assets.map((id) => `<figure><a href="/media/${id}" target="_blank"><img src="/media/${id}" alt="输入素材 ${esc(asset(id).name)}"></a><figcaption>${esc(asset(id).name)}</figcaption></figure>`).join("")}</div><p class="meta">${c.input_assets.length} 个输入附件。提交补充表格类型；结构案另明确 Anatomy 的视频适配。原始 prompt 保留，不补造品牌、时长或素材。</p><details><summary>查看最终提交 prompt</summary><pre class="prompt">${esc(c.prompt_submitted)}</pre></details></section><section class="panel"><h3>业务参考成片</h3>${reference(c)}</section></div>${gatePanel(c)}<section class="panel"><h3>验收要点</h3><p class="meta">${c.requirements.duration_seconds ? `明确时长 ${c.requirements.duration_seconds} 秒` : "未指定时长，不按参考片长判失败"} · ${c.requirements.aspect_ratio || "未指定画幅"} · ${esc(c.skill_policy)}</p><ul>${c.requirements.quality_checks.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>${c.requirements.exact_text.length ? `<p class="meta">指定文案：${c.requirements.exact_text.map(esc).join(" / ")}</p>` : ""}</section><section class="panel"><h3>新建测试</h3><p class="meta">通过 dev 普通网页 API 上传输入、提交排队。模型和 skill 按计划留档；不修改线上默认值、不自动重跑。模型在目录中可选不代表当前连通。</p><div class="formrow"><label>当前可见模型<select id="model"><option value="">${boot.user ? "请选择模型" : "请先登录读取模型目录"}</option>${models.map((m) => `<option value="${esc(m.profile_id)}">${esc(m.name)}</option>`).join("")}</select></label><label>批次名<input id="cohort" value="c2v-0.1.0-${new Date().toISOString().slice(0, 10)}"></label></div><button id="plan" ${!boot.user || c.status !== "ready" ? "disabled" : ""}>预览并保存测试计划</button>${plan ? `<div class="warning" style="margin-top:16px">已保存计划：${esc(plan.id)}<br>模型：${esc(plan.model_requested.model)}<br>技能：${esc(plan.case.skill_policy)} · ${plan.case.input_assets.length} 张输入图<br>点击下方提交后才会消耗模型资源。<div class="actions"><button class="primary" data-run="${plan.id}" data-op="submit">确认此配置并提交</button></div></div>` : ""}</section><h3 style="margin-top:28px">本案结果对照 <small>${same.length} 条</small></h3>${same.length ? `<div class="cards">${same.map(runCard).join("")}</div>` : '<p class="empty">本版尚未生成；参考片不计为测试通过。</p>'}</div></div>`;
 }
+function reviewCases() {
+  return boot.suite.cases.filter((c) => runs.some((r) => r.case.id === c.id && r.job_id));
+}
+function modelGroups() {
+  const groups = new Map();
+  for (const r of [...runs].filter((x) => x.job_id).sort(runOrder)) {
+    const key = JSON.stringify([r.cohort, r.suite_sha256, modelName(r), (r.job?.model_selection || r.model_requested).revision]);
+    if (!groups.has(key)) groups.set(key, { label: modelLabel(r), cohort: r.cohort, runs: [] });
+    groups.get(key).runs.push(r);
+  }
+  return [...groups.values()];
+}
+function median(values) {
+  const a = values.filter((x) => x != null).sort((a, b) => a - b), n = a.length;
+  return n ? (a[Math.floor((n - 1) / 2)] + a[Math.floor(n / 2)]) / 2 : null;
+}
 function renderResults() {
-  return `<h2>结果与统计</h2><p class="muted">按批次、模型版本、skill 版本分别统计。未检查不记为通过；任务完成不等于质量达标。</p><div class="metrics"><div class="metric"><strong>${runs.length}</strong><span>计划记录</span></div><div class="metric"><strong>${runs.filter((r) => r.job_id).length}</strong><span>已提交</span></div><div class="metric"><strong>${runs.filter((r) => r.evaluation?.render_verified === true).length}</strong><span>已完整解码通过</span></div><div class="metric"><strong>${runs.filter((r) => r.evaluation?.quality !== "unreviewed" && r.evaluation?.quality).length}</strong><span>已人工评价</span></div></div><section class="panel scroll"><table><thead><tr><th>批次 / 模型</th><th>技能</th><th>提交 / 结束</th><th>有视频 / 结束</th><th>解码通过 / 已检测</th><th>硬要求通过 / 已判定</th><th>质量达标 / 已评价</th><th>执行中位 / 最长</th></tr></thead><tbody>${stats.map((s) => `<tr><td>${esc(s.cohort)} · ${esc(s.suite_version)}<br>${esc(s.model)}<br><small>${esc(s.model_revision)}</small></td><td>${esc(s.policy)}<br><small>${esc(s.skill_revision.slice(0, 10))}</small></td><td>${s.submitted} / ${s.terminal}</td><td>${s.has_video} / ${s.terminal}</td><td>${s.render_verified} / ${s.render_verified + s.render_failed}</td><td>${s.hard_pass} / ${s.hard_pass + s.hard_fail}</td><td>${s.quality_pass} / ${s.reviewed}</td><td>${fmt(s.median_execution_seconds)} / ${fmt(s.max_execution_seconds)}</td></tr>`).join("") || '<tr><td colspan="8">暂无测试结果；尚未开展新一轮模型生成实验。</td></tr>'}</tbody></table></section><p class="meta">执行＝服务端 started_at→finished_at，包含模型、工具、自检与渲染。不能当作纯推理耗时；没有分项证据时不填推理时长。C2V 本版没有套用白模的 600 秒门槛。</p><section class="panel scroll"><table><thead><tr><th>案例</th><th>批次 / 模型</th><th>状态</th><th>硬要求 / 质量</th><th>操作</th></tr></thead><tbody>${runs.map((r) => `<tr><td><button data-case="${r.case.id}">${esc(r.case.title)}</button></td><td>${esc(r.cohort)}<br>${esc(r.model_requested.model)}</td><td>${esc(r.state)}</td><td>${verdict(r.evaluation?.hard_pass)} / ${qname[r.evaluation?.quality] || "待评价"}</td><td><button data-run="${r.id}" data-op="${r.job_id ? "refresh" : "submit"}">${r.job_id ? "刷新" : "提交 / 恢复"}</button></td></tr>`).join("")}</tbody></table></section>`;
+  const groups = modelGroups(), cases = reviewCases();
+  return `<h2>结果总览</h2><p class="muted">按任务并排对照，点击案例进入审核。原片保留原分辨率和编码，优先从本地播放；人工评价与技术检查分开。</p>
+  <div class="metrics"><div class="metric"><strong>${cases.length}</strong><span>已测试业务案例</span></div><div class="metric"><strong>${runs.filter(r=>r.local_original_available).length} / ${runs.filter(r=>r.job_id).length}</strong><span>原片已下载到本地</span></div><div class="metric"><strong>${runs.filter(r=>r.evaluation?.render_verified === true).length}</strong><span>完整解码通过</span></div><div class="metric"><strong>${runs.filter(reviewed).length}</strong><span>已人工评价</span></div></div>
+  <section class="panel scroll"><h3>模型对照</h3><table><thead><tr><th>模型 / 批次</th><th>有成片 / 已提交</th><th>本地原片</th><th>完整解码通过</th><th>已评价 / 质量达标</th><th>执行中位 / 最长</th></tr></thead><tbody>${groups.map(g=>{
+    const times=g.runs.map(r=>r.evaluation.execution_seconds).filter(x=>x!=null);
+    return `<tr><td><strong>${esc(g.label)}</strong><br><small>${esc(g.cohort)}</small></td><td>${g.runs.filter(r=>r.evaluation.has_video).length} / ${g.runs.length}</td><td>${g.runs.filter(r=>r.local_original_available).length} / ${g.runs.length}</td><td>${g.runs.filter(r=>r.evaluation.render_verified===true).length} / ${g.runs.length}</td><td>${g.runs.filter(reviewed).length} / ${g.runs.filter(r=>r.evaluation.quality==="pass").length}</td><td>${fmt(median(times))} / ${fmt(times.length ? Math.max(...times) : null)}</td></tr>`;
+  }).join("") || '<tr><td colspan="6">请登录后查看本账号测试结果。</td></tr>'}</tbody></table></section>
+  <p class="meta">执行时间＝开始执行到结束，含模型、工具、自检与渲染，排队另计；不是纯推理时间。解码成功只说明文件可读取，不代表内容质量通过。不同技能的明细仍单独保留在下方。</p>
+  <section class="panel scroll"><h3>逐案审核 <small>自研结果在前，Opus 对照在后</small></h3><table><thead><tr><th>任务与验收重点</th>${groups.map(g=>`<th>${esc(g.label)}</th>`).join("")}</tr></thead><tbody>${cases.map(c=>`<tr><td><button class="case-link" data-review-case="${c.id}">${esc(c.id.slice(0,2))} ${esc(c.title)} →</button><br><small>${esc(c.category)} · ${esc(c.skill_policy)}<br>${c.requirements.duration_seconds ? c.requirements.duration_seconds+" 秒" : "时长未限定"} · ${esc(c.requirements.aspect_ratio || "画幅未限定")}</small></td>${groups.map(g=>`<td>${g.runs.filter(r=>r.case.id===c.id).map(r=>`<div class="result-cell"><strong>成片 ${fmt(r.probe?.duration_seconds ?? (r.job?.result_asset?.duration_ms / 1000 || null))}</strong><br>执行 ${fmt(r.evaluation.execution_seconds)}<br><small>${r.local_original_available ? "本地原片" : "未下载"} · 解码${verdict(r.evaluation.render_verified)}<br>硬要求${verdict(r.evaluation.hard_pass)} · ${qname[r.evaluation.quality] || "待评价"}</small><div class="actions"><button data-review-case="${c.id}">观看 / 评价</button><a href="/api/run/${r.id}/download">原片</a></div></div>`).join("") || "无结果"}</td>`).join("")}</tr>`).join("")}</tbody></table></section>
+  <details><summary>按批次、模型 revision 和 skill 分开的统计明细</summary><section class="panel scroll"><table><thead><tr><th>批次 / 模型</th><th>技能</th><th>提交 / 结束</th><th>有视频 / 结束</th><th>解码通过 / 已检测</th><th>硬要求通过 / 已判定</th><th>质量达标 / 已评价</th><th>执行中位 / 最长</th></tr></thead><tbody>${stats.map(s=>`<tr><td>${esc(s.cohort)}<br>${esc(s.model)}<br><small>${esc(s.model_revision)}</small></td><td>${esc(s.policy)}<br><small>${esc(s.skill_revision.slice(0,10))}</small></td><td>${s.submitted} / ${s.terminal}</td><td>${s.has_video} / ${s.terminal}</td><td>${s.render_verified} / ${s.render_verified+s.render_failed}</td><td>${s.hard_pass} / ${s.hard_pass+s.hard_fail}</td><td>${s.quality_pass} / ${s.reviewed}</td><td>${fmt(s.median_execution_seconds)} / ${fmt(s.max_execution_seconds)}</td></tr>`).join("")}</tbody></table></section></details>
+  <details><summary>全部计划与任务状态（含未提交计划）</summary>${runs.map(r=>`<p class="meta"><button data-case="${r.case.id}">${esc(r.case.title)}</button> ${esc(r.cohort)} · ${esc(r.state)} <button data-run="${r.id}" data-op="${r.job_id ? "refresh" : "submit"}">${r.job_id ? "刷新状态" : "提交 / 恢复"}</button></p>`).join("")}</details>`;
+}
+function renderReview() {
+  const cases=reviewCases();
+  if (!cases.length) return '<h2>逐案审核</h2><p class="empty">请登录后查看本账号已提交的案例。</p>';
+  const c=cases.find(x=>x.id===current.id) || cases[0];
+  current=c;
+  const index=cases.findIndex(x=>x.id===c.id), same=runs.filter(r=>r.case.id===c.id && r.job_id).sort(runOrder);
+  return `<div class="layout review-layout"><aside class="sidebar"><p class="meta">${cases.length} 案 · ${runs.filter(r=>r.job_id).length} 条结果<br>默认 2× · 评价记录可追溯</p>${cases.map(x=>{const rs=runs.filter(r=>r.case.id===x.id&&r.job_id);return `<button class="case-btn ${x.id===c.id ? "active" : ""}" data-review-case="${x.id}">${esc(x.id.slice(0,2))} ${esc(x.title)}<small>已评价 ${rs.filter(reviewed).length} / ${rs.length} · ${x.skill_policy.includes("anatomy") ? "Anatomy" : "C2V"}</small></button>`;}).join("")}</aside><div><div class="review-title"><div><span class="badge">${esc(c.category)}</span><h2>${esc(c.title)}</h2></div><div class="actions"><button data-review-case="${cases[Math.max(0,index-1)].id}" ${index===0?"disabled":""}>上一案</button><span class="meta">${index+1} / ${cases.length}</span><button data-review-case="${cases[Math.min(cases.length-1,index+1)].id}" ${index===cases.length-1?"disabled":""}>下一案</button><button data-tab="results">总览</button></div></div>
+  <section class="panel review-brief"><h3>验收要点</h3><p class="meta">${c.requirements.duration_seconds ? "明确时长 "+c.requirements.duration_seconds+" 秒" : "未指定时长，不按参考片长判失败"} · ${esc(c.requirements.aspect_ratio || "画幅未限定")} · ${esc(c.skill_policy)}</p><ul>${c.requirements.quality_checks.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${c.requirements.exact_text.length ? `<p class="meta">指定文案：${c.requirements.exact_text.map(esc).join(" / ")}</p>` : ""}<details><summary>原始需求、输入图片与最终提交 prompt</summary><pre class="prompt">${esc(c.prompt_original)}</pre><div class="images">${c.input_assets.map(id=>`<figure><a href="/media/${id}" target="_blank"><img src="/media/${id}" alt="${esc(asset(id).name)}"></a><figcaption>${esc(asset(id).name)}</figcaption></figure>`).join("")}</div><h3>最终提交 prompt</h3><pre class="prompt">${esc(c.prompt_submitted)}</pre></details></section>
+  <div class="cards">${same.map(runCard).join("")}</div>
+  <section class="panel reference-panel"><h3>业务参考成片 <small>模型未知，仅作参考</small></h3>${reference(c)}</section><details><summary>Anatomy gate 与测试输入详情</summary>${gatePanel(c)}<button data-case="${c.id}">打开业务测试集</button></details></div></div>`;
 }
 function renderShowcase() {
   const s = boot.baselines.showcases[showcase];
@@ -131,15 +180,15 @@ function render() {
       ? renderCases()
       : tab === "results"
         ? renderResults()
-        : renderShowcase();
+        : tab === "review" ? renderReview() : renderShowcase();
   setupVideos();
 }
 async function updateRuns(draw = false) {
   if (!boot.user) return;
   const r = await api("/api/runs");
   const changed =
-    JSON.stringify(runs.map((x) => [x.id, x.state, x.last_error, x.probe])) !==
-    JSON.stringify(r.runs.map((x) => [x.id, x.state, x.last_error, x.probe]));
+    JSON.stringify(runs.map((x) => [x.id, x.state, x.last_error, x.probe, x.local_original_available, x.reviews])) !==
+    JSON.stringify(r.runs.map((x) => [x.id, x.state, x.last_error, x.probe, x.local_original_available, x.reviews]));
   runs = r.runs;
   stats = r.summary;
   if (draw) render();
@@ -147,7 +196,11 @@ async function updateRuns(draw = false) {
     notice("任务状态有更新，点击“刷新结果”查看；正在播放的视频不会被重置。");
 }
 async function loadCatalog() {
-  if (boot.user) models = (await api("/api/catalog")).models;
+  if (boot.user) {
+    models = (await api("/api/catalog")).models;
+    const select = $("#model");
+    if (select) select.innerHTML = '<option value="">请选择模型</option>' + models.map(m => `<option value="${esc(m.profile_id)}">${esc(m.name)}</option>`).join("");
+  }
 }
 document.addEventListener("click", async (e) => {
   const b = e.target.closest("button");
@@ -162,6 +215,11 @@ document.addEventListener("click", async (e) => {
       tab = b.dataset.tab;
       await updateRuns();
       render();
+      return;
+    }
+    if (b.dataset.reviewCase) {
+      tab = "review";
+      selectCase(b.dataset.reviewCase);
       return;
     }
     if (b.dataset.case) {
@@ -238,10 +296,9 @@ document.addEventListener("submit", async (e) => {
       f.reset();
       $("#login").close();
       boot.user = r.user;
-      await loadCatalog();
-      await updateRuns();
+      await updateRuns(true);
       notice();
-      render();
+      loadCatalog().catch((err) => notice("结果已就绪；模型目录暂不可用：" + err.message));
     } else if (f.classList.contains("review")) {
       await api(`/api/run/${f.dataset.run}/review`, body);
       await updateRuns(true);
@@ -255,7 +312,7 @@ document.addEventListener("submit", async (e) => {
   try {
     boot = await api("/api/bootstrap");
     const q = new URLSearchParams(location.search);
-    tab = ["cases", "results", "showcase"].includes(q.get("tab"))
+    tab = ["cases", "results", "review", "showcase"].includes(q.get("tab"))
       ? q.get("tab")
       : "cases";
     current =
@@ -263,8 +320,8 @@ document.addEventListener("submit", async (e) => {
       boot.suite.cases[0];
     render();
     if (boot.user) {
-      await loadCatalog();
       await updateRuns(true);
+      loadCatalog().catch((err) => notice("结果已就绪；模型目录暂不可用：" + err.message));
     }
     setInterval(() => updateRuns(false).catch(() => {}), 15000);
   } catch (err) {

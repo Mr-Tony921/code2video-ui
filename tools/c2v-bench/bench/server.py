@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from core import Store, TERMINAL, digest, digest_file, evaluation, now, summary
 from remote import Remote, RemoteError
+from local_media import cached_original, download_original, probe_original
 
 
 class App:
@@ -217,79 +218,14 @@ class App:
         self.store.event(rid, c["owner"], "manual_session_bind", session_id=sid)
 
     def probe(self, rid, c):
-        r = self.store.get(rid, c["owner"])
-        a = (r.get("job") or {}).get("result_asset") or {}
-        if not a.get("playable"):
-            raise ValueError("没有可检测的最终成片")
-        folder = self.root / "runtime/media-results" / rid
-        folder.mkdir(parents=True, exist_ok=True)
-        dest = folder / "final.mp4"
-        if not dest.exists():
-            with c["remote"].open(
-                "GET", f'/api/assets/{r["job_id"]}/download', timeout=120
-            ) as response, dest.with_suffix(".part").open("wb") as f:
-                count = 0
-                while chunk := response.read(1024 * 1024):
-                    count += len(chunk)
-                    if count > 4 * 1024**3:
-                        raise ValueError("原片超过 4 GiB，请离线检测")
-                    f.write(chunk)
-            dest.with_suffix(".part").replace(dest)
-        try:
-            meta = json.loads(
-                subprocess.check_output(
-                    [
-                        "ffprobe",
-                        "-v",
-                        "error",
-                        "-show_streams",
-                        "-show_format",
-                        "-of",
-                        "json",
-                        str(dest),
-                    ],
-                    timeout=90,
-                )
-            )
-            v = next(s for s in meta["streams"] if s["codec_type"] == "video")
-            num, den = map(float, v["avg_frame_rate"].split("/"))
-        except (
-            subprocess.CalledProcessError,
-            ValueError,
-            KeyError,
-            StopIteration,
-        ) as e:
-            self.store.update(
-                rid,
-                c["owner"],
-                probe={
-                    "checked_at": now(),
-                    "source": "downloaded_original",
-                    "decode_ok": False,
-                    "decode_error": type(e).__name__ + ": invalid video metadata",
-                },
-            )
-            return
-        test = subprocess.run(
-            ["ffmpeg", "-v", "error", "-xerror", "-i", str(dest), "-f", "null", "-"],
-            capture_output=True,
-            timeout=900,
-        )
-        p = {
-            "checked_at": now(),
-            "source": "downloaded_original",
-            "sha256": digest_file(dest),
-            "bytes": dest.stat().st_size,
-            "duration_seconds": float(meta["format"]["duration"]),
-            "width": v["width"],
-            "height": v["height"],
-            "fps": num / den if den else None,
-            "has_audio": any(s["codec_type"] == "audio" for s in meta["streams"]),
-            "decode_ok": test.returncode == 0,
-            "decode_error": test.stderr.decode(errors="replace")[-2000:] or None,
-        }
+        dest = download_original(self.root, self.store, rid, c["owner"], c["remote"])
+        p = probe_original(dest)
         self.store.update(rid, c["owner"], probe=p)
         self.store.event(rid, c["owner"], "original_probed", decode_ok=p["decode_ok"])
+
+    def record(self, run):
+        return {**run, "evaluation": evaluation(run),
+                "local_original_available": cached_original(self.root, run) is not None}
 
     def poll(self):
         while not self.stop.wait(30):
@@ -318,7 +254,7 @@ class App:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "C2VBench/0.1.0"
+    server_version = "C2VBench/0.1.1"
 
     def log_message(self, *args):
         pass  # Request URLs, credentials and cookies do not enter logs.
@@ -409,7 +345,7 @@ class Handler(BaseHTTPRequestHandler):
                 c = self.client()
                 runs = self.app.store.list(c["owner"])
                 data = {
-                    "runs": [{**r, "evaluation": evaluation(r)} for r in runs],
+                    "runs": [self.app.record(r) for r in runs],
                     "summary": summary(runs),
                     "exported_at": now(),
                 }
@@ -495,6 +431,9 @@ class Handler(BaseHTTPRequestHandler):
                 r = self.app.store.get(rid, c["owner"])
                 if kind not in ["media", "download", "archive"] or not r.get("job_id"):
                     raise ValueError("无可用产物")
+                local = cached_original(self.app.root, r)
+                if local and kind in ["media", "download"]:
+                    return self.file(local, download_name=(r["case"]["id"] + ".mp4") if kind == "download" else None)
                 path = (
                     f'/api/sessions/{r["session_id"]}/archive'
                     if kind == "archive"
@@ -646,7 +585,7 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def file(self, p):
+    def file(self, p, download_name=None):
         size = p.stat().st_size
         start = 0
         end = size - 1
@@ -674,6 +613,8 @@ class Handler(BaseHTTPRequestHandler):
             "Content-Type",
             mimetypes.guess_type(str(p))[0] or "application/octet-stream",
         )
+        if download_name:
+            self.send_header("Content-Disposition", "attachment; filename*=UTF-8''" + urllib.parse.quote(download_name, safe=""))
         self.send_header("Accept-Ranges", "bytes")
         self.send_header("Content-Length", str(end - start + 1))
         self.send_header("Cache-Control", "no-cache")
