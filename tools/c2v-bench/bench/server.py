@@ -433,7 +433,7 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError("无可用产物")
                 local = cached_original(self.app.root, r)
                 if local and kind in ["media", "download"]:
-                    return self.file(local, download_name=(r["case"]["id"] + ".mp4") if kind == "download" else None)
+                    return self.file(local, download_name=(local.parent.parent.name + "__" + r["case"]["id"] + "__" + rid[4:12] + ".mp4") if kind == "download" else None)
                 path = (
                     f'/api/sessions/{r["session_id"]}/archive'
                     if kind == "archive"

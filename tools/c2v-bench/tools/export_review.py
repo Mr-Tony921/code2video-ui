@@ -30,17 +30,17 @@ def export(root, owner, cohorts, bench_url='http://127.0.0.1:18942'):
             md.extend(['','## 参考与输入',''])
             assets={a['id']:a for a in json.loads((root/'dataset'/('v'+r['suite_version'])/'suite.json').read_text())['assets']}
             for aid in r['case']['input_assets']:
-                a=assets[aid];md.append('- 输入：['+a['name']+']('+os.path.relpath(root/a['path'],dest.parent)+')')
+                a=assets[aid];md.append('- 输入：['+a['name']+'](<'+os.path.relpath(root/a['path'],dest.parent)+'>)')
             refs=r['case']['reference_outputs']
             if not refs:md.append('业务未提供参考成片。')
             for ref in refs:
                 link=os.path.relpath(root/assets[ref['asset_id']]['path'],dest.parent) if ref.get('asset_id') else ref['url']
-                md.append('- [业务参考成片]('+link+')（模型未知，不是标准答案）：'+ref.get('inspection_note',''))
+                md.append('- [业务参考成片](<'+link+'>)（模型未知，不是标准答案）：'+ref.get('inspection_note',''))
             (dest.parent/'任务说明.md').write_text('\n'.join(md)+'\n')
     atomic(folder/'results.json',{'at':now(),'owner':owner,'cohorts':cohorts,'rows':rows})
     if rows:
         with (folder/'results.csv').open('w',encoding='utf-8-sig',newline='') as f:
-            w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+            w=csv.DictWriter(f,fieldnames=list(rows[0]));w.writeheader();w.writerows({k: ("\'" + v if isinstance(v,str) and v[:1] in "=+-@" else v) for k,v in row.items()} for row in rows)
     md=['# C2V 业务测试审核索引','','[打开测试台总览]('+bench_url+'/?tab=results) · [逐案审核]('+bench_url+'/?tab=review)','','范围：本轮 '+str(len({x['case_id'] for x in rows}))+' 案、'+str(len(rows))+' 条正式结果；已撤回的旧模型/失败渠道试投不计入。原片未转码，按模型／任务存放。网页默认 2 倍速，可切回 1 倍速检查。','','| 模型 | 成片 | 本地原片 | 解码通过 | 执行中位数 | 执行最长 | 人工评价 |','|---|---:|---:|---:|---:|---:|---:|']
     for model in sorted({x['model'] for x in rows},key=lambda x:(x!='deepseek-c2v-v1',x)):
         rr=[x for x in rows if x['model']==model];ts=[x['execution_seconds'] for x in rr if x['execution_seconds'] is not None]

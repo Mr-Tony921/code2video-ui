@@ -415,7 +415,9 @@ for _ in range(20):
             for endpoint in ['media','download']:
                 conn.request('GET','/api/run/'+r['id']+'/'+endpoint,headers={'Cookie':'bench_session=mine','Range':'bytes=10-30'})
                 res=conn.getresponse();self.assertEqual(res.status,206);self.assertEqual(res.read(),blob[10:31])
-                if endpoint=='download':self.assertIn('attachment',res.getheader('Content-Disposition'))
+                if endpoint=='download':
+                    self.assertIn('attachment',res.getheader('Content-Disposition'))
+                    self.assertIn('test-model__01-mindflow__',res.getheader('Content-Disposition'))
             conn.request('GET','/api/run/'+r['id']+'/media',headers={'Cookie':'bench_session=other'})
             res=conn.getresponse();self.assertEqual(res.status,403);res.read()
             conn.request('GET','/api/run/'+r['id']+'/media')
