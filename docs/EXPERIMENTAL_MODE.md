@@ -37,3 +37,9 @@ Anatomy 固定为上游 commit `1482e8469b0a9e0d8cc18ea2740a01423d29ae80`，MIT 
 更新版本时：先把新 ZIP 放到新的固定路径，校验 SHA256 并保留许可证/来源，再修改条目的 `version`、`archive`、`archive_sha256`；不要覆盖旧包。用现有 `scripts/hot-update.sh` 滚动更新 dev 后端，用户重开设置弹窗获取列表并确认当前版本。停用设 `enabled:false`。仅修改目录配置或包无需重建 UI；首次接入本功能需要更新 UI 构建。历史快照不做清理。
 
 验证入口：`node --test tests/unit/experimental-catalog.mjs tests/unit/experimental-http.mjs tests/unit/experimental-runner.mjs`；真实小规模出片 `node scripts/verify-anatomy.mjs`（普通 test/test-peer，可用 `--continue` 继续验收同一个任务）；浏览器检查 `CVW_TEST_ANATOMY=1 CVW_TEST_REPORT_DIR=<本副本报告目录> node scripts/verify-experimental-ui.mjs`。本次仅验收小规模集成出片，不代表已经验证 18 秒按钮或 30 秒发动机完整实验的质量。
+
+## 临时多图实验
+
+默认附件上限仍为10，白模仍为100。仅在明确授权的实验会话可用服务端配置 `references.experimental_session_limits` 扩容，形如 `{ "sess_UUID": { "max_per_session": 25, "expires_at": "ISO-8601 UTC" } }`。必须是1至100内整数、超过默认值且尚未到期；缺失/错误/过期配置回退默认。不得通过上传请求参数扩大上限。
+
+配置载入后依现有空闲重载门禁更新 Bridge。会话外不生效；到期不删除已上传素材，附件集合依旧在提交任务时冻结。实验结束后可清理配置条目；仅清理元数据，勿删除原图或改写历史任务。

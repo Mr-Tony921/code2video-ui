@@ -1,0 +1,1214 @@
+{
+  "business_reference_models": "unknown",
+  "live_catalog_as_of": "2026-11-24",
+  "configured_models": [
+    {
+      "profile_id": "enhancement-default",
+      "name": "claude-opus-5-5/ccmax/sfa",
+      "model": "claude-opus-5-5/ccmax/sfa",
+      "max_context_tokens": null,
+      "max_output_tokens": null,
+      "autocompact_pct": 80,
+      "revision": "0aecba933ae778cf"
+    },
+    {
+      "profile_id": "intranet-default",
+      "name": "SenseNova-6.8-Code2Video（内网）",
+      "model": "SenseNova-6.8-Code2Video",
+      "max_context_tokens": 524288,
+      "max_output_tokens": 64000,
+      "autocompact_pct": 80,
+      "revision": "946737839da509e0"
+    },
+    {
+      "profile_id": "tokenhub-fable-52-sfo-test",
+      "name": "claude-fable-5-2/anthropic_L/sfo",
+      "model": "claude-fable-5-2/anthropic_L/sfo",
+      "max_context_tokens": null,
+      "max_output_tokens": null,
+      "autocompact_pct": 80,
+      "revision": "1bd7b88e0f9c3c5d"
+    },
+    {
+      "profile_id": "tokenhub-gemini-4-argon",
+      "name": "gemini-4-argon/aistudio_S/sfk",
+      "model": "gemini-4-argon/aistudio_S/sfk",
+      "max_context_tokens": null,
+      "max_output_tokens": null,
+      "autocompact_pct": 80,
+      "revision": "574449fca6a541c6"
+    },
+    {
+      "profile_id": "tokenhub-deepseek-v41-flash",
+      "name": "deepseek-v4.1-flash-1017/zijian/sfb",
+      "model": "deepseek-v4.1-flash-1017/zijian/sfb",
+      "max_context_tokens": null,
+      "max_output_tokens": null,
+      "autocompact_pct": 80,
+      "revision": "48e2f8a63e34488f"
+    },
+    {
+      "profile_id": "deepseekv41-c2v1-0",
+      "name": "deepseekv41-c2v1-0",
+      "model": "deepseekv41-c2v1-0",
+      "max_context_tokens": 524288,
+      "max_output_tokens": 64000,
+      "autocompact_pct": 80,
+      "revision": "33eb8505ce272da5"
+    },
+    {
+      "profile_id": "jiaoyu-video-20261118",
+      "name": "jiaoyu-video",
+      "model": "jiaoyu-video",
+      "max_context_tokens": 1048576,
+      "max_output_tokens": 64000,
+      "autocompact_pct": 80,
+      "revision": "be9b1b1c890fe367"
+    },
+    {
+      "profile_id": "managed-551b3e6ba4ef1f5d354c16355622146e",
+      "name": "deepseekv41-c2v1-1",
+      "model": "deepseekv41-c2v1-1",
+      "endpoint": "http://10.210.10.18:18941",
+      "max_context_tokens": 1024000,
+      "max_output_tokens": 64000,
+      "autocompact_pct": 80,
+      "revision": "551b3e6ba4ef1f5d",
+      "kind": "intranet",
+      "has_key": false,
+      "key_mask": "",
+      "custom": true
+    }
+  ],
+  "connectivity_tested": false,
+  "showcases": [
+    {
+      "id": "job_00a15f49",
+      "title": "Ebru 水拓艺术",
+      "job_id": "job_00a15f49-4a89-4b78-9399-b1e578ff8f40",
+      "session_id": "sess_fb2d39e2-1241-418e-9a84-3ce7f78244fe",
+      "prompt": "制作并交付一支 51 秒的 Ebru 水拓艺术短片。墨滴在浅色液面上扩张，推动旧墨形成细密色环；无形的针尖将色环拉成尖瓣花、心形叶片和羽毛，最后把局部花纹拧成旋涡。完成程序画面、连续动画、配乐与视频导出。\n\n一、成片规格与视觉目标\n\n16:9，30fps，最终导出 3840×2160；制作预览可使用 1920×1080。固定俯视镜头，水拓图案铺满画面，部分花纹自然越过边缘。全片在同一个液面中连续形成，不切场景，不靠镜头推拉制造变化。\n\n视觉是平面、精细、温润的彩色水拓。主墨像大片深藏蓝色岛屿，浅色水道在岛屿之间流动；朱红、赭金、青绿与乳白色环逐渐长成精密的放射花。色层有清楚的边界，旧墨会被挤薄和拉长，像缠在一起的细丝。\n\n所有画面由代码产生。使用原生 JavaScript 与 WebGL2 实现图案和播放器，离线逐帧导出视频；几何、纸纹、颜色、遮罩与动画均由程序构造。不使用图片、视频、现成纹理、字体、3D 模型或生图、生视频服务。画面中不出现人物、手、工具模型、文字、品牌标志、标题卡和调试界面。\n\n交付可独立播放的单 HTML，CSS、JavaScript、着色器与程序音频内联，运行时不请求网络。导出与检查脚本可以单独交付。\n\n二、色彩、构图与材质\n\n使用以下有限色板，并通过色带宽度和面积分配组织层次：\n- 暖灰米色底：#D8D0B9。\n- 深藏蓝主墨：#233957。\n- 炭黑辅墨：#272624。\n- 赭金：#C9A34C。\n- 暗朱红：#A4493B。\n- 青绿：#84A18B。\n- 乳白：#F1E7CC。\n  \n背景与墨层为哑光，不做塑料高光、镜面反射、霓虹发光或强烈立体阴影。浅色细边可以有极轻微渗色，但保持绝大部分轮廓锐利。程序纸纤维与低频色差固定在画面坐标中，强度控制在细看可辨的程度；纹理不得逐帧闪动，也不能盖住最细色线。\n\n主要大花位于画面中心略偏左，中心约为画幅的 (0.48,0.50)。它的完整外径约占画面高度的 35%–42%。右侧安排一朵较小的副花，左侧或上方再安排一朵，外径约为主花的 40%–60%。四周有越过边界的花纹碎片、少量心形叶片、蓝灰小滴和金色细点。\n\n使用至少三个尺度层级：大面积深蓝流域、较大的放射花、少量微小点和细线。主花的线条最密，副花更简洁；留出深蓝和米色的安静区域。不要平均铺满同等大小的花，不做规则网格或整幅壁纸重复。\n\n滴墨位置和大小有设计好的疏密关系，固定随机种子只用于微小差异。不能用全画布均匀随机撒点代替构图。\n\n三、滴墨必须推动旧墨\n\n以连续的二维坐标平面描述液面，使用统一的等比例坐标。不要直接对宽高不同的 UV 使用同一个圆形距离，否则圆会变成椭圆。所有位置和半径应与输出分辨率无关。\n\n把液面表示为按时间排序的操作序列。每次操作保存开始时间、持续时间、类型、位置、方向、半径、颜色及强度。渲染任一时刻时，从当前像素向前逆向追踪已经发生的操作，求它最终应呈现的颜色。每一帧从操作数据计算，不能反复缩放上一帧图像来累积动画。\n\n新墨滴中心为 C，当前半径为 R。旧墨上的点 P 被推向：\nP_new = C + (P-C) × sqrt(1 + R² / |P-C|²)。\n\n该操作在中心注入新颜色，并将原有色区向外推开。同心加墨时，旧色层的面积保持，半径增大、厚度减小。新滴不是一个盖在旧图上的透明圆形贴纸。\n\n对当前像素 Q 逆向求色：\n- 若 |Q-C| < R，它属于这次新滴，返回该滴颜色。\n- 否则，映射到 Q_old = C + (Q-C) × sqrt(1 - R² / |Q-C|²)，再继续回溯更早的操作。\n- 所有操作回溯完成后仍未命中墨滴，则显示底色。\n  \n在边界处做像素覆盖率抗锯齿；中心分支和 R=0 必须单独处理，避免除零、NaN 和负数开平方。中心的数值保护只用于奇点，不得改变整个色环的半径。\n\n每滴墨在约 0.15–0.45 秒内长出。用平滑增长的注入面积控制半径，例如 A(t)=A_final×smoothstep(0,1,u)，R(t)=sqrt(A(t)/π)。一次新滴的变化应同步推动所有旧墨，而不是只有新滴变大。\n\n先让几十个不同大小的蓝色和炭黑墨滴形成大块区域，再依次在几个固定中心加入彩色小滴。每朵花使用约 6–10 层色环；以乳白薄环隔开金、红、蓝和绿，环宽有变化，最外层也要与周围深蓝形成清楚对比。\n\n四、拖针、花瓣与旋涡\n\n将针的作用实现为连续坐标变换，所有既有色层都经过同一变换。色层在拉伸后仍保持嵌套顺序，细线沿花瓣弯曲，不能出现断线、露底裂缝、交叉翻面或颜色次序跳变。\n\n直线拖针使用方向单位向量 e、法向单位向量 n、针线上的点 B、位移 s 和影响宽度 λ：\nd = abs(dot(P-B,n))；\nF(P) = P + e × s × exp(-d/λ)。\n\n逆变换把 s 取负。这个公式沿整条针线起作用；需要局部短笔画时，采用紧支撑的平滑流场并反向积分，不能直接给它乘一个任意的纵向遮罩后仍声称取负即可精确反演。\n\n局部针尖运动可使用流函数建立二维无散度速度场：v=(∂ψ/∂y,-∂ψ/∂x)。在针尖移动路径附近定义光滑、紧支撑的 ψ，外围速度连续降为零；以固定小时间步推进，逆向查询时从结束时刻向开始时刻积分。检查步长收敛和局部面积误差，强变形时增加子步数。\n\n主花的制作过程：\n1. 先形成完整的多色同心环，保持片刻，让观众看清颜色次序。\n2. 沿圆周分配约 20–28 个方向，逐次把环向外拉出细尖。笔画时间略错开，让花瓣沿圆周接连长出。\n3. 在相邻外拉方向之间插入较短的内拉笔画，形成尖瓣与凹谷交替的层次。保留花心，避免所有笔画都穿过同一个中心奇点。\n4. 再做一圈幅度较小、角度略偏移的拉伸，让金色与乳白色细线形成双层尖瓣。\n  \n副花使用约 10–16 个较宽花瓣，色环更少，避免每一朵都与主花同样复杂。微小的不对称体现在瓣长和开口角度，整体仍保持放射节奏。\n\n心形或叶形小纹样从两三层色滴生成，用一条短针从环的一侧拖向另一侧，形成尖端与凹口。它们必须由色层变形得到，不能最后叠加预先画好的图标。少量梳齿可同时作用于窄区域，齿距、位移和方向平滑变化，形成细长羽毛状纹理；避免整幅画同时被拖成平行条纹。\n\n局部旋涡使用半径相关的角位移：\nP_new = C + rotate(P-C, θ(t)×g(|P-C|))。\n\ng(r) 在中心有限，随半径平滑衰减，并在指定影响半径处连同一阶导数归零。旋转保持半径，逆变换使用相反角度。让主花内外层旋转量不同，花瓣逐渐弯成有旋臂的花轮；不能只把整朵花当刚性贴纸旋转。\n\n旋涡范围约为主花半径的 1.2–1.5 倍，中心角位移从 0 平缓增长到约 60°–100°。周边副花与水道只受到合理的局部牵引，远处结构保持稳定。限制细线拉伸程度，仍能读到金、白、红的层次。\n\n五、51 秒时间线\n\n0–1 秒：暖灰米色液面从暗处显现，纹理安静，没有文字或装饰边框。\n\n1–4.5 秒：蓝色和炭黑色墨滴先后落下、扩张、互相挤压。圆滴逐渐组成深蓝岛屿和浅色弯曲水道。新滴推动邻近墨层的因果关系清楚可见。\n\n4.5–8.5 秒：在主花位置依次滴入金、白、红、白、青绿等颜色，形成醒目的同心环。副花位置陆续出现较小的彩色圆环。较小的后滴把较早的色层挤薄，不能同时淡入整套色环。\n\n8.5–12 秒：主花从圆环逐渐被拉成尖瓣放射花。外拉和内拉有先后，色线随每次针迹共同弯折。主花成形后短暂放慢，让细节有被看见的时间。\n\n12–18 秒：两朵副花依次展开。上方和角落增加少量被画幅裁切的纹样，主花周围出现几个小型心形叶瓣。不同位置的动作错开，避免所有形状同时脉动。\n\n18–28 秒：沿主花外圈和部分深蓝区域补入稀疏金色细点、浅蓝小滴。每个新增墨滴仍参与挤压旧墨，但尺寸很小，不破坏已经建立的大构图。较早完成的图案保持稳定，不持续无缘由抖动。\n\n28–39 秒：几次清晰可见的局部短针把小型色环拉成长叶与羽毛，水道被轻轻牵引。安排一次明显动作后留出短暂停顿，节奏有呼吸。不能把这一段做成静止成画上的摄像机移动。\n\n39–48 秒：主花进入缓慢的差速旋转，尖瓣逐渐卷成旋臂。附近几条细线随局部旋涡伸长，远处副花保持可辨。旋转先缓慢建立，再温和减速，保持颜色边界清楚。\n\n48–49.5 秒：旋涡停止增长，停留在完整的水拓画面，保留最终细节。\n\n49.5–51 秒：画面与配乐平缓淡出至黑，不加片尾文字。\n\n六、图像质量与渲染\n\n优先使用每像素逆向查询操作序列的 WebGL2 片段着色器。滴墨命中后可提前返回颜色；逆向遍历的顺序必须与实际操作顺序相反。所有图层、动画和音频读取同一时间轴。\n\n操作数量较多时分批处理或缓存稳定阶段，但不得持续重采样已经着色的图像，导致细色线逐帧变糊。若缓存坐标映射，使用足够精度并处理滴墨的颜色归属；映射不能跨越新墨边界做错误插值。离线导出允许降低计算速度，不能降低成片质量来追求实时帧率。\n\n对细环、尖瓣和狭窄水道做空间超采样或覆盖率抗锯齿。最终 4K 下主要装饰细线至少保留约 1–2 px 的可见宽度；更细处以覆盖率表达，避免整条线一帧出现、一帧消失。近距离检查像素边缘和正常速度检查频闪都要进行。\n\n纸纹强度低，使用固定种子，不能用闪动噪声模拟流体。图案移动时允许墨层沿数学变换运动，纸面纹理保持稳定。边界抗锯齿可以混合邻接色，墨层内部不发生大范围浑浊混色。\n\n以一个统一时间函数渲染画面。任意跳转、倒序检查和重复渲染同一时间，都应得到相同结果。局部流场采用固定时间步与确定性重算或检查点，不能让动画依赖实际屏幕帧率。\n\n播放器提供播放、暂停、重播和时间拖动，控件在画布外。声音由用户操作后启用。离线导出逐帧设置 t=i/30，i=0…1529，共 1530 帧，保持 51 秒；不要用实时屏幕录制承担最终帧数保证。\n\n七、配乐\n\n用程序合成一条细腻、安静、有节奏呼吸的音乐。以温暖拨弦、柔和持续音和很轻的颗粒质感为主；不加旁白、人声、重鼓点或夸张滴水音效。音符、噪声和混响参数使用固定种子。\n\n开始以稀疏低音和柔和泛音建立空间。大墨滴和第一组色环出现时加入零星拨弦；花瓣连续展开时旋律更活跃。中段减少密度，让细节动作有呼吸；旋涡段用缓慢变化的和声与持续音形成抬升。最后两秒自然收尾，混响尾音不被硬切。\n\n音乐事件与视觉事件共享时间表，但不让每一个微小墨点都触发一个音。输出 48 kHz 双声道 WAV，完整时长 51 秒，整曲目标约 -16 LUFS，true peak 不高于 -1 dBTP。配乐与视频合成后检查开头、重要动作和结尾的对应关系。\n\n八、制作与检查\n\n先完成“新滴推动旧滴形成细环”和“一组色环被连续拉成尖瓣”这两个短片段。确认颜色归属、逆变换顺序、轮廓连续性和抗锯齿正确，再扩展完整构图和时间线。\n\n检查以下关键画面：2、4.5、7、9、11、16、23、32、40、45、48.5、50.5 秒。对滴墨开始与结束、拖针起落、旋涡启动与停止处，以 1/30 秒间隔检查连续帧。\n\n重点修复：墨滴只是遮盖旧图、色环同时淡入、拖针造成断裂、强变形导致自交、旋涡变成刚性转动、金线压缩后消失、重复采样变糊、像素随机闪动、事件结束时突跳。\n\n用简单同心环检查新增墨滴对旧色区的面积保持；用规则网格检查变换及其逆变换；用重复时间查询检查确定性。有限步长积分需要做收敛检查，不把数值近似当成解析精确结果。\n\n导出高质量 H.264/AAC MP4，保存无损音频和关键帧。完整解码确认分辨率、帧率、帧数、时长与音轨。检查编码后细线和颜色的实际保留情况。记录已完成的检查，未完成的观看或聆听检查标为待复核。\n\n九、交付\n\n交付以下文件，命名与保存位置遵循当前项目已有规则：\n- HTML 文件：可独立播放的完整程序动画。\n- MP4 文件：完整 51 秒、4K、30fps 成片。\n- WAV 文件：无损配乐母版。\n- 关键帧 PNG 与联系表图片：供画面检查。\n- 渲染、导出和检查脚本及简短运行说明文件。\n- 制作记录文件：操作时间线、核心算法、实际检查结果与待复核项。",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "4d12dbee723291060d5c0b633c0e4043c88c1e5524aa10000a0ddda4e16ff8b1",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": []
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-03T07:59:36.412Z",
+      "finished_at": "2026-11-03T17:57:24.402Z",
+      "wall_seconds": 35867.99,
+      "is_revision": false,
+      "video_filename": "experimental-job_00a15f49.mp4",
+      "video": {
+        "duration_ms": 51000,
+        "width": 3840,
+        "height": 2160,
+        "size_bytes": 136295454
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    },
+    {
+      "id": "job_1c51c95e",
+      "title": "玻璃金色马赛克",
+      "job_id": "job_1c51c95e-06f0-4fcd-b4bf-b5238e1dcc36",
+      "session_id": "sess_cf9208af-e5b5-408c-916a-58e0b0bc02c9",
+      "prompt": "Make an 80 second square animated film as a single HTML file, using WebGL2 and plain JavaScript, with no libraries and no image, font or audio files. It should look like a glass and gold leaf wall mosaic whose tiles were never glued down, so they can lift, flip, fly and click back into place. Figures are flocks of tiles, so a fish swims by its tiles swimming",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "4d12dbee723291060d5c0b633c0e4043c88c1e5524aa10000a0ddda4e16ff8b1",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": []
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-03T03:56:08.578Z",
+      "finished_at": "2026-11-03T05:00:58.636Z",
+      "wall_seconds": 3890.058,
+      "is_revision": false,
+      "video_filename": "experimental-job_1c51c95e.mp4",
+      "video": {
+        "duration_ms": 80000,
+        "width": 1080,
+        "height": 1080,
+        "size_bytes": 188172412
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    },
+    {
+      "id": "job_33f1ea7b",
+      "title": "Risograph 鸟群",
+      "job_id": "job_33f1ea7b-c19f-40cb-901f-4e675c0b9730",
+      "session_id": "sess_7920d7a2-f091-4b46-81d4-0703ebc9f124",
+      "prompt": "制作并交付一支 70 秒的黄昏群鸟归巢艺术短片，完成画面、动画、配乐、播放器与视频导出。\n\n一、作品目标与不可妥协的要求\n\n制作一支 1080×1080、30fps、精确 70 秒的 Risograph 孔版印刷风格短片。湿地的金色晚霞逐渐变为蓝紫夜色；成千上万只椋鸟在天空中聚集、翻卷、躲避猎隼、掠过观众头顶，最后流入远处芦苇归巢。鸟群本身就是印刷的颗粒：疏处像细点，薄片折向观众时叠成深色丝带。\n\n观感应当安静、深邃、有生命力，有自然事件的起伏和明确结尾。色彩、负空间、鸟群密度及运动共同讲故事。不要做算法演示、炫技界面、粒子屏保、PPT、素材拼贴、字幕科普或平均切成几段的镜头合集。\n\n全片是一个连续镜头。大部分时间固定观看同一片湿地，仅在鸟群从头顶经过时抬头，再平缓回到原来的视角。连续运动不能靠硬切、整场淡入淡出或全屏遮罩掩盖。\n\n所有视觉都由原生 JavaScript 与 Canvas 2D 绘制。可在内部计算三维坐标并投影，但不能使用现成 3D 模型、照片、图片纹理、预渲染视频或任何生图、生视频服务。画面中不出现品牌名称、商标、吉祥物、署名、标题卡和调试 UI。技术说明和音频素材署名放在项目文档中。\n\n最终画面与播放器合并为一个自包含 HTML 文件，CSS、JavaScript、程序纹理和可选音频样本内联；页面运行时不请求网络，不依赖远程字体或图形库。制作期的通用工具不受单文件限制。\n\n二、构图、色彩与空间\n\n以 1080×1080 的实际画布像素作为设计坐标，保持固定 backing store，不随 devicePixelRatio 改变画面细节。CSS 缩放只用于观看；最终检查和导出以原生像素为准。\n\n初始地平线约在 y=770，太阳位于画面中部略偏右，中心 x=650、半径约 40。下方是水面，远岸是一条细薄芦苇带与低矮树丛。前景芦苇从左右和底边长入画面，两侧较高，中间保留足够开口。为鸟群折叠、猎隼经过和水中倒影预留视觉空间。\n\n纸底使用暖奶油色 #F2EDE3。只使用四个主要油墨色版：\n- 黄色：#FFE800\n- 粉红：#FF48B0\n- 蓝色：#0078BF\n- 靛蓝：#2E3192\n\n这些是油墨颜色，不是要求整块纯色平涂。通过覆盖率、纸底露出和叠印得到金色、桃粉、灰蓝、紫色与深暗处。最终画面不新增纯黑色油墨；内部计算用的黑白遮罩不受此限制。避免多种色版无区别地堆叠成浑浊棕色。\n\n天空从金黄、夕阳粉、余晖、暮色到夜色连续演化。可在 t=0、30、46、58、70 秒设置颜色状态，再连续插值各色版的垂直覆盖率，而不是在两张完成的天空图片之间交叉淡化。纸纹、远岸轮廓与色版偏移不随时间重新随机。\n\n三、版画绘制规则\n\n自行实现四个离屏覆盖率画布。每个色版先画连续的覆盖率，再通过固定的网点阈值转换为着墨区域，最后将油墨乘色叠印到纸面。深浅主要由网点面积及疏密表达，不能只给最终 RGB 图叠一层颗粒滤镜。\n\n1. 网点格固定在页面像素坐标中，目标间距约 4.6 px。色版角度分别约为黄 0°、蓝 14°、靛蓝 45°、粉 76°。若使用重复纹理块，选择能够无缝重复的有理斜率，例如 0、1/4、1、4；不能在块边界出现接缝。直接计算全尺寸阈值场也可以。\n\n2. 对每个像素，比较该色版的覆盖率与固定阈值决定是否着墨。大面积缓慢渐变要表现为网点大小变化，不能变成固定大小圆点的透明度渐变。用固定种子的细小阈值扰动缓解低覆盖率的色阶跳变，但不能每帧重新加噪声。\n\n3. 纸纹包含低频云状斑驳、少量纤维与细点，整片保持不变；深色油墨有少量缺墨小孔。纹理要在原生尺寸下可辨，但不能遮掉鸟、叶尖和水面细节。先解决轮廓、明暗和运动，再增加纹理。\n\n4. 套色偏移从黄(+2,+1.5)、蓝(+1.5,-1)、粉(-2.5,+2)、靛蓝(0,0)像素开始调节。全片保持一致；像素化时也固定取整方式。近鸟、猎隼和细轮廓可以露出一点粉色错版边，不能像明显的 RGB 故障效果。\n\n5. 明亮物体压在暗色背景上，先用同一几何遮罩从相应深色版中挖空，再落亮色，避免黄色太阳被暗底印成泥色。要挖掉所有会污染主体的覆盖层，不只处理最底层。形状和挖空必须共享同一组路径、随机种子与变换。\n\n6. 一个物体需要保持自己的覆盖率时，不要让多次 source-over 累加把它越画越实。以形状遮罩 m 合成目标覆盖率：a_new=a_old×(1-m)+a_target×m。区分“对象拥有自己的明度”和“有意叠印”两种情况。\n\n7. 动态对象先在覆盖率层中移动、旋转、模糊或反射，再统一网点化。不要缩放、旋转或扭曲已经网点化的位图，否则会出现摩尔纹和纹理游动。\n\n8. 2–3 px 的远鸟太小，不能在鸟身内部再塞半调细节。把它们作为靛蓝版上的实覆盖小点；数量与投影密度自然构成明暗。大面积天空、水面和前景使用真正的半调印刷。\n\n四、鸟群：用解析的三维薄片形成深色丝带\n\n目标规模约 11,000 只鸟，分成约 14 个陆续到达的小群，最后约 14 只为落单鸟。每只鸟只在初始化时用固定种子分配身份参数，之后任何时刻的位置均可由时间直接求出。不要采用依赖之前播放历史的实时 boids 模拟。\n\n为每只鸟保存固定的局部坐标 (u,v,w)：u 沿薄片长度，v 沿宽度，w 是很薄的厚度。让 (u,v) 落在有疏密变化的近圆域中，边缘包含团块和薄处，不是均匀椭圆。用位置相关的低频密度函数拒绝采样，保留少量边缘不整齐的鸟。\n\n实现一个可弯曲、可扭转、具有薄厚变化的三维带状面：\n\n- 长度半径 L 约 100–130 个世界单位，宽度尺度 B 约 25–45，厚度 T 约 5；这些尺度以几组慢正弦连续变化。\n- 扭转角 theta(u,t)=theta0(t)+twist1(t)×u+twist2(t)×u²。\n- 局部半宽 H(u,t) 可由 B(t)×sqrt(max(0,1-u²)) 乘以一到两层缓慢的波瓣变化得到。\n- 局部位置以 x=L×u，y=H×v×cos(theta)-T×w×sin(theta)，z=H×v×sin(theta)+T×w×cos(theta) 为基础，再加上脊柱弯曲、偏航旋转和群体中心位置。\n- 每只鸟叠加很小、不同频率和相位的连续扰动。扰动表现个体差异，不能打散整体运动。\n- 所有随机参数固定，时间变化使用平滑函数；不能每帧调用 Math.random()，也不能以帧号重设随机种子。\n\n用焦距约 1000 px 的透视投影。世界坐标规定 X 向右、Y 向上、Z 指向远方，可用 sx=540+1000×X/Z、sy=horizon(t)-1000×Y/Z。先做近裁剪，不能让 Z 接近零或转为负数时把鸟投影成横跨全屏的异常形状。\n\n主体最初在约 Z=400–460 的远处。49–51 秒靠近到几十个单位，随后飞到相机后方，在不可见区域掉头；约 56 秒重新从画面上方进入远处。位置路径采用有连续切线的样条，检查相邻运动段的位置和速度衔接，不能每个段落独立套 ease-in-out 后产生反复停车。\n\n远处每只鸟以约 2–3 px 的深靛蓝点显示；靠近后逐渐显出短身躯、三角尖翼和短方尾，不用椭圆身体加两个随意线段代替。让鸟的朝向跟随投影后的运动方向。拍翼与滑翔交替，个体相位错开；拍翼频率可从约 7–9.5 Hz 起调，若在 30fps 成片中混叠，调整动画或运动采样，不能接受频闪。\n\n远近鸟的表示切换要平顺，不能在尺寸阈值处突然多出翅膀或改变亮度。稀疏区域能看见单鸟，密集处仍由鸟点组成，不能用一块贴着噪声的实心多边形假扮鸟群。\n\n五、70 秒事件时间线\n\n所有时间共享一份事件数据。下列范围是动作阶段，不是要切换场景的剪辑点。允许为运动连续性小幅调节内部曲线，但保持总时长、事件顺序和观感。\n\n0–6.5 秒：建立湿地。\n低太阳悬在金色天空中，细云缓缓移动，水面有竖向日光反射，前景芦苇轻摇。给观众一次安静的呼吸。约 5 秒后可以出现第一批极远的小鸟，6.5 秒后明显进入汇聚阶段。\n\n6.5–21 秒：聚集。\n小群从两侧和不同深度飞来，陆续融入中心的薄片。让中心先成形，再向两端补齐。用连续插值把每只鸟从所属小群的位置送入自己的薄片位置，保持速度连续；不要整群同时弹出、统一淡入或像几个椭圆气泡粘在一起。\n\n21–34 秒：群体折叠。\n薄片缓慢弯曲、扭转，局部朝向观众时密度增大，形成沿群体移动的深色丝带。太阳逐渐靠近远岸，天空从金黄转成粉金。必须能同时读到鸟点与群体体积，不让它变成扁平旋转贴纸。\n\n34–45 秒：猎隼。\n约 33–37 秒猎隼从右上方进入并盘旋；约 37.2–38.3 秒收翼俯冲，38.3 秒穿过群体。猎隼的轮廓比远鸟大而明确，运动有加速与拉起。\n用猎隼当前位置及约 0.25、0.5 秒前的位置建立逐渐衰减的局部排斥场，使它身后留出跟随移动的空洞；再沿薄片传播一次扭转扰动和临时裂隙。空洞必须与猎隼实际位置一致。鸟群分开后自然合拢，不能突然爆炸成随机粒子，再瞬移回队形。\n\n45–57 秒：从头顶掠过。\n群体向观众靠近，画面中的个体逐渐变大，可以读到拍翼；约 49.9 秒达到视觉与音乐的主要抬升。摄像机轻轻抬头，让地平线从 y≈770 连续下移至 y≈1020；所有相关层使用同一地平线函数。\n鸟群从画面上方飞出并经过相机后方，约 51.3–56 秒天空暂时空下来，留下暮色与呼吸感。随后鸟群重新从上方出现并飞远，镜头平缓回落。空场是事件的一部分，不能插入黑帧、白帧或假转场。\n\n57–66 秒：归巢。\n群体在远岸上方收紧，从靠近归巢点的一端开始，依次流入芦苇。约 59.4 秒开始明显下落。归巢点可设在画面中心偏左的远岸，对应世界坐标约 X=-50、Z=330。\n每只鸟有略不同的进入时间；进入后沿逐渐收缩的盘旋轨迹降低高度，最后被芦苇遮住。盘旋要在当前景别下可读，不能让整群只变成一块向下收缩的三角楔形。水中同步出现收束的倒影。到达之前不能凭空消失。\n\n66–70 秒：夜色落定。\n少量落单鸟从右方赶来，最后落入芦苇；主群已经离开天空。星星逐渐出现，水面和芦苇仍有微弱运动。结尾停留在有生命的夜景，声音自然收尾，不加标题、Logo 或字幕。\n\n六、湿地环境、反射和遮挡\n\n前景使用约 210 株有固定身份的芦苇。茎是有粗细变化的弯曲带，叶片从茎上长出并弯垂，穗头下垂且比主体茎叶略亮。每株有独立相位，同时受到共同阵风驱动。根部固定，越靠近顶部摆幅越大，不能整株平移或同步像节拍器摆动。\n\n远岸应薄而有层次，包含细芦苇轮廓和少量树冠起伏；不要用一条笔直黑线横切天空。云是柔软而不均匀的细长色块，避免画成机械的几根平行直线。星光少而克制，不用高频闪烁。\n\n水面反射必须从网点化之前的各色版覆盖率取得：沿地平线翻转上方的天空、太阳、岸线与鸟群，再按约 2 px 高的水平细条加入连续正弦横向偏移，越靠近观众偏移幅度可略大。然后再统一网点化。不要反射已经印好网点的 RGB 位图。\n\n额外生成“仅鸟群”的遮罩和使用同一波纹偏移的鸟群倒影遮罩。日光闪点的遮罩应扣除鸟群倒影，不能把金色亮点直接画在深色鸟影上。\n\n太阳在水中的光路是固定在画面上的细横条和少量亮点，亮点以约两秒的尺度缓慢变长、变短。不要快速开关，也不要通过降低极细笔画的半调覆盖率让它们忽隐忽现。随着太阳落下，光路自然减弱。鸟群、反射、光路和前景共享同一组时间与空间参数。\n\n七、配乐规则\n\n配乐使用温暖、安静的室内弦乐音色，可使用有明确再分发许可的免费弦乐录音样本，或自行实现 Web Audio 合成。若使用样本，在制作时取得并内嵌 HTML，记录名称、来源、许可、根音与处理方式；运行时不下载。\n\n配置为柔和小提琴主旋律、大提琴支撑与回答、居中的低音提琴。以 D 大调、六度与附加九度色彩为主，猎隼段短暂加入 B 小调色彩。用 D–E–A–F♯ 作为短动机，归巢时以 A–F♯–E–D 回应。通过节奏、音区、和声与织体变化发展动机，避免整曲机械循环。\n\n节拍有 6/8 的复合拍感觉，每分钟约 48–62 个附点四分音符，随群体速度与密度缓慢变化。不要把它误当成 48–62 个八分音符。旋律以长弓和呼吸为主；低音保持中心，小提琴只轻微跟随鸟群横向位置。不加重鼓点、夸张撞击、写实鸟叫或煽情预告片音效。\n\n声音与画面读取同一事件表，按以下时间安排音乐变化：\n- 0–5.1 秒：低 D 与缓慢起弓，空间安静但不是突兀的数字静音。\n- 约 5.1 秒：鸟群逐渐可见时，小提琴首次提出短动机。\n- 约 21 秒：旋律回归，内声部开始活动。\n- 约 38.3 秒：猎隼穿过，短暂小调变化和柔和弓音，不做爆炸式重击。\n- 约 49.9 秒：近景掠过时，旋律抬高，是全片主要音乐起伏。\n- 约 51.3–56 秒：鸟群经过相机后方，织体变薄，保留低音与开放五度。\n- 约 56 秒：小提琴提前约 0.45 秒引向回归，然后向下回答。\n- 约 59.4 秒：群鸟开始流入芦苇，大提琴下降，音乐安定。\n- 66–70 秒：开放 D 和柔和混响尾音，69.5 秒后接近静音。\n\n音乐起伏对应鸟群的整体动作，拍翼不逐次触发音符。弓弦渐强、和声变化与可见事件自然衔接，保留柔和的起弓和延音。\n\n如果用录音采样，检查真实根音和八度约定，避免文件名造成整整一个八度的错误；尽量限制大幅移调，长句通过重叠换弓衔接，不使用明显循环接缝。合成弦乐需具有柔和起音、细微泛音变化与自然收尾。\n\n输出 48 kHz 双声道，主音频长度为 70 秒。整曲统一测量和增益调整，目标约 -16 LUFS，true peak 不高于 -1 dBTP，不削波。不要通过硬限幅把所有动态压平；不要每个段落独立归一化。聆听并检查开头、结尾、接缝和近景高潮。\n\n音符表、力度变化、合成噪声和混响脉冲也使用固定数据或固定种子；重复离线渲染同一配乐应得到一致结果。播放器只负责从对应时间播放这条主音轨，不能每次播放都随机重新作曲。\n\n八、时间轴与可复现渲染\n\n初始化时创建固定随机种子、鸟的身份、芦苇、纸纹和各色版阈值。对任意 t∈[0,70]，所有画面由同一时间与这些固定数据决定。冷启动直接跳到 38.3 秒，与从 0 秒播放到那里，结果应该一致。\n\n提供 window.film 接口，包含以下属性与方法：\n- duration=70、fps=30、width=1080、height=1080。\n- ready：初始化完成后设为 true。\n- seek(t)：ready=true 后，同步把指定时间的画面绘制到主画布。\n- renderAudio()：返回可保存的 48 kHz 双声道 WAV 数据，并缓存结果。\n- shots 与 marks：从共享事件数据生成的动作阶段和关键时间点。\n\n渲染与检查脚本通过该接口读取时间轴、导出画面与获取音频。\n\n播放器支持播放、暂停、重播、拖动时间和独立声音开关，初始静音。按钮、时间戳和制作说明均在画布外。暂停、跳转和重播要正确停止旧音源并从对应位置恢复，不能叠加播放多条音轨。播放器静音只影响监听，不应让最终导出意外失去音轨。\n\n以离线逐帧渲染的成片质量为优先。若 1080 下的复杂色版合成不能实时达到 30fps，明确说明，提供有上限的缓冲或用导出的 MP4 检查节奏；不要悄悄把 70 秒动作拖长。不要把全部 2100 张原始 RGBA 帧同时放进内存。\n\n优化顺序：缓存静态背景和固定纹理；同色同类路径批量绘制；小范围模糊使用有边界的临时画布；用 TypedArray 保存鸟群数据；每个色版每帧只做必要的像素读写。不能为省性能把鸟群换成静态轮廓，或把网点印刷退化为随屏幕移动的噪声贴图。\n\n九、制作与检查流程\n\n阶段一：构图与关键画面。\n先确定明暗层级和主体位置，制作约 24 秒的群体折叠关键帧、约 38.3 秒猎隼穿越帧、约 50.8 秒近景帧。优先证明“鸟点形成丝带”的效果，再增加纸纹和细芦苇。输出原生 PNG 和 1:1 局部，不只看缩略图。\n\n阶段二：最难的动作。\n先实现一小段连续折叠与倒影，再实现猎隼造成的空洞。提前编码短 MP4，正常速度观察。纸纹好看不能弥补主体像扁平椭圆，单帧好看也不能证明运动自然。\n\n阶段三：完整无声动画。\n接通 70 秒时间线，从头检查动作、摄像机、光照、反射和归巢。先修复空洞跟错目标、相机附近投影翻转、尺寸切换跳变、主体遮挡和末段楔形收缩，再细化纹理。\n\n阶段四：配乐与合片。\n根据画面实际事件生成音乐，检查音频长度、重复渲染一致性、响度和峰值；完成全片音视频合成。若只有配乐变化，复用已检查的画面，避免无意义地反复渲染整片。\n\n阶段五：画面和运动验收。\n- 在约 0、5.1、10、20、24、33.2、37.2、38.3、40、49.9、50.8、51.3、56、59.4、64、66.8、69.5 秒检查画面。\n- 在俯冲、薄片裂隙闭合、远近鸟切换、相机掠过、鸟群回归与归巢消失处，以 1/30 秒间隔检查前后连续帧。\n- 检查纸纹与网点是否稳定；快速移动先在覆盖率层做适量运动采样，再网点化，不能模糊完成的印刷画面来掩盖问题。\n- 测量水面光路区域相邻帧变化，结合正常速度观看，排查快速闪烁；亮点不能盖住倒影。\n- 同一时间重复 seek、乱序 seek、冷启动 seek，结果应一致；确定性通过后，仍需独立检查连续性，循环参数的瞬移也可能是确定性的错误。\n- 鸟群分布要有疏密变化，近鸟轮廓清楚，归巢形成有旋转感的流动，不能只有整块平移或缩放。\n- 输出 PNG 检查细网点；输出编码后的 MP4 检查运动和压缩，不因 H.264 色度抽样损失而误判原始绘图。\n\n最终逐帧导出 i=0…2099 对应 t=i/30 的 2100 帧，保持 1080×1080、30fps、70 秒。使用 H.264 视频与 AAC 双声道音频，MP4 包含完整音轨，保留无损音频母版。编码参数以保护细网点和高密度鸟群为准，不为了体积把颗粒压成一片。\n\n完整解码检查文件可读、帧数、时长、尺寸与音轨。记录实际完成的检查结果；未完成的观看或聆听检查标为待复核，并列出对应时间点。\n\n十、交付\n\n交付以下文件，命名与保存位置遵循当前项目已有规则：\n- HTML 文件：可独立播放的完整作品。\n- MP4 文件：完整 70 秒成片。\n- WAV 文件：无损音频母版。\n- 联系表 JPG 与关键帧 PNG 文件：供快速检查。\n- 生成、渲染、验证脚本及简短运行说明文件。\n- 制作记录文件：分镜、核心算法、实际检查结果、已修复问题、仍存在的不足，以及使用音频素材时的来源和许可。",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "4d12dbee723291060d5c0b633c0e4043c88c1e5524aa10000a0ddda4e16ff8b1",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": []
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-03T07:12:44.918Z",
+      "finished_at": "2026-11-03T11:06:39.367Z",
+      "wall_seconds": 14034.449,
+      "is_revision": false,
+      "video_filename": "experimental-job_33f1ea7b.mp4",
+      "video": {
+        "duration_ms": 70000,
+        "width": 1080,
+        "height": 1080,
+        "size_bytes": 436918045
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    },
+    {
+      "id": "job_b34ef9de",
+      "title": "Anatomy 结构片修改版",
+      "job_id": "job_b34ef9de-b335-44e9-9264-8615398202ec",
+      "session_id": "sess_6608ef32-98be-4c11-8f7a-d7ccf68bfcb3",
+      "prompt": "22～23s中间有跳变帧，需要优化一下，然后背景改成中世纪复古风格",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "776859db03606048998d296928e93dbaf3574deb761fb9aec2e684396e1bc8a3",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": [
+          "anatomy"
+        ],
+        "configured": [
+          {
+            "id": "anatomy",
+            "name": "Anatomy",
+            "version": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+            "archive_sha256": "d7c3b72c54099de6d333745c385a287613d220e13236a2bd9dbe17b1ae5675a0",
+            "description": "精密机械与等轴造型；建议搭配 Coding to Video 生成视频。",
+            "source": {
+              "repository": "https://github.com/wheresryan22/anatomy",
+              "commit": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+              "license": "MIT"
+            }
+          }
+        ]
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-04T11:53:48.616Z",
+      "finished_at": "2026-11-04T13:10:24.006Z",
+      "wall_seconds": 4595.39,
+      "is_revision": true,
+      "video_filename": "experimental-job_b34ef9de.mp4",
+      "video": {
+        "duration_ms": 30000,
+        "width": 1920,
+        "height": 1080,
+        "size_bytes": 35599395
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    },
+    {
+      "id": "job_ba6d7fe3",
+      "title": "A THOUSAND YEARS IN ONE PAGE",
+      "job_id": "job_ba6d7fe3-7930-4974-997b-8fa780587956",
+      "session_id": "sess_2d97db5a-6b1b-4c39-bffd-62a4312650a6",
+      "prompt": "Create a 40-second landscape motion graphics film called “A THOUSAND YEARS IN ONE PAGE.”\nThis is an imaginary city, not a reconstruction of real history.\n0–8s: A blank sheet of paper folds itself into a tiny riverside settlement. The river is translucent blue-green glass embedded in paper.\n8–18s: Buildings rise and change around the same town square. Roads draw themselves across the page. Seasons sweep through the scene.\n18–29s: The city becomes a spectacular vertical metropolis. Peel back layers to reveal miniature transit tunnels, gardens, and infrastructure beneath it.\n29–36s: The camera circles while daylight becomes night. Thousands of windows illuminate in a carefully staged wave.\n36–40s: Fold the city back into the original sheet, matching the opening composition for a loop.\nUse tactile paper, charcoal labels, emerald foliage, warm window light, and restrained captions. Favor a coherent miniature world over constant cuts. Preview the unfolding and refolding first. Deliver a 1080p MP4 and editable scene. If full 3D rendering is unavailable, propose and build a layered alternative.",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "4d12dbee723291060d5c0b633c0e4043c88c1e5524aa10000a0ddda4e16ff8b1",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": []
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-03T09:54:56.705Z",
+      "finished_at": "2026-11-03T12:10:19.212Z",
+      "wall_seconds": 8122.507,
+      "is_revision": false,
+      "video_filename": "experimental-job_ba6d7fe3.mp4",
+      "video": {
+        "duration_ms": 40000,
+        "width": 1920,
+        "height": 1080,
+        "size_bytes": 76680094
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    },
+    {
+      "id": "job_eb29b834",
+      "title": "按钮与灯泡结构拆解",
+      "job_id": "job_eb29b834-8559-458f-95a5-48788e8edc42",
+      "session_id": "sess_4288c656-b313-4c83-b990-5665c9fde72b",
+      "prompt": "参考附图，帮我做一个18秒左右的机械拆装小动画：一只弹簧按钮拆开、重新装好，按下后点亮旁边的小灯泡。整个画面用代码绘制和驱动。\n\n保留图里底板、开放式按钮、电池和灯泡的布局。背景用暖白色，框架是钢灰色，触点和铜桥带一点黄铜、铜的颜色，按帽是奶油白，灯泡有透明玻璃和细灯丝。希望是精密的等轴机械插画，有细描边、真实厚度和柔和阴影，能看清螺钉、滚花和弹簧，整体明亮、小巧、有质感。\n\n开头用两秒展示完整装置，灯泡还没有亮。接着让按帽、弹簧、导向顶板、推杆与铜桥依次分离，在按钮上方沿安装轴分层悬停；底板、电池、灯泡和接线保持原位。稍作停留后，按相反顺序装回去，每个零件接近安装位置时减速，轻轻落位，让人看懂它们是怎么连接的。\n\n后半段推近按钮内部，按帽下移，弹簧压缩，铜桥同时接触两只触点，小灯泡随之亮起暖金色的光。停一下，再松开按钮，弹簧回弹、触点分离，小灯熄灭。最后镜头退回，再按下一次，停在小灯温暖发亮的画面。特写时也让灯泡留在画面里，能同时看见按压动作和亮灯结果。\n\n镜头保持等轴角度，平滑推进和拉回。零件运动要有一点重量感，接合准确，弹簧压缩自然。横屏1080p、30fps，静音。画面只保留装置，不加图纸上的文字、编号、边框或其他标识。",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "776859db03606048998d296928e93dbaf3574deb761fb9aec2e684396e1bc8a3",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": [
+          "anatomy"
+        ],
+        "configured": [
+          {
+            "id": "anatomy",
+            "name": "Anatomy",
+            "version": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+            "archive_sha256": "d7c3b72c54099de6d333745c385a287613d220e13236a2bd9dbe17b1ae5675a0",
+            "description": "精密机械与等轴造型；建议搭配 Coding to Video 生成视频。",
+            "source": {
+              "repository": "https://github.com/wheresryan22/anatomy",
+              "commit": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+              "license": "MIT"
+            }
+          }
+        ]
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-04T09:23:34.140Z",
+      "finished_at": "2026-11-04T09:42:42.972Z",
+      "wall_seconds": 1148.832,
+      "is_revision": false,
+      "video_filename": "experimental-job_eb29b834.mp4",
+      "video": {
+        "duration_ms": 18000,
+        "width": 1920,
+        "height": 1080,
+        "size_bytes": 6884283
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    },
+    {
+      "id": "job_f592e7ec",
+      "title": "THE FIRST SPARK",
+      "job_id": "job_f592e7ec-5745-482c-9833-29f43ff3766a",
+      "session_id": "sess_9105353c-0d52-4574-97f1-628cf9cdf078",
+      "prompt": "PROJECT: THE FIRST SPARK — Procedural Animated Short Film\n\nYou are a senior creative coder, generative artist, animation director, and JavaScript graphics engineer.\n\nYour task is to create a visually stunning, fully animated short film using procedural JavaScript drawing.\n\nI have attached a reference image showing a minimalist black-ink animation on an off-white background.\n\nUse the reference to understand the visual language, but create an original animation with its own story, composition, and movement.\n\nDo not create a slideshow, static illustration, or simple particle demo. Build a genuine animated short film with evolving scenes, expressive character animation, cinematic transitions, and continuous visual storytelling.\n\n1. Technical requirements\n\nBuild the project using:\n\nJavaScript\nHTML5 Canvas 2D\nrequestAnimationFrame for real-time playback\nProcedural geometry and vector-based drawing\nBezier curves, paths, particles, and custom brush strokes\nDeterministic animation based on a master timeline\n\nAll visual elements must be generated through JavaScript code.\n\nDo not use:\n\nAI image-generation APIs\nAI video-generation APIs\nExternal images or pre-rendered video\nStock footage\nCSS-only animation\nStatic illustrations disguised as animation\n\nThe animation must be genuinely generated by code.\n\nYou may use lightweight JavaScript libraries if they meaningfully improve the animation, but prioritize Canvas 2D.\n\n2. Visual direction\n\nCreate a hand-drawn, minimalist, experimental animation.\n\nVisual characteristics:\n\nWarm off-white paper background\nDeep black ink illustrations\nSlightly imperfect hand-drawn outlines\nOrganic brush strokes\nVariable line thickness\nInk splashes and subtle paper grain\nExpressive silhouette-based character design\nFluid, organic movement\nOccasional dramatic camera movements\nCinematic composition\n\nThe visual result should feel like a professional independent animated short film.\n\nAvoid generic geometric motion graphics, repetitive particle effects, and simple bouncing shapes.\n\nEvery scene should have a clear visual purpose.\n\n3. Story: THE FIRST SPARK\n\nCreate an original 60-second animated short film.\n\nThe story follows a tiny character that emerges from a drop of black ink and gradually discovers how to create a world.\n\nSCENE 1 — THE BEGINNING (0–8 seconds)\n\nAn empty off-white canvas.\n\nA tiny black ink droplet appears in the center.\n\nThe droplet begins trembling.\n\nSmall irregular brush strokes emerge from it.\n\nThe ink slowly transforms into a tiny living character.\n\nThe character opens its eyes and looks around.\n\nThe camera gradually moves closer.\n\nSCENE 2 — DISCOVERY (8–18 seconds)\n\nThe character begins walking across the empty world.\n\nIts movement must feel alive, with animated limbs, body deformation, and subtle secondary motion.\n\nEvery step leaves behind small ink marks.\n\nThe character notices one of these marks and touches it.\n\nThe mark begins growing into an organic structure.\n\nSCENE 3 — CREATION (18–32 seconds)\n\nThe character discovers that its movements can create new objects.\n\nIt draws a line through the air.\n\nThe line becomes a tree.\n\nMore brush strokes emerge and transform into hills, plants, and abstract structures.\n\nThe camera follows the character as the world expands.\n\nObjects must visibly grow and transform through procedural drawing rather than suddenly appearing.\n\nSCENE 4 — CHAOS (32–44 seconds)\n\nThe character loses control of its creation.\n\nBlack ink spreads rapidly.\n\nThe landscape becomes distorted.\n\nTrees twist into abstract shapes.\n\nInk splashes fill the screen.\n\nThe camera shakes subtly as the character runs.\n\nThe animation becomes faster and more intense.\n\nUse fluid transitions between all visual elements.\n\nSCENE 5 — THE FIRST SPARK (44–55 seconds)\n\nThe character stops running.\n\nEverything becomes still.\n\nA small glowing point appears in its hand.\n\nThis is the only moment where a subtle warm accent color may be used.\n\nThe character releases the light.\n\nThe light expands into a circular wave.\n\nThe chaotic ink reorganizes into a beautiful, balanced landscape.\n\nThe camera pulls back to reveal the completed world.\n\nSCENE 6 — ENDING (55–60 seconds)\n\nThe character stands on a small hill and looks toward the horizon.\n\nThe camera slowly moves backward.\n\nThe entire landscape gradually transforms into a single small ink drawing on the original empty canvas.\n\nFade to off-white.\n\nEnd.\n\n4. Animation quality requirements\n\nThis is the most important part of the project.\n\nEvery scene must contain actual animation.\n\nThe character must have:\n\nProcedurally animated walking and running\nExpressive body language\nHead and body rotation\nSquash and stretch\nAnticipation and follow-through\nSmooth transitions between poses\n\nEnvironmental elements must have:\n\nOrganic growth animations\nContinuous subtle movement\nNon-repetitive procedural variation\nSmooth transformations between shapes\n\nImplement a virtual camera with:\n\nPosition\nZoom\nRotation\nSmooth tracking\nCinematic easing\n\nUse layered depth and camera movement to create visual richness.\n\nDo not rely on random movement alone.\n\nThe animation should be deliberately choreographed around the story.\n\n5. Timeline and rendering architecture\n\nCreate a centralized animation timeline.\n\nEvery visual state must be determined by the current timeline position.\n\nImplement a function similar to:\n\nrenderFrame(time)\n\nThe function must render the correct animation frame for any requested timestamp.\n\nUse seeded randomness so that rendering the same timestamp always produces the same image.\n\nDo not make the animation dependent on the number of previous frames rendered.\n\nThis is essential for deterministic video export.\n\nTarget specifications:\n\nResolution: 1920 × 1080\n\nAspect ratio: 16:9\n\nFrame rate: 30 FPS\n\nDuration: 60 seconds\n\nProvide an option to switch to 1080 × 1920 vertical format for social media.\n\n6. Preview and controls\n\nCreate a local web interface that allows me to:\n\nPlay and pause the animation\nRestart the animation\nScrub through the timeline\nJump between scenes\nAdjust playback speed\nSwitch between horizontal and vertical formats\nPreview the animation in real time\n\nDisplay the current timestamp and scene name.\n\n7. Video export\n\nImplement a reliable video export workflow.\n\nThe final animation must be exportable as a high-quality MP4 file.\n\nUse deterministic frame-by-frame rendering to avoid dropped frames or inconsistent timing.\n\nYou may use a suitable browser rendering pipeline, a frame-sequence exporter, or FFmpeg.\n\nDo not assume that recording the browser window in real time is sufficient for production-quality export.\n\nProvide a simple export command or interface.\n\n8. Development process\n\nDo not attempt to create the entire film as one enormous, untested code block.\n\nWork in stages.\n\nFirst:\n\nCreate the project architecture.\nImplement the Canvas rendering engine.\nImplement the deterministic timeline.\nCreate the character animation system.\nBuild Scene 1 as a fully functional visual prototype.\nRun the project and inspect the visual result.\n\nAfter the first scene works, continue implementing the remaining scenes.\n\nTest the animation at multiple timestamps.\n\nCheck for rendering errors, broken transitions, inconsistent character proportions, and performance problems.\n\nIf a scene looks too simplistic, improve its procedural drawing and choreography.\n\n9. Deliverables\n\nProvide:\n\nComplete JavaScript source code\nWorking local animation preview\nEditable scene definitions\nReusable character animation system\nReusable procedural drawing functions\nVideo export functionality\nInstructions for running the project\n\nThe final result must be a functioning animation, not just a technical demonstration.\n\nStart by implementing the first scene and the core animation engine. Once the prototype is functional, continue with the remaining scenes.",
+      "model_selection": {
+        "profile_id": "enhancement-default",
+        "name": "claude-opus-5-5/ccmax/sfa",
+        "model": "claude-opus-5-5/ccmax/sfa",
+        "endpoint": "https://tokenhub.sensetime.com",
+        "max_context_tokens": null,
+        "max_output_tokens": null,
+        "autocompact_pct": 80,
+        "revision": "0aecba933ae778cf"
+      },
+      "experimental_skills": {
+        "revision": "4d12dbee723291060d5c0b633c0e4043c88c1e5524aa10000a0ddda4e16ff8b1",
+        "builtin": "none",
+        "text": "",
+        "archive_name": null,
+        "archive_sha256": null,
+        "skills": []
+      },
+      "status": "COMPLETED",
+      "started_at": "2026-11-03T05:48:55.987Z",
+      "finished_at": "2026-11-03T07:38:49.236Z",
+      "wall_seconds": 6593.249,
+      "is_revision": false,
+      "video_filename": "experimental-job_f592e7ec.mp4",
+      "video": {
+        "duration_ms": 60000,
+        "width": 1920,
+        "height": 1080,
+        "size_bytes": 57424069
+      },
+      "evaluation": "历史展示素材，非本套测试结果；不纳入通过率。"
+    }
+  ],
+  "anatomy_source": {
+    "source_repository": "https://github.com/wheresryan22/anatomy",
+    "source_commit": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+    "source_license": "MIT; included as anatomy/LICENSE",
+    "skill_archive_bytes": 3054488,
+    "skill_archive_sha256": "d7c3b72c54099de6d333745c385a287613d220e13236a2bd9dbe17b1ae5675a0",
+    "skill_content_policy": "Original file bytes retained; pre-rendered PDF sheets omitted to fit upload limits. All kit, references, scripts and examples retained.",
+    "skill_files": [
+      {
+        "archive_path": "anatomy/.gitattributes",
+        "sha256": "cdd266359c792670902c16da138e75d6b10bba6251b1842191ab46939ae2c7aa",
+        "bytes": 89
+      },
+      {
+        "archive_path": "anatomy/.github/ISSUE_TEMPLATE/bug_report.yml",
+        "sha256": "8fca10aeb4e6f3d81a52300ab19f7e56524ae42d22eb2c176bda0ff5d8602919",
+        "bytes": 2808
+      },
+      {
+        "archive_path": "anatomy/.github/ISSUE_TEMPLATE/config.yml",
+        "sha256": "b6dcbdd46103891d9614c85e7f28a74452e3a2c5db7393c5444ad4a029880c0c",
+        "bytes": 213
+      },
+      {
+        "archive_path": "anatomy/.github/ISSUE_TEMPLATE/figure_request.yml",
+        "sha256": "69fdd31d68b4d49840d5a97618ad10a00e4e65c0632daaf00fb9660b42af13a5",
+        "bytes": 1917
+      },
+      {
+        "archive_path": "anatomy/.github/PULL_REQUEST_TEMPLATE.md",
+        "sha256": "95bb2be701cd6e1e3e9797596b573f2324d903288bce9b01b114ca3455b1a239",
+        "bytes": 1005
+      },
+      {
+        "archive_path": "anatomy/.github/assets/dial-indicator.webp",
+        "sha256": "a1f0550e0938a3c76316fddd272792d5f50609cceca7217606b187868d7f4fe7",
+        "bytes": 17360
+      },
+      {
+        "archive_path": "anatomy/.github/assets/raptor-engine-apart.webp",
+        "sha256": "db1bee237411d26d97e2e88f60949a75f9f160a0139d03382f46a2e2d6801050",
+        "bytes": 35144
+      },
+      {
+        "archive_path": "anatomy/.github/assets/raptor-engine-firing.webp",
+        "sha256": "c42a9eb6aacb506f7baf0fd91d4fbb04649999e9615f9847585daff595a62d55",
+        "bytes": 37752
+      },
+      {
+        "archive_path": "anatomy/.github/assets/ripple-tank.webp",
+        "sha256": "1312c34386e18792d44c3d3e1939d22e14bc48ce67e4f48eb29c543e741f79c2",
+        "bytes": 34680
+      },
+      {
+        "archive_path": "anatomy/.github/assets/turning-dial.webp",
+        "sha256": "f77d1a97efc718d875ca3abfa0c0a0b64049797006e188f804383d0173281739",
+        "bytes": 29958
+      },
+      {
+        "archive_path": "anatomy/.github/workflows/ci.yml",
+        "sha256": "f3ec3ef9801e52f6a4bb130850bd1ab7596dbc3d6fdd528a30ce596d848c2998",
+        "bytes": 2070
+      },
+      {
+        "archive_path": "anatomy/.gitignore",
+        "sha256": "7c5643678afca2968d59cefb246fdd0ab5233138e7d1a1667e1809909f8bd5ad",
+        "bytes": 216
+      },
+      {
+        "archive_path": "anatomy/CHANGELOG.md",
+        "sha256": "b0305b4561400a9caaa31de78d9ba434b4f1b908253fff8bc9dda30100d6287e",
+        "bytes": 14983
+      },
+      {
+        "archive_path": "anatomy/CODE_OF_CONDUCT.md",
+        "sha256": "dd94a5c1483143876992d096247d6b5531fd7a1041728bee339b007fe15764e5",
+        "bytes": 5673
+      },
+      {
+        "archive_path": "anatomy/CONTRIBUTING.md",
+        "sha256": "a62d35373c6eb6e65ac9c0550b5e213d25d82674969d0c0d985456e9e735c966",
+        "bytes": 8949
+      },
+      {
+        "archive_path": "anatomy/LICENSE",
+        "sha256": "87c078ab9d90a3044f359e6b563d4e6afea7aa060897cf4f21618687b3856796",
+        "bytes": 1061
+      },
+      {
+        "archive_path": "anatomy/README.md",
+        "sha256": "a1bc269d3d1b75a230a2ae54cb43c63c19a0a3a067f6a7bb0baf5a7785e3de16",
+        "bytes": 26199
+      },
+      {
+        "archive_path": "anatomy/SECURITY.md",
+        "sha256": "c9bd6a03b51053be6321f88110f9589e73c1cb00aa81d9d1c2881e94073e9629",
+        "bytes": 1240
+      },
+      {
+        "archive_path": "anatomy/SKILL.md",
+        "sha256": "3423ada45a05033bb6e320dfc3b3ac832569969a5afb059bbfc9096c5cf0c71b",
+        "bytes": 33589
+      },
+      {
+        "archive_path": "anatomy/agents/openai.yaml",
+        "sha256": "254b17510460bc5151295b1e1e40b6a1aceeff60a0dda4e9594adcfa36819526",
+        "bytes": 120
+      },
+      {
+        "archive_path": "anatomy/evals/evals.json",
+        "sha256": "b79afa9daa10084c71bb18c3baafef403a929c1d707b2be4c636952ae1896dd4",
+        "bytes": 8226
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/arcade-cabinet-light.html",
+        "sha256": "f54197aa4c3b7e5b00469266f38f79bc0d907f52bf572838eea2acaac89ddbc7",
+        "bytes": 1008995
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/arcade-cabinet.css",
+        "sha256": "a0ea7bce89a665ddd13f72daf31849c07d8b517b66a3d555543aa506b8933629",
+        "bytes": 3221
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/arcade-cabinet.html",
+        "sha256": "54dffaa73cca2169198de6db28bf4b370cff28bd3b5d4fb32078ae4fde80d0ab",
+        "bytes": 1008994
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/build.mjs",
+        "sha256": "be649f9fed8f1841b96546577729096af63670ef7b83d4cec32716df3429a03d",
+        "bytes": 51665
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/live.js",
+        "sha256": "d9f02ea9193f3109501333bdfb4ab297a71457aaba431f05f5df667ea8c40c8f",
+        "bytes": 21286
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/parts.mjs",
+        "sha256": "3ba74b8c55e72933b1e119e3d24c939f654b2c43d41ff26cf855f064cbc7d2a3",
+        "bytes": 4296
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/screen.mjs",
+        "sha256": "8fbb8aebb1d657508979ec9b58a29281c71403396df1fcdc6f8f834fe9097be9",
+        "bytes": 6701
+      },
+      {
+        "archive_path": "anatomy/examples/arcade-cabinet/sheet.mjs",
+        "sha256": "b5f71ec5682e49c954ba344ee66a2f75d06f76fe7006e6a714c71cc0552eff81",
+        "bytes": 5525
+      },
+      {
+        "archive_path": "anatomy/examples/desk-computer/build.mjs",
+        "sha256": "d378f9814acf75bc915921d4f2d83ed1eb4991a8b4298eb0de0e10383b2ff66d",
+        "bytes": 23023
+      },
+      {
+        "archive_path": "anatomy/examples/desk-computer/desk-computer-light.html",
+        "sha256": "ce63c5bed81b76491a82f5e94d22e5f64744c87bc448fdad8726ae0c6ecd0b59",
+        "bytes": 237394
+      },
+      {
+        "archive_path": "anatomy/examples/desk-computer/desk-computer.html",
+        "sha256": "94f04084c1ce997a88e60fc0b4d9c5b6dbe859b95ee0dd7a10603e648fced2bc",
+        "bytes": 237393
+      },
+      {
+        "archive_path": "anatomy/examples/dial-indicator/build.mjs",
+        "sha256": "e4eaa2324af7f2630650ca72e52a78d56159213a786e14fba8321344789f990d",
+        "bytes": 14973
+      },
+      {
+        "archive_path": "anatomy/examples/dial-indicator/dial-indicator-light.html",
+        "sha256": "bc1810e340d916a25cc1749589b44096b7e41970f22fa7fce569bbefc0613093",
+        "bytes": 136489
+      },
+      {
+        "archive_path": "anatomy/examples/dial-indicator/dial-indicator.html",
+        "sha256": "2ba95d49a5432a5aa764fca89af91ab91043531669609ed57b92bd50b51e5519",
+        "bytes": 136488
+      },
+      {
+        "archive_path": "anatomy/examples/push-button/build.mjs",
+        "sha256": "830973d137441897f03f55d2f19ba0a5f9b22221e72bf5060809753ebfb02e45",
+        "bytes": 16283
+      },
+      {
+        "archive_path": "anatomy/examples/push-button/push-button-light.html",
+        "sha256": "88b1a2a242d7674a23c802d3657257dda52c997ccbe7bdff4534d0dff5ad29bd",
+        "bytes": 127449
+      },
+      {
+        "archive_path": "anatomy/examples/push-button/push-button.html",
+        "sha256": "1408c226200c87cb36409e3c687ec4945fe9e4b9025ba0e91bcffce2dc1a2815",
+        "bytes": 127448
+      },
+      {
+        "archive_path": "anatomy/examples/push-button/sheet.mjs",
+        "sha256": "be472b279a847016d4ea3ca4ab28365998e1f737248049248270a4d7471db828",
+        "bytes": 4050
+      },
+      {
+        "archive_path": "anatomy/examples/raptor-engine/build.mjs",
+        "sha256": "cf5dc0d679bee415fc36c74f2e67d4620e106011037dd3a0d44dcdc559084427",
+        "bytes": 70875
+      },
+      {
+        "archive_path": "anatomy/examples/raptor-engine/live.js",
+        "sha256": "03d801ef2b75e17a38ebc3d5cb9178747226ea8c2e0c527caafb9c72844d88d8",
+        "bytes": 30752
+      },
+      {
+        "archive_path": "anatomy/examples/raptor-engine/raptor-engine-light.html",
+        "sha256": "48f64b954b93567f1a5ca87fa823c34ae9e81842fa5b95512deba6b22b37a537",
+        "bytes": 1611624
+      },
+      {
+        "archive_path": "anatomy/examples/raptor-engine/raptor-engine.html",
+        "sha256": "cb2b7df8f24bf86fe870aa25598e348626af263332c553b90bd574dd029a257b",
+        "bytes": 1611623
+      },
+      {
+        "archive_path": "anatomy/examples/raptor-engine/raptor.css",
+        "sha256": "f850575feeeacac8ef5d9d9c49359f4deaef848666c68a4dafa9727fe926cd6e",
+        "bytes": 6792
+      },
+      {
+        "archive_path": "anatomy/examples/raptor-engine/sheet.mjs",
+        "sha256": "20a125dc6db40c7e874e3c928e5e119ad4e998387b7e0bf62bb612d6d9815c48",
+        "bytes": 6324
+      },
+      {
+        "archive_path": "anatomy/examples/ripple-tank/build.mjs",
+        "sha256": "5a5b846bcd146630be3eafb73ebd04cfdd2101d05def15a877fff7188822b493",
+        "bytes": 32062
+      },
+      {
+        "archive_path": "anatomy/examples/ripple-tank/live.js",
+        "sha256": "5bff25143635ff13af50a7bee015289d8ada5a2f5b13c0cdb8a1516897f03944",
+        "bytes": 21741
+      },
+      {
+        "archive_path": "anatomy/examples/ripple-tank/model.mjs",
+        "sha256": "f6315aa53e80c0c69bf3c52baf0a1340ca4daacfae80245def02f357c2d33882",
+        "bytes": 5004
+      },
+      {
+        "archive_path": "anatomy/examples/ripple-tank/ripple-tank-light.html",
+        "sha256": "15b5b7a1e738fb5e435e9c1dccea874f6d292962fb31943fdd4466c15b351b59",
+        "bytes": 505499
+      },
+      {
+        "archive_path": "anatomy/examples/ripple-tank/ripple-tank.html",
+        "sha256": "7bd07bcc9784d9536bb9f00d6fa3440765edf65fe086687718229a0a31a5911e",
+        "bytes": 505498
+      },
+      {
+        "archive_path": "anatomy/examples/ripple-tank/ripple.css",
+        "sha256": "1bf7a778f0b50928adcd54e67c44aa2b12a6877b45f15a0b697d87ab7be0dd5c",
+        "bytes": 1675
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/art.tsx",
+        "sha256": "aecef8d6ee247e99d52717371a319283af8b1bbba2adfcdd4d012553d2963b38",
+        "bytes": 4491
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/drops.ts",
+        "sha256": "9bec874c5e324d69a25cc9085ecf2c5d9c3c2e3bd1a8c667c45e048301b899d4",
+        "bytes": 19131
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/fan.ts",
+        "sha256": "648c1d946e9512afcae60e077d2436926ca1ea94b02c944df8624419812077b1",
+        "bytes": 2715
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/figure.tsx",
+        "sha256": "b9db1ef99bfac58d55d0506f05e0c178e5c9566c61cbf26826ea25cfaa57805f",
+        "bytes": 1078
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/geometry.ts",
+        "sha256": "faf7d6bf1b475daacd4751687d409d7a5c03a6c2bb216ae81beadce5a3cea99a",
+        "bytes": 10962
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/live.tsx",
+        "sha256": "e96fd47aa4ab250a6b2c6fe3c6c3c96d4bcf737dff7f084d4912f5d1ef195116",
+        "bytes": 11718
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/rig.ts",
+        "sha256": "b19fc1637a1f4c411c23f34c7a48361f308402b15b11efc44fb6555e8f67ceea",
+        "bytes": 8160
+      },
+      {
+        "archive_path": "anatomy/examples/spot-plate/spot-plate.css",
+        "sha256": "b31e4c8e02f4de0b77fe0a71718f59d7df2e3abc3d9772f802e00fc3d8a582bd",
+        "bytes": 1518
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/art.tsx",
+        "sha256": "a6b8c1094a9402380d9835ecedbcc677254686b7391027a20da10fc8bf24dae5",
+        "bytes": 7372
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/figure.tsx",
+        "sha256": "2dbaef167b9a6a96de74357fc57ae2a650159007852d3d4e8c471b8837e463a9",
+        "bytes": 850
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/geometry.ts",
+        "sha256": "b8c275eb58b093a85c312f90dc5d79fd9d9a93ae266e42a8a6fa7f6f9aaeb571",
+        "bytes": 13085
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/live.tsx",
+        "sha256": "46a4c338a2805fc0078a20d6f4e12d9de20fc4145ec051ffce3964b164c5a7da",
+        "bytes": 17463
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/pose.ts",
+        "sha256": "380e1d07afcaa3a4e2cd1b13556500f2b336e354fa1c369918b3173f0c9d0866",
+        "bytes": 3894
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/rig.ts",
+        "sha256": "9672431d6982acaa7b6f28e88e1371443bd6a10fb906ff52fc7bdb0f5fd88b05",
+        "bytes": 5604
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/stretch.css",
+        "sha256": "dd15f4582b5fb9b228dc7e32ef57dbcba0129dad38b36e5707247eeb7a2abe8b",
+        "bytes": 1210
+      },
+      {
+        "archive_path": "anatomy/examples/test-rig/view.ts",
+        "sha256": "5465a3e122c2074f8de755b874c7bdb783b365e4140e3e741fc91a32cd69500c",
+        "bytes": 3116
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/build.mjs",
+        "sha256": "dcb1b2a1fec2c98c2cea401c6a5b1c7e6545da3b5ea08433cfd72a7f27a49248",
+        "bytes": 32098
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/dial.css",
+        "sha256": "769fc9596dcd2bbc46823d6e2816a3e584b52e0a6db359d93bedce16f354bedd",
+        "bytes": 509
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/live.js",
+        "sha256": "e872f0d930ba583ce7c4c252a3767aa6b9f6cd1f97fe6dddb212653a0579b41f",
+        "bytes": 12523
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/stress.mjs",
+        "sha256": "6d3aec19d8ce6daadffe15113da9415c2fe084c6407d1bb7fb4b5fec86330314",
+        "bytes": 19414
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/turning-dial-light.html",
+        "sha256": "7873a4873e4f1a204ca59691765915f155f44095c2c290730aa2b915b4c88c9e",
+        "bytes": 673894
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/turning-dial-verify-light.html",
+        "sha256": "7516d25e04c8a2c7d3abc7bf19e78985cfca2a2f37e1de72740808a977346366",
+        "bytes": 701752
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/turning-dial.html",
+        "sha256": "e477d45029568c45966bf2e4ae2353265e065b90663877e8c21de5b6741e4e90",
+        "bytes": 673893
+      },
+      {
+        "archive_path": "anatomy/examples/turning-dial/turning-stress-light.html",
+        "sha256": "e175e82f1bba087bb6031e375fb5da386f4f779e89e91a7864f7fc298b8b14e3",
+        "bytes": 1228774
+      },
+      {
+        "archive_path": "anatomy/kit/audit.mjs",
+        "sha256": "74e605b5d549c1f31c8a1104db7560057105cf86809bf6ced00e4ac79194c8e2",
+        "bytes": 92618
+      },
+      {
+        "archive_path": "anatomy/kit/canvas-painter.mjs",
+        "sha256": "1918db10279c9d9df87d7df52c7ed8c2de8acd0bbce214c8f2115a39e7f955ac",
+        "bytes": 27535
+      },
+      {
+        "archive_path": "anatomy/kit/gl-shared.mjs",
+        "sha256": "8c3773cf3e15844df332db3ba55af940186edb2227201e5839347ecc390c039c",
+        "bytes": 8863
+      },
+      {
+        "archive_path": "anatomy/kit/gl.mjs",
+        "sha256": "17a477411e0b9fcb8e84e718094eaefa6be2c0b7d6ce15ee03fe8e252944130a",
+        "bytes": 8763
+      },
+      {
+        "archive_path": "anatomy/kit/iso-kit.mjs",
+        "sha256": "6d3ecc725d30c3b0346da309cf61dfa5a65017c23620bbd4093009d4fb104018",
+        "bytes": 35175
+      },
+      {
+        "archive_path": "anatomy/kit/iso-kit.ts",
+        "sha256": "e9fc988c61a11bfac1f097e62419915ea86b2130ab091f1b50c0e019c907e253",
+        "bytes": 38631
+      },
+      {
+        "archive_path": "anatomy/kit/iso.css",
+        "sha256": "ef19bac5a42ba9be42b56b2c1cf7fc7e21d332a8060765e9ca1d987b8ab23924",
+        "bytes": 7698
+      },
+      {
+        "archive_path": "anatomy/kit/lathe.mjs",
+        "sha256": "a4e7e974b1a37e603ad2b76363b6f9815cc101dfff0ad277a5d4e8f1dc56fccb",
+        "bytes": 48028
+      },
+      {
+        "archive_path": "anatomy/kit/pdf-button.mjs",
+        "sha256": "884de49c75f11c78a102b4b413006f36b087e0e3bc9f33dc462dc44430d69342",
+        "bytes": 1314
+      },
+      {
+        "archive_path": "anatomy/kit/react/draw.tsx",
+        "sha256": "d5389bd78aa3d5424a37b1ce6f635bd102eb86faf27d064b10957716278a631c",
+        "bytes": 6602
+      },
+      {
+        "archive_path": "anatomy/kit/react/live.tsx",
+        "sha256": "6d01fa12bca4ec14d1b7d7d5331d18a997dd3ee131d59dd57f83b932a1705f42",
+        "bytes": 4359
+      },
+      {
+        "archive_path": "anatomy/kit/tube.mjs",
+        "sha256": "bcb3cc360f6d83e6a5753f4c464b4587ab7965028b05a5d58e285abce58667c9",
+        "bytes": 14230
+      },
+      {
+        "archive_path": "anatomy/kit/turn-audit.mjs",
+        "sha256": "e4385f1a8a388c4544b49c6677ff8ab7048f7fcfa8cd5fe653d96a4a0df62843",
+        "bytes": 57356
+      },
+      {
+        "archive_path": "anatomy/kit/turn-build.mjs",
+        "sha256": "0c088efd9f22329d1b0c2190c95e5b5b43a2c46deae6ff047b3166ef643cfa83",
+        "bytes": 65975
+      },
+      {
+        "archive_path": "anatomy/kit/turn-fixed.mjs",
+        "sha256": "7429b46eb7673aefb6ed90adeaf130c1dafe8e32af038cbde24a04e693d13fc7",
+        "bytes": 147055
+      },
+      {
+        "archive_path": "anatomy/kit/turn.mjs",
+        "sha256": "cb4b530b5e1750ba0e4fd2367d5f25e00195c0136672aa2ecd665c0622ffd1a2",
+        "bytes": 139815
+      },
+      {
+        "archive_path": "anatomy/references/3d.md",
+        "sha256": "de58da5415b4c9fe7712b5b71e0868c4d36363d54e4e32d98a6b016363554536",
+        "bytes": 44644
+      },
+      {
+        "archive_path": "anatomy/references/craft.md",
+        "sha256": "38761fa9b81d66b30e50b05488501d4815830d3627f153d60f76ca783f598936",
+        "bytes": 50299
+      },
+      {
+        "archive_path": "anatomy/references/kit.md",
+        "sha256": "684672e069fdb52735efabc3f4310dedd840d0c8066a8dc7784be2b7e656be71",
+        "bytes": 67873
+      },
+      {
+        "archive_path": "anatomy/references/motion.md",
+        "sha256": "dda401ca1b4661a5f0b7c1e33dac6e7e4b8c13d51ca5d9312123a5c02dab320b",
+        "bytes": 22611
+      },
+      {
+        "archive_path": "anatomy/references/print.md",
+        "sha256": "1b4146c35214f76bf8ddc1765b3d1540d9bdfceba0c641e7b93c33229265c0be",
+        "bytes": 7043
+      },
+      {
+        "archive_path": "anatomy/references/publish.md",
+        "sha256": "57790e740662bc8f2044ba5f0385598bad955d6a38dd2a47d56d644f21d8deb8",
+        "bytes": 4113
+      },
+      {
+        "archive_path": "anatomy/references/react.md",
+        "sha256": "76b5cee6e0a7513e3c77a832e3f58b1343806597d469774e1749f141525801fd",
+        "bytes": 3614
+      },
+      {
+        "archive_path": "anatomy/references/verify.md",
+        "sha256": "fb81437fc5d75094a34432eb6f545644aa228e15173a27d08b3cace912033561",
+        "bytes": 43574
+      },
+      {
+        "archive_path": "anatomy/references/walkthrough.md",
+        "sha256": "4d157e0169080a6ed44d5b06de0a5de2931baf3d0fac30283d2644dd66506dfa",
+        "bytes": 5276
+      },
+      {
+        "archive_path": "anatomy/references/webgl.md",
+        "sha256": "fb4e2421c6a705d4ad849c8e516731ebc958bc5ff0855548ff58232b0aa01923",
+        "bytes": 61104
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-affine-bounds.test.mjs",
+        "sha256": "038e0a879363c4b0d2c7146a62065b09f2973210114928d5005e9082219654d2",
+        "bytes": 4175
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-cache.test.mjs",
+        "sha256": "00b49601c068897e94bf8309d652bb55595e541283c510bba34957c457edd57e",
+        "bytes": 1603
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-clearance-envelope.test.mjs",
+        "sha256": "ffa8321d25996ac165dd1fdb6473a903c1c6f03b86996b2fef6978203b8f2bd8",
+        "bytes": 2407
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-empty-clipping.test.mjs",
+        "sha256": "a28384ccbf303acc32f7788753459a7338c94bc74ee5efe70762daa75a62c8cb",
+        "bytes": 3936
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-order-convergence.test.mjs",
+        "sha256": "9ad7b9a645d9e90a788e561484013b0fdefb1a8abd38fcb160f5d1a6464be278",
+        "bytes": 2875
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-path-origin.test.mjs",
+        "sha256": "1e5917a4a3bc337aa4497e5717de47b198db8fc9538d5f10d40a788f5f821d37",
+        "bytes": 1594
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-profile.test.mjs",
+        "sha256": "80179ae38afa6e58ed254a597daeee27240e85f87d1bbd0421def4e347ec37c0",
+        "bytes": 2171
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-projection.test.mjs",
+        "sha256": "0cd790e0dfc64633019db3233b87fec823c6148037d9335e1c2b16ea1c722db6",
+        "bytes": 1934
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-slide-clearance.test.mjs",
+        "sha256": "007f68aa5262eae40aceef00eec91e4d5be0164bd5fb9377680996164ff9ac19",
+        "bytes": 2875
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-svg-attributes.test.mjs",
+        "sha256": "2d2a949639f90d6328eeea401f6b7f3a3dc1fcc17f1d46cbe2de208afc3c6533",
+        "bytes": 3484
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-taper.test.mjs",
+        "sha256": "ea4415ef743efc4ba1393457c571cdfc2b91bfd5ea931ae32829926c80aed487",
+        "bytes": 1267
+      },
+      {
+        "archive_path": "anatomy/scripts/audit-tube-support.test.mjs",
+        "sha256": "2bbc676aee00f03394a1c9a0594dfb3aeecec6a40698db1c71b68377fd3b762f",
+        "bytes": 2636
+      },
+      {
+        "archive_path": "anatomy/scripts/capture-current-geometry.test.mjs",
+        "sha256": "ad0c0555e693c8c9e2b14a3098b91acd04df6e7c45779615aaa86e81be452756",
+        "bytes": 5109
+      },
+      {
+        "archive_path": "anatomy/scripts/capture-selector.test.mjs",
+        "sha256": "046ce21a686e99c1a5a760f529b999cdca5b7f504961784bc087395b0b586eff",
+        "bytes": 7665
+      },
+      {
+        "archive_path": "anatomy/scripts/capture.mjs",
+        "sha256": "12e901efe79df75073eeeaf5462ac989a8e2892279253d27f8ee114c54be43d3",
+        "bytes": 15024
+      },
+      {
+        "archive_path": "anatomy/scripts/capture.test.mjs",
+        "sha256": "7d45da7f2862a45113fd677b511e3a3708161954615d5b7bf39e57f6e7b2bb6a",
+        "bytes": 3224
+      },
+      {
+        "archive_path": "anatomy/scripts/chrome-port.mjs",
+        "sha256": "6775d3d389d26f37a52be8358aa88d1dc0aded63cb24ae20a936505a192e5d9d",
+        "bytes": 1083
+      },
+      {
+        "archive_path": "anatomy/scripts/chrome-startup.test.mjs",
+        "sha256": "bd3c0eb4b699ebfbfd4efa5920acf386f31876ed490aaee839886dd8ed4cf797",
+        "bytes": 1838
+      },
+      {
+        "archive_path": "anatomy/scripts/curve-density.test.mjs",
+        "sha256": "5679ff6f139bfee47099cab2f475b041ddcb6813e812c67d13526679915831b6",
+        "bytes": 4196
+      },
+      {
+        "archive_path": "anatomy/scripts/drive-actions.test.mjs",
+        "sha256": "bf3e2525ae4abbf07d27565418757139a8b305dcef4c287e11ae3da96f2107d3",
+        "bytes": 3061
+      },
+      {
+        "archive_path": "anatomy/scripts/drive-async-until.test.mjs",
+        "sha256": "86058cb8456c1c9c2822c7a3ece698e2dba40a1a01f2746668cfe2e2cb193435",
+        "bytes": 2743
+      },
+      {
+        "archive_path": "anatomy/scripts/drive-page-load.test.mjs",
+        "sha256": "a19d8f9335b023100cce3704013ae8e73d06e9b447978ffef66ed1aa3b4e2733",
+        "bytes": 1318
+      },
+      {
+        "archive_path": "anatomy/scripts/drive-turn-controller.test.mjs",
+        "sha256": "2b7deda0e9706208ae9c21cc2ada09d623eebee9e0dfc512503b8ddbeb4ddcac",
+        "bytes": 2702
+      },
+      {
+        "archive_path": "anatomy/scripts/drive.mjs",
+        "sha256": "49c22499827a2a5effb802513976bcb8b6dfced139bb4d677ff6e9edd2700eec",
+        "bytes": 23905
+      },
+      {
+        "archive_path": "anatomy/scripts/drive.test.mjs",
+        "sha256": "c4f354f8c79e766858d913321fcb84786355e814ca2e096992a088b2181529f0",
+        "bytes": 3690
+      },
+      {
+        "archive_path": "anatomy/scripts/enter-key.test.mjs",
+        "sha256": "2592318f2b41735e4ff8ed2edcbc3abee46d81f9184b02dd99c121d8900d3838",
+        "bytes": 2560
+      },
+      {
+        "archive_path": "anatomy/scripts/fidelity-cut.test.mjs",
+        "sha256": "ab6cf4423852a1c1d32c3cb87f7bfab9e796effd57883a717ff8836adb2ac6c6",
+        "bytes": 4852
+      },
+      {
+        "archive_path": "anatomy/scripts/fidelity-tube-coverage.test.mjs",
+        "sha256": "eef7300ea786d82268811cc4e4153c1de913bae17cec58bd4a28f64ea875c525",
+        "bytes": 3223
+      },
+      {
+        "archive_path": "anatomy/scripts/fingerprint.mjs",
+        "sha256": "1582728c6f70b340f8fdda28f287e6f8d45e291ab739ef9ff527a5374f7b1654",
+        "bytes": 1241
+      },
+      {
+        "archive_path": "anatomy/scripts/inline-kit.mjs",
+        "sha256": "01e08df7c2556ce52a7e8ed9009a332036b209ab7e42389874af2a65fda6e9db",
+        "bytes": 648
+      },
+      {
+        "archive_path": "anatomy/scripts/line-ends.mjs",
+        "sha256": "da79cc624c5bda0cb8af8f864dbe53026e44ca2377dab3665076ad570d804f42",
+        "bytes": 16206
+      },
+      {
+        "archive_path": "anatomy/scripts/lines-arcs.test.mjs",
+        "sha256": "ae915157d4bbdfe8e4af031c0e2e5f5f566c938ba7bb88884ae377489aff540e",
+        "bytes": 2059
+      },
+      {
+        "archive_path": "anatomy/scripts/lines-bezier.test.mjs",
+        "sha256": "7a95169325fed35eecb0c7aefcb806a48bfd09eaba3df5461dc2e30c5d0695f4",
+        "bytes": 1769
+      },
+      {
+        "archive_path": "anatomy/scripts/lines-round.test.mjs",
+        "sha256": "7a012c3eb010b7f8082ee49ce939d6f35f384d188d897e3fd3708682c5d3a657",
+        "bytes": 2458
+      },
+      {
+        "archive_path": "anatomy/scripts/lines-rounded-rect.test.mjs",
+        "sha256": "88d0a27b047895a00f5654f59d93c775fb8312a5c28be3b47b5e673d80efe5b6",
+        "bytes": 2527
+      },
+      {
+        "archive_path": "anatomy/scripts/lines.mjs",
+        "sha256": "b0ca73ab3a0d1cd4a28fda933496cbd7384ef315d821b5d2fffae1c704ce79cc",
+        "bytes": 1700
+      },
+      {
+        "archive_path": "anatomy/scripts/lines.test.mjs",
+        "sha256": "82931231d33d977bcc44c54b05bdb7b78c4ddebc422848ab59539018dd43583a",
+        "bytes": 1537
+      },
+      {
+        "archive_path": "anatomy/scripts/navigation.test.mjs",
+        "sha256": "b9bd9d7360735e178b24e086e5c875e1703e3e0593e7ddff5f10fe0b4f0f7587",
+        "bytes": 2255
+      },
+      {
+        "archive_path": "anatomy/scripts/orbit-sampling.test.mjs",
+        "sha256": "ed6ce6b0dd32f6c7ab51a5a50ea2dd4b920858ff35d725bea22bee79e323b97a",
+        "bytes": 2810
+      },
+      {
+        "archive_path": "anatomy/scripts/print-sheet.mjs",
+        "sha256": "d2874dd7353a55b1a4aec87bd642fdeb8230a2aadeb33a16ed9cb5bae96d091c",
+        "bytes": 29023
+      },
+      {
+        "archive_path": "anatomy/scripts/print-sheet.test.mjs",
+        "sha256": "901148d898201be2df6f57961117d492e47df0a0cbcc4594cce718cc62952558",
+        "bytes": 6734
+      },
+      {
+        "archive_path": "anatomy/scripts/print.mjs",
+        "sha256": "eb3b2c6f45f10c9a66ddd9e7f89867b70c8dcb6a8200ac030028f16df306b6e8",
+        "bytes": 14801
+      },
+      {
+        "archive_path": "anatomy/scripts/publish.mjs",
+        "sha256": "03400f14063e717a7f05d599d02fc47fd18ba60756f170d6e0ed5065fae1fdbe",
+        "bytes": 20276
+      },
+      {
+        "archive_path": "anatomy/scripts/publish.test.mjs",
+        "sha256": "a183a233471852e188322c4de083a0e13a59ec0d036a4da8e1569fbe6449df99",
+        "bytes": 7780
+      },
+      {
+        "archive_path": "anatomy/scripts/react-dots-opacity.test.mjs",
+        "sha256": "e7d2b5386f397efe4197b4607f2131170bf88dc52ccc3cfcfea2677f28d41aec",
+        "bytes": 2817
+      },
+      {
+        "archive_path": "anatomy/scripts/react-readout-first-write.test.mjs",
+        "sha256": "088a2d29d67e9638f7e43e9b5204c027566934d38302c0ee5e406752f2a4780a",
+        "bytes": 3846
+      },
+      {
+        "archive_path": "anatomy/scripts/react-readout-target.test.mjs",
+        "sha256": "1354dc4a3fc44063034bd586b7e0e1e589804c65e47ee522c5c553dbded9e05d",
+        "bytes": 4657
+      },
+      {
+        "archive_path": "anatomy/scripts/react-solid-seamless.test.mjs",
+        "sha256": "f45927c14dd6023eec7109da5db10cddd46cd46b21f58675a6d4dc6ca12122b0",
+        "bytes": 2752
+      },
+      {
+        "archive_path": "anatomy/scripts/react-visibility-target.test.mjs",
+        "sha256": "78c630aa974d2fbd04cb096a95b528d64d3027e2a9666b85e9d7a50965160925",
+        "bytes": 3844
+      },
+      {
+        "archive_path": "anatomy/scripts/session.mjs",
+        "sha256": "8896ea1587a5a612a20db7a7a9310a53387d6eef640277834f7bac7e69109302",
+        "bytes": 4834
+      },
+      {
+        "archive_path": "anatomy/scripts/session.test.mjs",
+        "sha256": "200fe708d40646b5ee24451e561744ac281e1cf0bf2c75c233d340eeed304f79",
+        "bytes": 2663
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-audit-samples.test.mjs",
+        "sha256": "52eaa87e9cfea81c0b4b27ef35df9b1be7c28f823a9a12c1920b21272ff3f506",
+        "bytes": 1370
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-bench.mjs",
+        "sha256": "d86cd53e3702fa92e22b4052ee9bf47da10fd0a71401fe477bd8da2fe30b1631",
+        "bytes": 3863
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-check.mjs",
+        "sha256": "c76f93ad3aad63006b4539dd420d671e4665ac148ba733d3cd50b2ffd4b5c5f2",
+        "bytes": 38355
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-convex-check.test.mjs",
+        "sha256": "044c35b5942d98c392753818297e3643777d55244508c3718f415c33ec90bd8d",
+        "bytes": 1875
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-fidelity.mjs",
+        "sha256": "d033fa1fcff2672db9a823d5155b531d190875a42e2812091cb6079b14d4bf20",
+        "bytes": 20340
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-group-reference.test.mjs",
+        "sha256": "bfac2f910c80c7fcfba9e4861391552000a0f25414ae86576a9ef9ef46291412",
+        "bytes": 2174
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-rounded-polygon.test.mjs",
+        "sha256": "a6a7dec89a2864f68b559c64cb94731d697ef36221dc54ed100a539744f2ac04",
+        "bytes": 1533
+      },
+      {
+        "archive_path": "anatomy/scripts/turn-split-owner.test.mjs",
+        "sha256": "829febf610ba09cdca651fbd86340f13932f241b4e3525a3d8566ac70d75a69d",
+        "bytes": 3411
+      },
+      {
+        "archive_path": "anatomy/tests/fixtures/react-dots-dark.png",
+        "sha256": "f2e7655868e8564d81d274464c618cb330a603459a5fe63bf0bd22992e9c396d",
+        "bytes": 4032
+      },
+      {
+        "archive_path": "anatomy/tests/fixtures/react-dots-light.png",
+        "sha256": "df72b8d04fd82bf1a1f63b29ea1676ead0570f9b36d55057d8b886087d869543",
+        "bytes": 3848
+      },
+      {
+        "archive_path": "anatomy/tests/fixtures/react-solid-dark.png",
+        "sha256": "529b58a497268540c2d74b590691f65605ba5d1882566d0462ff984e7a9248e1",
+        "bytes": 9416
+      },
+      {
+        "archive_path": "anatomy/tests/fixtures/react-solid-light.png",
+        "sha256": "5b344ec9017d06267531b8d01ad3b88062fb8003cd77ad90ecff37319c8dd085",
+        "bytes": 9847
+      }
+    ]
+  }
+}

@@ -61,8 +61,10 @@ def evaluate_gate(intake):
     return result
 
 
-def adapt_prompt(category, original, gate):
+def adapt_prompt(category, original, gate, clarification=None):
     prompt = f"视频类型：{category}\n\n{original}"
+    if clarification:
+        prompt += "\n\n需求补充：" + clarification
     if gate["status"] == "suitable":
-        return prompt + "\n\n" + VIDEO_ADAPTER, "category-prefix+anatomy-video-v1"
-    return prompt, "category-prefix-v1"
+        return prompt + "\n\n" + VIDEO_ADAPTER, "category-prefix+anatomy-video-v1" + ("+clarification-v1" if clarification else "")
+    return prompt, "category-prefix-v1" + ("+clarification-v1" if clarification else "")

@@ -1,7 +1,7 @@
 /**
  * Reference 附件（V2 需求 1）。
  *
- * 白模每 session 最多 100 张图片，其他模式最多 10 个，放 session 固定目录 references/，供 skill 判断如何使用。
+ * 白模每 session 最多 100 张图片，其他模式默认最多 10 个；指定实验会话可用有时限的配置扩容（最多 100），放 session 固定目录 references/，供 skill 判断如何使用。
  * 任务提交后冻结该 session 的附件集合 —— 避免生产中途变更导致结果不可复现。
  */
 import { mkdir, writeFile, readFile, readdir, unlink, stat, rename } from 'node:fs/promises';
@@ -27,10 +27,21 @@ function mutate(sessionId, operation) {
   void tail.then(() => { if (mutations.get(sessionId) === tail) mutations.delete(sessionId); });
   return next;
 }
-export function referenceLimit(mode) { return mode === 'blockout_3d' ? 100 : Math.min(10, cfg().max_per_session ?? 10); }
+export function referenceLimit(mode, sessionId, at = Date.now()) {
+  if (mode === 'blockout_3d') return 100;
+  const normal = Math.min(10, cfg().max_per_session ?? 10);
+  // Operator-owned, expiring allowlist. Upload bodies cannot widen this limit.
+  const override = mode === 'experimental' && sessionId
+    ? cfg().experimental_session_limits?.[sessionId] : null;
+  const limit = override?.max_per_session;
+  const expires = Date.parse(override?.expires_at ?? '');
+  if (Number.isInteger(limit) && limit > normal && limit <= 100 &&
+      Number.isFinite(expires) && expires > at) return limit;
+  return normal;
+}
 export async function referenceManifest(sessionId) {
   const [meta, manifest] = await Promise.all([readSessionMeta(sessionId), readManifest(sessionId)]);
-  const max = referenceLimit(meta?.mode);
+  const max = referenceLimit(meta?.mode, sessionId);
   return { ...manifest, max_per_session: max, remaining: Math.max(0, max - manifest.items.length) };
 }
 
@@ -120,7 +131,7 @@ async function addReferenceUnlocked(sessionId, { filename, tmpPath, note }) {
       '该会话已提交生成任务，附件集合已冻结。请新建会话后再上传。');
   }
   const meta = await readSessionMeta(sessionId);
-  const max = referenceLimit(meta?.mode);
+  const max = referenceLimit(meta?.mode, sessionId);
   if (m.items.length >= max) {
     throw new ReferenceError('REFERENCE_LIMIT_EXCEEDED',
       `每个会话最多 ${max} 个参考素材，当前已有 ${m.items.length} 个`);

@@ -1,0 +1,268 @@
+{
+  "01-mindflow": {
+    "explanation_target": "exterior_product",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Product Launch",
+      "excerpt": "为 AI 效率管理 App「Mindflow」制作一条 20 秒的产品发布视频，16:9。使用上传的三张产品 UI 设计图。**核心卖点：**① AI 智能助手，帮助分析项目、制定计划；② 项目数据看板，集中查看项目状态与关键指标；③ 智能任务管理，追踪任务进度与截止时间"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "02-manus-template": {
+    "explanation_target": "template",
+    "subject_defined": false,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "这是风格/skill 说明，缺少具体产品名称或网站。"
+    ],
+    "source_evidence": {
+      "category": "Product Launch",
+      "excerpt": "Turn a product name or website URL into a Manus 2.0 style launch video: a 75-120 second film with kinetic type on a porcelain canvas, New-word slot dividers, the product's real interface with camera push-ins, glass cards on landscape plates and a One More Thing reveal, all cut to a beat-synced soundtrack. The Skill researches the site in a browser, writes a storyboard from the product's own facts and delivers an editable film plus an MP4 in 1080p, 2K or 4K. Use it for launch videos, product announcements, feature recaps and keynote-style promos."
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "03-hush-buds": {
+    "explanation_target": "exterior_product",
+    "subject_defined": false,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "原要求需要真人展示视频，但只提供产品图；C2V 不负责合成真人视频。"
+    ],
+    "source_evidence": {
+      "category": "Product showcase",
+      "excerpt": "为无线蓝牙耳机品牌 Hush Buds 制作一条 20 秒的新品发布视频，16:9。\n产品定位： 主打舒适佩戴、沉浸式聆听体验的无线耳机。\n核心卖点：\n1. 沉浸式降噪，减少外界干扰。\n2. 轻巧舒适，适合长时间佩戴。\n3. 简约精致的外观设计，适合日常使用。\n视频要求： 结合真人展示视频与产品动效，呈现耳机使用场景、产品外观和核心卖点。整体采用简洁现代的科技广告风格，通过真人镜头、产品特写、动态文字和流畅转场完成新品发布视频。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "04a-paper-kestrel": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [
+      "已提供 25 张图片，但“保留以下英文文案”后没有文案清单；压缩包仅含图片。请补充指定英文文案或确认可自由创作。"
+    ],
+    "source_evidence": {
+      "category": "Paper Trail",
+      "excerpt": "帮我为Kestrel做一条约26秒的品牌短片，围绕 Mara Okafor 和品牌的眼睛符号展开。采用复古杂志拼贴风格，加入撕纸、手写标注、黑白照片、产品展示和快速切换，配上音乐。使用我上传的图片，保留以下英文文案。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "04b-paper-yeti": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Paper Trail",
+      "excerpt": "帮我做一条约26秒的 YETI 保温杯品牌短片，主题是“从日常走向户外”，采用复古杂志拼贴风格。\n\n从清晨装好咖啡出发，依次展示公路旅行、山野露营和徒步登山，穿插杯子的产品展示与细节特写。画面加入撕纸、胶带、手写标注、黑白照片和彩色产品图，用快速切换做出户外探险手账的感觉，配上有节奏的音乐。\n\n上屏文案使用英文，结尾展示“YETI”和“Take it outside.”。我没有图片素材，请帮我准备所需图片，画幅4:3。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "05-coffee-journey": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Paper Trail",
+      "excerpt": "制作一条纸张拼贴动画，讲述一颗咖啡豆从种植园到城市咖啡馆的旅程。\n\n风格：\n\n复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "06-protein-age": {
+    "explanation_target": "typography",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "艺术字解说",
+      "excerpt": "不同年龄段的人需要多少蛋白质\n\n风格：\n\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "07-sleep-age": {
+    "explanation_target": "typography",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "艺术字解说",
+      "excerpt": "不同年龄段的人所需的睡眠时长\n\n风格：\n\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "08-microwave": {
+    "explanation_target": "physical_internal_structure",
+    "subject_defined": true,
+    "needs_parts_relationships": true,
+    "requires_3d": true,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "内部结构拆解",
+      "excerpt": "微波炉的原理\n\n风格：\n\n风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "09-reel-projector": {
+    "explanation_target": "physical_internal_structure",
+    "subject_defined": true,
+    "needs_parts_relationships": true,
+    "requires_3d": true,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "内部结构拆解",
+      "excerpt": "帮我为「Seko REEL 01」制作一条三维产品展示片。产品是「复古 35 毫米双盘胶片放映机」，外观重点是「双盘胶片与精密机械结构」。通过产品全貌和细节特写，重点展示「片门与压片板、输片齿轮与胶片、灯室与聚光镜」，整体氛围为「复古、精密、有机械感」。片头展示产品名称，主标语是「把光放进胶片」，结尾展示「Seko · 放映开始」。\n\n风格：\n\n科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "10-time-pause": {
+    "explanation_target": "scene_or_system",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "3D场景演绎",
+      "excerpt": "如果你拥有暂停时间的超能力，会发生什么？\n\n风格：\n\n低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "11-airtag": {
+    "explanation_target": "scene_or_system",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "3D场景演绎",
+      "excerpt": "没有 GPS 和网络连接的 AirTag，为什么能够被远程定位？\n\n风格：\n\n极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "12-earth-tunnel": {
+    "explanation_target": "scene_or_system",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "3D场景演绎",
+      "excerpt": "如果挖一条贯穿地球的隧道，然后跳进去，会发生什么？\n\n风格：\n\n风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "13-sitcom-template": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "扁平卡通",
+      "excerpt": "Make a 60-second 16:9 cartoon sitcom episode for people who follow our channel, playing YouTube and Shorts. Use only the names, facts and lines below as given; invent the story, the jokes and an original cast around them, and no real people or existing characters.\n\nA 2D TV-cartoon look: thick dark outlines that wobble slightly, flat colour, big round eyes, noodle arms. Two characters with clearly different voices and one small non-speaking creature. The comedy is banter, pauses and reaction close-ups, not action: they mostly stand or sit and act with face and hands. One palette per place, subtitles with a coloured speaker label on every line, a title card by 15 seconds, a light synthesized score that ducks under the dialogue. End on a card with the series title, the episode name and my end line, held 4 seconds.\n\nTopic: \"an office printer that never works\"\n\nMust appear, word for word: the line \"Have you tried turning it off?\"; the name Inkwell\n\nCast ideas (optional): \"a deadpan office manager and a nervous intern\"\n\nEnd line: \"Inkwell — printers that print.\"\n\n风格：\n\n美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "14-postit": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "扁平卡通",
+      "excerpt": "用马克笔手绘漫画动画讲述便利贴是如何被意外发明的\n\n风格：\n\n二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "15-neighbor": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "矢量图",
+      "excerpt": "帮我做一个品牌名为「NEIGHBOR」的「邻里社区」品牌宣传视频，讲述邻居问候的温暖日常，内容包含：「问好、归属、关心、美好、共享、相遇、日常、互助」八个主题，标语为「每一声问好，都让我们更近一点」，最后结尾「好邻居，从问好开始」。\n\n风格：\n\n扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "16-no-sleep": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Violet Flat",
+      "excerpt": "如果连续几天不睡觉，你的大脑和身体会发生什么变化？\n\n风格：\n\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "17-caffeine": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Violet Flat",
+      "excerpt": "喝下一杯咖啡后，咖啡因是如何影响大脑的？\n\n风格：\n\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "18-animal-vision": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Pixel Night",
+      "excerpt": "如果人类拥有不同动物的视觉能力，看到的世界会是什么样子？\n\n风格：\n\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  },
+  "19-civilization": {
+    "explanation_target": "2d_story",
+    "subject_defined": true,
+    "needs_parts_relationships": false,
+    "requires_3d": false,
+    "engineering_precision_required": false,
+    "missing_required_inputs": [],
+    "source_evidence": {
+      "category": "Pixel Night",
+      "excerpt": "以游戏闯关的形式，展示人类文明从石器时代到太空时代的发展，每个关卡解锁对应时代的关键科技。\n\n风格：\n\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+    },
+    "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+  }
+}

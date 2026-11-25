@@ -1,0 +1,37 @@
+{
+  "version": "0.1.1",
+  "submitted": false,
+  "rerun_existing": [
+    "05-coffee-journey",
+    "06-protein-age",
+    "07-sleep-age",
+    "08-microwave",
+    "09-reel-projector",
+    "10-time-pause",
+    "11-airtag",
+    "12-earth-tunnel",
+    "14-postit",
+    "15-neighbor",
+    "16-no-sleep",
+    "17-caffeine",
+    "18-animal-vision",
+    "19-civilization"
+  ],
+  "new_tests": [
+    "04b-paper-yeti",
+    "13-sitcom-template"
+  ],
+  "blocked": [
+    "02-manus-template",
+    "03-hush-buds",
+    "04a-paper-kestrel"
+  ],
+  "unchanged_ready": [
+    "01-mindflow"
+  ],
+  "models": [
+    "c2v_default_self_developed",
+    "opus55_comparison"
+  ],
+  "note": "只列计划，未创建会话或提交任务。新一轮按同一冻结版本对照；执行前重新核对可用模型。"
+}

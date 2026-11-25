@@ -21,19 +21,25 @@ def main():
         "--data-root", type=Path, default=Path(__file__).resolve().parents[1]
     )
     p.add_argument("--media", action="store_true")
+    p.add_argument("--suite-version", default="0.1.2")
     args = p.parse_args()
     root = args.data_root.resolve()
-    path = root / "dataset/v0.1.0/suite.json"
+    import re
+    assert re.fullmatch(r"0\.\d+\.\d+", args.suite_version), "Invalid suite version"
+    path = root / "dataset" / ("v" + args.suite_version) / "suite.json"
     suite = json.loads(path.read_text())
     assets = {a["id"]: a for a in suite["assets"]}
     ids = [c["id"] for c in suite["cases"]]
-    assert len(ids) == len(set(ids)) == 19
-    assert sum(c["status"] == "ready" for c in suite["cases"]) == 15
+    assert ids and len(ids) == len(set(ids))
+    ready = sum(c["status"] == "ready" for c in suite["cases"])
+    if suite.get("revision_summary"):
+        assert len(ids) == suite["revision_summary"]["total_cases"]
+        assert ready == suite["revision_summary"]["ready"]
     for c in suite["cases"]:
         assert c["skill_policy"] in suite["policies"]
         gate = evaluate_gate(c["gate_intake"])
         assert gate == c["skill_gate"]
-        assert c["prompt_submitted"] == adapt_prompt(c["category"], c["prompt_original"], gate)[0]
+        assert c["prompt_submitted"] == adapt_prompt(c["category"], c["prompt_original"], gate, c.get("submission_clarification"))[0]
         assert c["status"] == "ready" or c["block_reason"]
         for aid in c["input_assets"]:
             assert aid in assets and "input" in assets[aid]["roles"]
@@ -67,9 +73,10 @@ def main():
     print(
         json.dumps(
             {
-                "cases": 19,
-                "ready": 15,
-                "blocked": 4,
+                "version": suite["version"],
+                "cases": len(ids),
+                "ready": ready,
+                "blocked": len(ids) - ready,
                 "suite_file_sha256": sha(path),
                 "media_hash_checks": checked,
             }

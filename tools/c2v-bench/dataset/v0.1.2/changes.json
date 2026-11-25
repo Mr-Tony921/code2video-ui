@@ -1,0 +1,20 @@
+{
+  "version": "0.1.2",
+  "previous_version": "0.1.1",
+  "changes": [
+    {
+      "previous_case_id": "04a-paper-kestrel",
+      "previous_version": "0.1.1",
+      "action": "new_test",
+      "description": "用户授权支持并运行，缺失英文文案按保守创作补充；25张图片全部上传，仅该会话临时扩容。"
+    }
+  ],
+  "run_scope": [
+    "04a-paper-kestrel",
+    "04b-paper-yeti"
+  ],
+  "excluded": [
+    "02-manus-template",
+    "03-hush-buds"
+  ]
+}

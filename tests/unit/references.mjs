@@ -57,3 +57,36 @@ test('whitebox unsupported formats fail at upload rather than disappearing from 
  for(const name of ['movie.mp4','sound.wav','animation.gif','scan.bmp'])await assert.rejects(addReference(sid,await input(name)),e=>e.code==='REFERENCE_TYPE_UNSUPPORTED');
  assert.equal((await readManifest(sid)).items.length,0);
 });
+
+test('temporary experimental allowlist accepts 25 images only for its session and expires safely',async()=>{
+ const { config } = await import('../../apps/worker-bridge/src/config.mjs');
+ const { referenceLimit } = await import('../../apps/worker-bridge/src/references.mjs');
+ const sid=await session('experimental'),previous=config.raw.references.experimental_session_limits;
+ config.raw.references.experimental_session_limits={
+  [sid]:{max_per_session:25,expires_at:new Date(Date.now()+60000).toISOString()}
+ };
+ try {
+  assert.equal(referenceLimit('experimental',sid),25);
+  assert.equal(referenceLimit('experimental','different-session'),10);
+  assert.equal(referenceLimit('coding_to_video',sid),10);
+  assert.equal(referenceLimit('blockout_3d',sid),100);
+  assert.equal(referenceLimit('experimental',sid,Date.now()+120000),10);
+  const files=await Promise.all(Array.from({length:26},()=>input()));
+  const results=await Promise.allSettled(files.map(f=>addReference(sid,f)));
+  assert.equal(results.filter(x=>x.status==='fulfilled').length,25);
+  assert.equal(results[25].reason.code,'REFERENCE_LIMIT_EXCEEDED');
+  assert.equal((await referenceManifest(sid)).max_per_session,25);
+  await freezeReferences(sid);
+  config.raw.references.experimental_session_limits[sid].expires_at='2000-01-01T00:00:00Z';
+  const m=await referenceManifest(sid);
+  assert.equal(m.items.length,25);assert.equal(m.max_per_session,10);assert.equal(m.remaining,0);
+  await assert.rejects(addReference(sid,await input()),e=>e.code==='REFERENCES_FROZEN');
+  for(const limit of [101,25.5,'25',null]){
+   config.raw.references.experimental_session_limits[sid]={max_per_session:limit,expires_at:'2099-01-01T00:00:00Z'};
+   assert.equal(referenceLimit('experimental',sid),10);
+  }
+ } finally {
+  if(previous===undefined)delete config.raw.references.experimental_session_limits;
+  else config.raw.references.experimental_session_limits=previous;
+ }
+});

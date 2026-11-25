@@ -254,7 +254,7 @@ class App:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "C2VBench/0.1.1"
+    server_version = "C2VBench/0.1.2"
 
     def log_message(self, *args):
         pass  # Request URLs, credentials and cookies do not enter logs.
@@ -640,7 +640,7 @@ def main():
     parser.add_argument("--dev-url", default="http://10.210.9.14:20211")
     parser.add_argument("--port", type=int, default=18942)
     parser.add_argument("--showcase-root", type=Path)
-    parser.add_argument("--suite-version", default="0.1.0")
+    parser.add_argument("--suite-version", default="0.1.2")
     args = parser.parse_args()
     parsed = urllib.parse.urlsplit(args.dev_url)
     if (
