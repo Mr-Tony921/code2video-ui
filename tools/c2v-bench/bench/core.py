@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from gate import evaluate_gate
+from prompts import POLICY, validate_prompt
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "OUT_OF_SCOPE"}
 
@@ -138,6 +139,7 @@ class Store:
 
     def plan(self, suite, case_id, model, owner, base, cohort):
         c = next(c for c in suite["cases"] if c["id"] == case_id)
+        validate_prompt(c, required=suite.get("prompt_policy") == POLICY)
         gate = evaluate_gate(c.get("gate_intake"))
         configured = suite["policies"][c["skill_policy"]].get("configured", [])
         if any(skill.get("id") == "anatomy" for skill in configured) and gate["status"] != "suitable":
@@ -155,6 +157,7 @@ class Store:
             "state": "PLANNED",
             "suite_id": suite["id"],
             "suite_version": suite["version"],
+            "prompt_policy": suite.get("prompt_policy"),
             "suite_sha256": digest(
                 json.dumps(suite, ensure_ascii=False, sort_keys=True).encode()
             ),
@@ -199,6 +202,9 @@ def evaluation(run):
             duration_ok = abs(p["duration_seconds"] - req["duration_seconds"]) <= max(
                 0.1, 1 / max(p.get("fps") or 1, 1)
             )
+        elif req.get("duration_range_seconds"):
+            low, high = req["duration_range_seconds"]
+            duration_ok = low <= p["duration_seconds"] <= high
         if req.get("aspect_ratio"):
             w, h = map(int, req["aspect_ratio"].split(":"))
             aspect_ok = abs(p["width"] / p["height"] - w / h) < 0.01

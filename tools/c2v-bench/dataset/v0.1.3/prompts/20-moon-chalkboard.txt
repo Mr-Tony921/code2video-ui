@@ -1,0 +1,11 @@
+Make a 45-second 16:9 narrated explainer for curious twelve-year-olds, playing a classroom screen, drawn by hand in chalk on a blackboard. Use only the facts and sources below; don't add claims or numbers, and say "about" for anything rounded.
+
+Write about 80 spoken words on five boards: a question or a surprising fact, the mechanism in two steps, one worked case, and the takeaway that answers the opening. Make the narration first, in a calm teacher's voice, and time everything from the audio. Each board holds one idea and one main drawing; everything on it, lettering included, is drawn on stroke by stroke at a hand's speed, each mark starting on the word that names it, by a drawn hand holding the tool. On the board write keywords only (1-4 words), large enough for a phone, each on the word that says it. A finished board rests about a second, then is cleared the medium's own way (an eraser, the sheet torn off, the page turned). Nothing fades, slides or pops in; no camera moves. You hear the tool on the surface and no music. End on the takeaway board, with the closing line and web address written on it if given, held 2 seconds after the last word. If the voice is synthetic, write "Narration: synthetic voice" small on that board, after everything else.
+
+Topic: "Why the Moon changes shape"
+Facts and sources: NASA Science, "Moon Phases"
+Language: English
+Closing line and web address, if any: "Look up tonight." · example.org/moon
+
+风格：
+二维黑板手绘风格。画面以深绿色木框黑板为底，带有粉笔擦拭的磨砂斑驳纹理。图形与文字均采用粗糙颗粒感的白色、黄色与浅蓝色粉笔线条勾勒及排线填充，造型简化且高度平面图解化。色彩对比鲜明，无复杂光影，配合扁平剪贴风格的绘制手部，呈现质朴清晰的板书演示质感。

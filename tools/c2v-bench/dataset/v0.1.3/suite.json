@@ -1,0 +1,2706 @@
+{
+  "schema_version": 1,
+  "id": "seko-c2v-business",
+  "version": "0.1.3",
+  "created_at": "2026-11-25",
+  "source": {
+    "archive_sha256": "05e3998f6d011201fa406a58e23c60b6933856be956972659db8188921648e8a",
+    "document": "source/feishu-20261125-final/table-snapshot.json",
+    "previous_suite": "dataset/v0.1.2/suite.json",
+    "previous_suite_sha256": "f9798ebf5fbad5e2863ca79343c0c8927741dfb79ea9d26d198faa47f22b7f37",
+    "document_sha256": "c1fa77dd07abfbd75c74dbc060fcb031b2ba0c6f14b08f2a6cb4a964c06a1142",
+    "url": "https://sensetime.feishu.cn/wiki/BEO6wSwxjiGGkckfCqmc9UFAnOf?create_from=copy_within_wiki&renamingWikiNode=false",
+    "captured_at": "2026-11-25T09:44:04.701Z"
+  },
+  "code_baseline": {
+    "remote_commit": "3230dd268bddce8a69b18ea4661d4a82064997b9",
+    "web_version": "1.5.7",
+    "harness": "Claude Code",
+    "generation_mode": "experimental"
+  },
+  "source_corrections": [
+    {
+      "type": "move_reference_outputs",
+      "from_case": "06-protein-age",
+      "to_case": "07-sleep-age",
+      "confirmed_at": "2026-11-24",
+      "basis": "用户核对原表格：蛋白质和睡眠是两个单元格，共有的参考视频属于睡眠；可能是 Markdown 导出丢失对应关系。",
+      "inspection_note": "按用户核对的原表格归到睡眠案；抽帧确为睡眠时长艺术字。此调整属于附件映射校正，不是模型内容错误。"
+    }
+  ],
+  "policies": {
+    "c2v-core-v1": {
+      "builtin": "coding_to_video",
+      "configured": []
+    },
+    "c2v-anatomy-v1": {
+      "builtin": "coding_to_video",
+      "configured": [
+        {
+          "id": "anatomy",
+          "version": "1482e8469b0a9e0d8cc18ea2740a01423d29ae80",
+          "archive_sha256": "d7c3b72c54099de6d333745c385a287613d220e13236a2bd9dbe17b1ae5675a0"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "id": "01-mindflow",
+      "title": "Mindflow 产品发布",
+      "category": "Product Launch",
+      "source_row": 1,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "为 AI 效率管理 App「Mindflow」制作一条 20 秒的产品发布视频，16:9。使用上传的三张产品 UI 设计图。**核心卖点：**① AI 智能助手，帮助分析项目、制定计划；② 项目数据看板，集中查看项目状态与关键指标；③ 智能任务管理，追踪任务进度与截止时间",
+      "prompt_submitted": "为 AI 效率管理 App「Mindflow」制作一条 20 秒的产品发布视频，16:9。使用上传的三张产品 UI 设计图。**核心卖点：**① AI 智能助手，帮助分析项目、制定计划；② 项目数据看板，集中查看项目状态与关键指标；③ 智能任务管理，追踪任务进度与截止时间",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [
+        "asset-c0327003a3effc6a",
+        "asset-47b5656486f8dd1a",
+        "asset-a3f6aa317ecfca05"
+      ],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "url": "https://cdn.openart.ai/assets/internal/uploads/file_PqIhkNfT_1793239580114.mp4",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "style_or_structure_only",
+          "inspection_note": "参考片约 15 秒，抽帧出现宠物业务画面；不是 20 秒 Mindflow 需求的内容答案。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": 20,
+        "aspect_ratio": "16:9",
+        "exact_text": [],
+        "quality_checks": [
+          "三张 UI 均参与演示",
+          "三个卖点清楚、无虚构功能"
+        ]
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "exterior_product",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Product Launch",
+          "excerpt": "为 AI 效率管理 App「Mindflow」制作一条 20 秒的产品发布视频，16:9。使用上传的三张产品 UI 设计图。**核心卖点：**① AI 智能助手，帮助分析项目、制定计划；② 项目数据看板，集中查看项目状态与关键指标；③ 智能任务管理，追踪任务进度与截止时间"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 1,
+        "input_cell_id": "10"
+      },
+      "revision": {
+        "previous_case_id": "01-mindflow",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "196",
+            "text": "为 AI 效率管理 App「Mindflow」制作一条 20 秒的产品发布视频，16:9。使用上传的三张产品 UI 设计图。**核心卖点：**① AI 智能助手，帮助分析项目、制定计划；② 项目数据看板，集中查看项目状态与关键指标；③ 智能任务管理，追踪任务进度与截止时间",
+            "type": "text"
+          }
+        ],
+        "sha256": "9086f575d7a4eab9cf69142a2460d0df8d8f5379ad096627fbe50d83fa54a452",
+        "text_file": "dataset/v0.1.3/prompts/01-mindflow.txt"
+      }
+    },
+    {
+      "id": "02-manus-template",
+      "title": "Seko 官网发布（Manus 风格）",
+      "category": "Product Launch",
+      "source_row": 2,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "Turn Seko[https://seko.sensetime.com/] into a Manus 2.0 style launch video: a 75-120 second film with kinetic type on a porcelain canvas, New-word slot dividers, the product's real interface with camera push-ins, glass cards on landscape plates and a One More Thing reveal, all cut to a beat-synced soundtrack. The Skill researches the site in a browser, writes a storyboard from the product's own facts and delivers an editable film plus an MP4 in 1080p, 2K or 4K. Use it for launch videos, product announcements, feature recaps and keynote-style promos.",
+      "prompt_submitted": "Turn Seko[https://seko.sensetime.com/] into a Manus 2.0 style launch video: a 75-120 second film with kinetic type on a porcelain canvas, New-word slot dividers, the product's real interface with camera push-ins, glass cards on landscape plates and a One More Thing reveal, all cut to a beat-synced soundtrack. The Skill researches the site in a browser, writes a storyboard from the product's own facts and delivers an editable film plus an MP4 in 1080p, 2K or 4K. Use it for launch videos, product announcements, feature recaps and keynote-style promos.",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-f45ef83f7e38d4e1",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "duration_range_seconds": [
+          75,
+          120
+        ],
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "75–120 秒；基于 Seko 官网事实、真实界面制作发布视频",
+          "动效文字、porcelain canvas、分隔页、界面推镜、玻璃卡片与 One More Thing 揭示",
+          "音乐节拍同步；可编辑工程及 MP4，1080p / 2K / 4K 之一"
+        ]
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Product Launch",
+          "excerpt": "Turn Seko[https://seko.sensetime.com/] into a Manus 2.0 style launch video: a 75-120 second film with kinetic type on a porcelain canvas, New-word slot dividers, the product's real interface with camera push-ins, glass cards on landscape plates and a One More Thing reveal, all cut to a beat-synced soundtrack. The Skill researches the site in a browser, writes a storyboard from the product's own facts and delivers an editable film plus an MP4 in 1080p, 2K or 4K. Use it for launch videos, product announcements, feature recaps and keynote-style promos."
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 2,
+        "input_cell_id": "15"
+      },
+      "revision": {
+        "previous_case_id": "02-manus-template",
+        "previous_version": "0.1.2",
+        "action": "source_changed",
+        "description": "原文更新；全部案例改为原文直传协议，历史追加内容不再发送。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "209",
+            "text": "Turn Seko[https://seko.sensetime.com/] into a Manus 2.0 style launch video: a 75-120 second film with kinetic type on a porcelain canvas, New-word slot dividers, the product's real interface with camera push-ins, glass cards on landscape plates and a One More Thing reveal, all cut to a beat-synced soundtrack. The Skill researches the site in a browser, writes a storyboard from the product's own facts and delivers an editable film plus an MP4 in 1080p, 2K or 4K. Use it for launch videos, product announcements, feature recaps and keynote-style promos.",
+            "type": "text"
+          }
+        ],
+        "sha256": "69f7d6e78a8b882ce52a1158398de56816784035a126c13204c719c7fde7add1",
+        "text_file": "dataset/v0.1.3/prompts/02-manus-template.txt"
+      }
+    },
+    {
+      "id": "03-hush-buds",
+      "title": "Hush Buds 耳机发布",
+      "category": "Product showcase",
+      "source_row": 3,
+      "status": "blocked_missing_input",
+      "block_reason": "要求结合真人展示视频，但目前仅有产品图；当前 C2V 不生成真人实拍，需业务提供真人视频或调整需求。",
+      "prompt_original": "为无线蓝牙耳机品牌 Hush Buds 制作一条 20 秒的新品发布视频，16:9。\n产品定位： 主打舒适佩戴、沉浸式聆听体验的无线耳机。\n核心卖点：\n1.\n沉浸式降噪，减少外界干扰。\n2.\n轻巧舒适，适合长时间佩戴。\n3.\n简约精致的外观设计，适合日常使用。\n视频要求： 结合真人展示视频与产品动效，呈现耳机使用场景、产品外观和核心卖点。整体采用简洁现代的科技广告风格，通过真人镜头、产品特写、动态文字和流畅转场完成新品发布视频。",
+      "prompt_submitted": "为无线蓝牙耳机品牌 Hush Buds 制作一条 20 秒的新品发布视频，16:9。\n产品定位： 主打舒适佩戴、沉浸式聆听体验的无线耳机。\n核心卖点：\n1.\n沉浸式降噪，减少外界干扰。\n2.\n轻巧舒适，适合长时间佩戴。\n3.\n简约精致的外观设计，适合日常使用。\n视频要求： 结合真人展示视频与产品动效，呈现耳机使用场景、产品外观和核心卖点。整体采用简洁现代的科技广告风格，通过真人镜头、产品特写、动态文字和流畅转场完成新品发布视频。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [
+        "asset-965bb63367a0b2aa"
+      ],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "url": "https://topview-frontend.topviewai.app/template/app/motion-studio/media/videos/hush-buds-launch.mp4",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": 20,
+        "aspect_ratio": "16:9",
+        "exact_text": [],
+        "quality_checks": [
+          "真人展示素材缺失，不能仅用产品动效宣称完整通过"
+        ]
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "exterior_product",
+        "subject_defined": false,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [
+          "原要求需要真人展示视频，但只提供产品图；C2V 不负责合成真人视频。"
+        ],
+        "source_evidence": {
+          "category": "Product showcase",
+          "excerpt": "为无线蓝牙耳机品牌 Hush Buds 制作一条 20 秒的新品发布视频，16:9。\n产品定位： 主打舒适佩戴、沉浸式聆听体验的无线耳机。\n核心卖点：\n1.\n沉浸式降噪，减少外界干扰。\n2.\n轻巧舒适，适合长时间佩戴。\n3.\n简约精致的外观设计，适合日常使用。\n视频要求： 结合真人展示视频与产品动效，呈现耳机使用场景、产品外观和核心卖点。整体采用简洁现代的科技广告风格，通过真人镜头、产品特写、动态文字和流畅转场完成新品发布视频。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 3,
+        "input_cell_id": "20"
+      },
+      "revision": {
+        "previous_case_id": "03-hush-buds",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "148",
+            "text": "为无线蓝牙耳机品牌 Hush Buds 制作一条 20 秒的新品发布视频，16:9。",
+            "type": "text"
+          },
+          {
+            "id": "149",
+            "text": "产品定位： 主打舒适佩戴、沉浸式聆听体验的无线耳机。",
+            "type": "text"
+          },
+          {
+            "id": "150",
+            "text": "核心卖点：",
+            "type": "text"
+          },
+          {
+            "id": "151",
+            "text": "1.\n沉浸式降噪，减少外界干扰。",
+            "type": "ordered"
+          },
+          {
+            "id": "152",
+            "text": "2.\n轻巧舒适，适合长时间佩戴。",
+            "type": "ordered"
+          },
+          {
+            "id": "153",
+            "text": "3.\n简约精致的外观设计，适合日常使用。",
+            "type": "ordered"
+          },
+          {
+            "id": "154",
+            "text": "视频要求： 结合真人展示视频与产品动效，呈现耳机使用场景、产品外观和核心卖点。整体采用简洁现代的科技广告风格，通过真人镜头、产品特写、动态文字和流畅转场完成新品发布视频。",
+            "type": "text"
+          }
+        ],
+        "sha256": "1d2361358b2c1c8cdcb1a6d6e973c5ff3606edebfc2197cc558d5eaa16ce2948",
+        "text_file": "dataset/v0.1.3/prompts/03-hush-buds.txt"
+      }
+    },
+    {
+      "id": "04a-paper-kestrel",
+      "title": "Kestrel 杂志拼贴（有图）",
+      "category": "Paper Trail",
+      "source_row": 4,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "帮我为Kestrel做一条约26秒的品牌短片，围绕 Mara Okafor 和品牌的眼睛符号展开。采用复古杂志拼贴风格，加入撕纸、手写标注、黑白照片、产品展示和快速切换，配上音乐。使用我上传的图片，保留以下英文文案。\n“WE SEE”\n“Honestly, I didn't get it.”\n“But I knew it would stay with me.”\n“MADE TO / BE SEEN. / ALL DAY.”",
+      "prompt_submitted": "帮我为Kestrel做一条约26秒的品牌短片，围绕 Mara Okafor 和品牌的眼睛符号展开。采用复古杂志拼贴风格，加入撕纸、手写标注、黑白照片、产品展示和快速切换，配上音乐。使用我上传的图片，保留以下英文文案。\n“WE SEE”\n“Honestly, I didn't get it.”\n“But I knew it would stay with me.”\n“MADE TO / BE SEEN. / ALL DAY.”",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [
+        "asset-52e21121888e9962",
+        "asset-835d2e21e990e5e0",
+        "asset-e8a61ee7a04dc5ef",
+        "asset-45fcb3fa24399412",
+        "asset-c5a148d9a8ea4c76",
+        "asset-cae65776075311c0",
+        "asset-98e4526c3be15c61",
+        "asset-3a1c39632dbc4a14",
+        "asset-0d2ee7556379b9cc",
+        "asset-00491c7a4d0879ed",
+        "asset-f192e5ce4b32dc21",
+        "asset-00b2d17b45bc0a5d",
+        "asset-ee464b7967beeb4e",
+        "asset-255ba6fa0241caaa",
+        "asset-0d570930846b7b3b",
+        "asset-fade930cc197f902",
+        "asset-2b879c7fced5349a",
+        "asset-8748d75650e40322",
+        "asset-4e1aae192baf4ed4",
+        "asset-9a457f901ff547e3",
+        "asset-77470fc4ea85637e",
+        "asset-6c4a56ab4c7df70b",
+        "asset-3ad6da509d988496",
+        "asset-17883776a82cb139",
+        "asset-d4a843d4bccbd895"
+      ],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "url": "https://topview-frontend.topviewai.app/template/app/motion-studio/media/videos/magazine-eye-collage.mp4",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "duration_target_seconds": 26,
+        "duration_mode": "approximate",
+        "aspect_ratio": null,
+        "exact_text": [
+          "WE SEE",
+          "Honestly, I didn't get it.",
+          "But I knew it would stay with me.",
+          "MADE TO / BE SEEN. / ALL DAY."
+        ],
+        "quality_checks": [
+          "约 26 秒，约数时长由人工判断，不伪造逐帧精确容差",
+          "复古杂志拼贴、撕纸/手写/黑白照片、快速切换与音乐",
+          "使用业务提供的图片与眼睛符号",
+          "不把素材中的人物照片自行认定为 Mara Okafor 或补造品牌史实",
+          "保留业务指定的四组英文文案，不能自行替换"
+        ]
+      },
+      "notes": [
+        "同一业务单元格第 1 条；保留全部四组指定英文文案，使用全部 25 张输入图片。",
+        "仅移除编号和双案分隔说明，参考成片不作模型输入。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Paper Trail",
+          "excerpt": "帮我为Kestrel做一条约26秒的品牌短片，围绕 Mara Okafor 和品牌的眼睛符号展开。采用复古杂志拼贴风格，加入撕纸、手写标注、黑白照片、产品展示和快速切换，配上音乐。使用我上传的图片，保留以下英文文案。\n“WE SEE”\n“Honestly, I didn't get it.”\n“But I knew it would stay with me.”\n“MADE TO / BE SEEN. / ALL DAY.”"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 4,
+        "input_cell_id": "25",
+        "variant": "1"
+      },
+      "revision": {
+        "previous_case_id": "04a-paper-kestrel",
+        "previous_version": "0.1.2",
+        "action": "source_changed",
+        "description": "原文更新；全部案例改为原文直传协议，历史追加内容不再发送。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "215",
+            "text": "1、帮我为Kestrel做一条约26秒的品牌短片，围绕 Mara Okafor 和品牌的眼睛符号展开。采用复古杂志拼贴风格，加入撕纸、手写标注、黑白照片、产品展示和快速切换，配上音乐。使用我上传的图片，保留以下英文文案。",
+            "type": "text"
+          },
+          {
+            "id": "216",
+            "text": "“WE SEE”",
+            "type": "text"
+          },
+          {
+            "id": "217",
+            "text": "“Honestly, I didn't get it.”",
+            "type": "text"
+          },
+          {
+            "id": "218",
+            "text": "“But I knew it would stay with me.”",
+            "type": "text"
+          },
+          {
+            "id": "219",
+            "text": "“MADE TO / BE SEEN. / ALL DAY.”",
+            "type": "text"
+          }
+        ],
+        "sha256": "1a5f53229cbd54ccd906a811514cfc3a65edbe10b337451fe038677a2ff7b58a",
+        "text_file": "dataset/v0.1.3/prompts/04a-paper-kestrel.txt",
+        "split": {
+          "kind": "numbered-cell-part",
+          "removed_prefix": "1、",
+          "separator_block_id": "222"
+        }
+      }
+    },
+    {
+      "id": "04b-paper-yeti",
+      "title": "YETI 户外拼贴（纯文本）",
+      "category": "Paper Trail",
+      "source_row": 4,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "帮我做一条约26秒的 YETI 保温杯品牌短片，主题是“从日常走向户外”，采用复古杂志拼贴风格。\n从清晨装好咖啡出发，依次展示公路旅行、山野露营和徒步登山，穿插杯子的产品展示与细节特写。画面加入撕纸、胶带、手写标注、黑白照片和彩色产品图，用快速切换做出户外探险手账的感觉，配上有节奏的音乐。\n上屏文案使用英文，结尾展示“YETI”和“Take it outside.”。我没有图片素材，请帮我准备所需图片，画幅4:3。",
+      "prompt_submitted": "帮我做一条约26秒的 YETI 保温杯品牌短片，主题是“从日常走向户外”，采用复古杂志拼贴风格。\n从清晨装好咖啡出发，依次展示公路旅行、山野露营和徒步登山，穿插杯子的产品展示与细节特写。画面加入撕纸、胶带、手写标注、黑白照片和彩色产品图，用快速切换做出户外探险手账的感觉，配上有节奏的音乐。\n上屏文案使用英文，结尾展示“YETI”和“Take it outside.”。我没有图片素材，请帮我准备所需图片，画幅4:3。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "url": "https://topview-frontend.topviewai.app/template/app/motion-studio/media/videos/magazine-eye-collage.mp4",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "duration_target_seconds": 26,
+        "duration_mode": "approximate",
+        "aspect_ratio": "4:3",
+        "exact_text": [
+          "YETI",
+          "Take it outside."
+        ],
+        "quality_checks": [
+          "约 26 秒，约数时长由人工判断，不伪造逐帧精确容差",
+          "复古杂志拼贴、撕纸/手写/黑白照片、快速切换与音乐",
+          "清晨咖啡→公路→露营→登山，穿插杯子全貌与特写",
+          "英文上屏；无用户图片，需按需求准备素材"
+        ]
+      },
+      "notes": [
+        "从业务第 4 行两条独立输入拆出；只移除序号与输入方式分隔说明。",
+        "业务参考成片仅作风格参考，不喂给模型。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Paper Trail",
+          "excerpt": "帮我做一条约26秒的 YETI 保温杯品牌短片，主题是“从日常走向户外”，采用复古杂志拼贴风格。\n从清晨装好咖啡出发，依次展示公路旅行、山野露营和徒步登山，穿插杯子的产品展示与细节特写。画面加入撕纸、胶带、手写标注、黑白照片和彩色产品图，用快速切换做出户外探险手账的感觉，配上有节奏的音乐。\n上屏文案使用英文，结尾展示“YETI”和“Take it outside.”。我没有图片素材，请帮我准备所需图片，画幅4:3。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 4,
+        "input_cell_id": "25",
+        "variant": "2"
+      },
+      "revision": {
+        "previous_case_id": "04b-paper-yeti",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "223",
+            "text": "2、帮我做一条约26秒的 YETI 保温杯品牌短片，主题是“从日常走向户外”，采用复古杂志拼贴风格。",
+            "type": "text"
+          },
+          {
+            "id": "224",
+            "text": "从清晨装好咖啡出发，依次展示公路旅行、山野露营和徒步登山，穿插杯子的产品展示与细节特写。画面加入撕纸、胶带、手写标注、黑白照片和彩色产品图，用快速切换做出户外探险手账的感觉，配上有节奏的音乐。",
+            "type": "text"
+          },
+          {
+            "id": "225",
+            "text": "上屏文案使用英文，结尾展示“YETI”和“Take it outside.”。我没有图片素材，请帮我准备所需图片，画幅4:3。",
+            "type": "text"
+          }
+        ],
+        "sha256": "0362331de265a9891bd2d41fac45c072f5ec41edb21d804d3dba0eddd7b9c00f",
+        "text_file": "dataset/v0.1.3/prompts/04b-paper-yeti.txt",
+        "split": {
+          "kind": "numbered-cell-part",
+          "removed_prefix": "2、",
+          "separator_block_id": "222"
+        }
+      }
+    },
+    {
+      "id": "05-coffee-journey",
+      "title": "咖啡豆的拼贴旅程",
+      "category": "Paper Trail",
+      "source_row": 5,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "制作一条纸张拼贴动画，讲述一颗咖啡豆从种植园到城市咖啡馆的旅程。\n\n风格：\n复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。",
+      "prompt_submitted": "制作一条纸张拼贴动画，讲述一颗咖啡豆从种植园到城市咖啡馆的旅程。\n\n风格：\n复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-9650d1e596a08033",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "style_or_structure_only",
+          "inspection_note": "抽帧是 THE SHORTCUT / MAKE YOUR OWN WAY 的城市纸拼贴，未见咖啡豆旅程；只作拼贴风格参考。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "种植园→城市咖啡馆的旅程可理解",
+          "纸张拼贴风格",
+          "新增明确画风要求：复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。"
+        ],
+        "style_prompt": "复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Paper Trail",
+          "excerpt": "制作一条纸张拼贴动画，讲述一颗咖啡豆从种植园到城市咖啡馆的旅程。\n\n风格：\n复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 5,
+        "input_cell_id": "30"
+      },
+      "revision": {
+        "previous_case_id": "05-coffee-journey",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "176",
+            "text": "制作一条纸张拼贴动画，讲述一颗咖啡豆从种植园到城市咖啡馆的旅程。",
+            "type": "text"
+          },
+          {
+            "id": "177",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "178",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "179",
+            "text": "复古拼贴插画风格。画面融合了纪实摄影剪影、扁平手绘人物与折纸等拼贴元素，带有明显的粗糙纸张纹理、折痕与撕纸毛边质感。整体采用复古蓝、米黄底色搭配暖橙点缀，呈低饱和印刷调性。空间依靠多层图案前后叠放营造二维拼贴纵深，无复杂写实光影，层次分明且具定格动画观感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "143f1d144c46c670f79c1dbda197c49c7105e8cc0bab069f31924c8e735be287",
+        "text_file": "dataset/v0.1.3/prompts/05-coffee-journey.txt"
+      }
+    },
+    {
+      "id": "20-moon-chalkboard",
+      "title": "月相黑板手绘讲解",
+      "category": "手绘讲解",
+      "source_row": 6,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "Make a 45-second 16:9 narrated explainer for curious twelve-year-olds, playing a classroom screen, drawn by hand in chalk on a blackboard. Use only the facts and sources below; don't add claims or numbers, and say \"about\" for anything rounded.\n\nWrite about 80 spoken words on five boards: a question or a surprising fact, the mechanism in two steps, one worked case, and the takeaway that answers the opening. Make the narration first, in a calm teacher's voice, and time everything from the audio. Each board holds one idea and one main drawing; everything on it, lettering included, is drawn on stroke by stroke at a hand's speed, each mark starting on the word that names it, by a drawn hand holding the tool. On the board write keywords only (1-4 words), large enough for a phone, each on the word that says it. A finished board rests about a second, then is cleared the medium's own way (an eraser, the sheet torn off, the page turned). Nothing fades, slides or pops in; no camera moves. You hear the tool on the surface and no music. End on the takeaway board, with the closing line and web address written on it if given, held 2 seconds after the last word. If the voice is synthetic, write \"Narration: synthetic voice\" small on that board, after everything else.\n\nTopic: \"Why the Moon changes shape\"\nFacts and sources: NASA Science, \"Moon Phases\"\nLanguage: English\nClosing line and web address, if any: \"Look up tonight.\" · example.org/moon\n\n风格：\n二维黑板手绘风格。画面以深绿色木框黑板为底，带有粉笔擦拭的磨砂斑驳纹理。图形与文字均采用粗糙颗粒感的白色、黄色与浅蓝色粉笔线条勾勒及排线填充，造型简化且高度平面图解化。色彩对比鲜明，无复杂光影，配合扁平剪贴风格的绘制手部，呈现质朴清晰的板书演示质感。",
+      "prompt_submitted": "Make a 45-second 16:9 narrated explainer for curious twelve-year-olds, playing a classroom screen, drawn by hand in chalk on a blackboard. Use only the facts and sources below; don't add claims or numbers, and say \"about\" for anything rounded.\n\nWrite about 80 spoken words on five boards: a question or a surprising fact, the mechanism in two steps, one worked case, and the takeaway that answers the opening. Make the narration first, in a calm teacher's voice, and time everything from the audio. Each board holds one idea and one main drawing; everything on it, lettering included, is drawn on stroke by stroke at a hand's speed, each mark starting on the word that names it, by a drawn hand holding the tool. On the board write keywords only (1-4 words), large enough for a phone, each on the word that says it. A finished board rests about a second, then is cleared the medium's own way (an eraser, the sheet torn off, the page turned). Nothing fades, slides or pops in; no camera moves. You hear the tool on the surface and no music. End on the takeaway board, with the closing line and web address written on it if given, held 2 seconds after the last word. If the voice is synthetic, write \"Narration: synthetic voice\" small on that board, after everything else.\n\nTopic: \"Why the Moon changes shape\"\nFacts and sources: NASA Science, \"Moon Phases\"\nLanguage: English\nClosing line and web address, if any: \"Look up tonight.\" · example.org/moon\n\n风格：\n二维黑板手绘风格。画面以深绿色木框黑板为底，带有粉笔擦拭的磨砂斑驳纹理。图形与文字均采用粗糙颗粒感的白色、黄色与浅蓝色粉笔线条勾勒及排线填充，造型简化且高度平面图解化。色彩对比鲜明，无复杂光影，配合扁平剪贴风格的绘制手部，呈现质朴清晰的板书演示质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-fa47d5e18795b347",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "业务参考 54.912 秒、640×360 预览；本案要求 45 秒，以 prompt 为准。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": 45,
+        "aspect_ratio": "16:9",
+        "exact_text": [
+          "Look up tonight.",
+          "example.org/moon"
+        ],
+        "quality_checks": [
+          "45 秒、16:9、英语，面向 12 岁儿童；约 80 个口播词、五块板书",
+          "只使用 NASA Science Moon Phases 所述事实；圆整数字说 about，不擅自添加事实或数字",
+          "先旁白后按音频定时；粉笔手与笔画逐笔同步命名词，无淡入、滑入、弹出及运镜",
+          "每板一个概念与主图，关键词 1–4 词；约停一秒后擦除；有书写声、无配乐",
+          "结尾逐字呈现 closing line 与网址，末句后保持 2 秒；合成旁白时标注 Narration: synthetic voice",
+          "二维绿黑板、粉笔颗粒与扁平手部，符合原文画风"
+        ]
+      },
+      "notes": [
+        "新增业务第 6 行，原文保留；参考视频模型未知，仅供风格对照。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "手绘讲解",
+          "excerpt": "Make a 45-second 16:9 narrated explainer for curious twelve-year-olds, playing a classroom screen, drawn by hand in chalk on a blackboard. Use only the facts and sources below; don't add claims or numbers, and say \"about\" for anything rounded.\n\nWrite about 80 spoken words on five boards: a question or a surprising fact, the mechanism in two steps, one worked case, and the takeaway that answers the opening. Make the narration first, in a calm teacher's voice, and time everything from the audio. Each board holds one idea and one main drawing; everything on it, lettering included, is drawn on stroke by stroke at a hand's speed, each mark starting on the word that names it, by a drawn hand holding the tool. On the board write keywords only (1-4 words), large enough for a phone, each on the word that says it. A finished board rests about a second, then is cleared the medium's own way (an eraser, the sheet torn off, the page turned). Nothing fades, slides or pops in; no camera moves. You hear the tool on the surface and no music. End on the takeaway board, with the closing line and web address written on it if given, held 2 seconds after the last word. If the voice is synthetic, write \"Narration: synthetic voice\" small on that board, after everything else.\n\nTopic: \"Why the Moon changes shape\"\nFacts and sources: NASA Science, \"Moon Phases\"\nLanguage: English\nClosing line and web address, if any: \"Look up tonight.\" · example.org/moon\n\n风格：\n二维黑板手绘风格。画面以深绿色木框黑板为底，带有粉笔擦拭的磨砂斑驳纹理。图形与文字均采用粗糙颗粒感的白色、黄色与浅蓝色粉笔线条勾勒及排线填充，造型简化且高度平面图解化。色彩对比鲜明，无复杂光影，配合扁平剪贴风格的绘制手部，呈现质朴清晰的板书演示质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 6,
+        "input_cell_id": "35"
+      },
+      "revision": {
+        "previous_case_id": null,
+        "previous_version": "0.1.2",
+        "action": "new_test",
+        "description": "新增 45 秒英语月相板书讲解。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "249",
+            "text": "Make a 45-second 16:9 narrated explainer for curious twelve-year-olds, playing a classroom screen, drawn by hand in chalk on a blackboard. Use only the facts and sources below; don't add claims or numbers, and say \"about\" for anything rounded.",
+            "type": "text"
+          },
+          {
+            "id": "250",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "251",
+            "text": "Write about 80 spoken words on five boards: a question or a surprising fact, the mechanism in two steps, one worked case, and the takeaway that answers the opening. Make the narration first, in a calm teacher's voice, and time everything from the audio. Each board holds one idea and one main drawing; everything on it, lettering included, is drawn on stroke by stroke at a hand's speed, each mark starting on the word that names it, by a drawn hand holding the tool. On the board write keywords only (1-4 words), large enough for a phone, each on the word that says it. A finished board rests about a second, then is cleared the medium's own way (an eraser, the sheet torn off, the page turned). Nothing fades, slides or pops in; no camera moves. You hear the tool on the surface and no music. End on the takeaway board, with the closing line and web address written on it if given, held 2 seconds after the last word. If the voice is synthetic, write \"Narration: synthetic voice\" small on that board, after everything else.",
+            "type": "text"
+          },
+          {
+            "id": "252",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "253",
+            "text": "Topic: \"Why the Moon changes shape\"",
+            "type": "text"
+          },
+          {
+            "id": "254",
+            "text": "Facts and sources: NASA Science, \"Moon Phases\"",
+            "type": "text"
+          },
+          {
+            "id": "255",
+            "text": "Language: English",
+            "type": "text"
+          },
+          {
+            "id": "256",
+            "text": "Closing line and web address, if any: \"Look up tonight.\" · example.org/moon",
+            "type": "text"
+          },
+          {
+            "id": "257",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "258",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "259",
+            "text": "二维黑板手绘风格。画面以深绿色木框黑板为底，带有粉笔擦拭的磨砂斑驳纹理。图形与文字均采用粗糙颗粒感的白色、黄色与浅蓝色粉笔线条勾勒及排线填充，造型简化且高度平面图解化。色彩对比鲜明，无复杂光影，配合扁平剪贴风格的绘制手部，呈现质朴清晰的板书演示质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "34c4f0205d7e225857eacb25748254288fb105acb2419835b968a00fed0d70dc",
+        "text_file": "dataset/v0.1.3/prompts/20-moon-chalkboard.txt"
+      }
+    },
+    {
+      "id": "06-protein-age",
+      "title": "不同年龄的蛋白质需求",
+      "category": "艺术字解说",
+      "source_row": 7,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "不同年龄段的人需要多少蛋白质\n\n风格：\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。",
+      "prompt_submitted": "不同年龄段的人需要多少蛋白质\n\n风格：\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "年龄差异表达清楚",
+          "营养信息需要人工核验，不能只检查排版",
+          "新增明确画风要求：二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+        ],
+        "style_prompt": "二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。",
+        "用户核对原表格：蛋白质和睡眠是两个单元格，共有的参考视频属于睡眠；可能是 Markdown 导出丢失对应关系。"
+      ],
+      "gate_intake": {
+        "explanation_target": "typography",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "艺术字解说",
+          "excerpt": "不同年龄段的人需要多少蛋白质\n\n风格：\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 7,
+        "input_cell_id": "40"
+      },
+      "revision": {
+        "previous_case_id": "06-protein-age",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "186",
+            "text": "不同年龄段的人需要多少蛋白质",
+            "type": "text"
+          },
+          {
+            "id": "187",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "188",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "189",
+            "text": "二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "835756a52f4fa70c712f5451276fef326f5e1165df5f48d9004fc0318484f3b2",
+        "text_file": "dataset/v0.1.3/prompts/06-protein-age.txt"
+      }
+    },
+    {
+      "id": "07-sleep-age",
+      "title": "不同年龄的睡眠时长",
+      "category": "艺术字解说",
+      "source_row": 8,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "不同年龄段的人所需的睡眠时长\n\n风格：\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。",
+      "prompt_submitted": "不同年龄段的人所需的睡眠时长\n\n风格：\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-480370bf7fed4232",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "按用户核对的原表格归到睡眠案；抽帧确为睡眠时长艺术字。此调整属于附件映射校正，不是模型内容错误。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "年龄分组与时长关系清楚",
+          "健康信息需要人工核验",
+          "新增明确画风要求：二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+        ],
+        "style_prompt": "二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。",
+        "用户核对原表格：蛋白质和睡眠是两个单元格，共有的参考视频属于睡眠；可能是 Markdown 导出丢失对应关系。"
+      ],
+      "gate_intake": {
+        "explanation_target": "typography",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "艺术字解说",
+          "excerpt": "不同年龄段的人所需的睡眠时长\n\n风格：\n二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 8,
+        "input_cell_id": "45"
+      },
+      "revision": {
+        "previous_case_id": "07-sleep-age",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "230",
+            "text": "不同年龄段的人所需的睡眠时长",
+            "type": "text"
+          },
+          {
+            "id": "231",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "232",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "233",
+            "text": "二维复古平面图形设计风格。造型以夸张膨胀的波浪扭曲复古字体与极简几何形为主，平面化构图无纵深。画面覆有细腻的纸质噪点与杂色颗粒感。色彩采用鲜绿、大红、明黄与粉红的高饱和撞色，辅以柔和的放射状喷枪渐变，整体呈现出鲜明的70年代复古印刷与波普视觉质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "5b3287ff9c7c7246bbea69a60aade33c0ee4d2f6314538b7136ba32556102a2e",
+        "text_file": "dataset/v0.1.3/prompts/07-sleep-age.txt"
+      }
+    },
+    {
+      "id": "08-microwave",
+      "title": "微波炉内部原理",
+      "category": "内部结构拆解",
+      "source_row": 9,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "微波炉的原理\n\n风格：\n风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。",
+      "prompt_submitted": "微波炉的原理\n\n风格：\n风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-21d4671b3045a368",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-anatomy-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "可辨认的炉体与内部工作关系",
+          "结构拆解帮助解释原理，不仅是文字标签",
+          "新增明确画风要求：风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。"
+        ],
+        "style_prompt": "风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "physical_internal_structure",
+        "subject_defined": true,
+        "needs_parts_relationships": true,
+        "requires_3d": true,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "内部结构拆解",
+          "excerpt": "微波炉的原理\n\n风格：\n风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "suitable",
+        "label": "适用（需视频适配）",
+        "reasons": [
+          "目标明确，需要用内部部件及空间/工作关系解释一个具体实体。"
+        ],
+        "adaptations": [
+          "Anatomy 负责结构表达，C2V 负责时间线、确定性 seek 与完整 MP4。",
+          "按需取用结构能力；其 Figure/Hero 等原始预算不是本案通过时长承诺。",
+          "挂载不等于调用，后续从实际轨迹确认 Skill 使用情况。",
+          "原文明确三维：必须保留三维全貌/特写；仅二维 SVG 不算完整达标。"
+        ],
+        "recommended_policy": "c2v-anatomy-v1"
+      },
+      "source_location": {
+        "row": 9,
+        "input_cell_id": "50"
+      },
+      "revision": {
+        "previous_case_id": "08-microwave",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "325",
+            "text": "微波炉的原理",
+            "type": "text"
+          },
+          {
+            "id": "326",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "327",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "328",
+            "text": "风格化三维动画。形体圆润平滑，几何造型高度简化，模型表面呈光滑塑料与轻微透光质感，无外轮廓描边。整体以深暗背景衬托高亮主体，明暗对比强烈；常使用半透明发光线条与柔和泛光特效，光影漫射柔和，配合轻微景深与悬浮微粒，空间层次通透且简洁。",
+            "type": "text"
+          }
+        ],
+        "sha256": "69a283f95b882838760681216740f2e9f8b2aa1b12ff22eea146d957d4541caa",
+        "text_file": "dataset/v0.1.3/prompts/08-microwave.txt"
+      }
+    },
+    {
+      "id": "09-reel-projector",
+      "title": "Seko REEL 01 放映机",
+      "category": "内部结构拆解",
+      "source_row": 10,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "帮我为「Seko REEL 01」制作一条三维产品展示片。产品是「复古 35 毫米双盘胶片放映机」，外观重点是「双盘胶片与精密机械结构」。通过产品全貌和细节特写，重点展示「片门与压片板、输片齿轮与胶片、灯室与聚光镜」，整体氛围为「复古、精密、有机械感」。片头展示产品名称，主标语是「把光放进胶片」，结尾展示「Seko · 放映开始」。\n\n风格：\n科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。",
+      "prompt_submitted": "帮我为「Seko REEL 01」制作一条三维产品展示片。产品是「复古 35 毫米双盘胶片放映机」，外观重点是「双盘胶片与精密机械结构」。通过产品全貌和细节特写，重点展示「片门与压片板、输片齿轮与胶片、灯室与聚光镜」，整体氛围为「复古、精密、有机械感」。片头展示产品名称，主标语是「把光放进胶片」，结尾展示「Seko · 放映开始」。\n\n风格：\n科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-1fa0bca58322f5d1",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "style_or_structure_only",
+          "inspection_note": "抽帧见 DREAMINA REEL 01，当前 prompt 写 Seko REEL 01，参考片品牌对应关系尚未确认。测试输出以 prompt 为准；若生成品牌名或指定文案有误，记录为指令偏差。"
+        }
+      ],
+      "skill_policy": "c2v-anatomy-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [
+          "Seko REEL 01",
+          "把光放进胶片",
+          "Seko · 放映开始"
+        ],
+        "quality_checks": [
+          "双盘胶片、片门与压片板、输片齿轮与胶片、灯室与聚光镜可辨认",
+          "产品全貌及细节特写",
+          "准确出现产品名与两句指定文案",
+          "新增明确画风要求：科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。"
+        ],
+        "style_prompt": "科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "physical_internal_structure",
+        "subject_defined": true,
+        "needs_parts_relationships": true,
+        "requires_3d": true,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "内部结构拆解",
+          "excerpt": "帮我为「Seko REEL 01」制作一条三维产品展示片。产品是「复古 35 毫米双盘胶片放映机」，外观重点是「双盘胶片与精密机械结构」。通过产品全貌和细节特写，重点展示「片门与压片板、输片齿轮与胶片、灯室与聚光镜」，整体氛围为「复古、精密、有机械感」。片头展示产品名称，主标语是「把光放进胶片」，结尾展示「Seko · 放映开始」。\n\n风格：\n科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "suitable",
+        "label": "适用（需视频适配）",
+        "reasons": [
+          "目标明确，需要用内部部件及空间/工作关系解释一个具体实体。"
+        ],
+        "adaptations": [
+          "Anatomy 负责结构表达，C2V 负责时间线、确定性 seek 与完整 MP4。",
+          "按需取用结构能力；其 Figure/Hero 等原始预算不是本案通过时长承诺。",
+          "挂载不等于调用，后续从实际轨迹确认 Skill 使用情况。",
+          "原文明确三维：必须保留三维全貌/特写；仅二维 SVG 不算完整达标。"
+        ],
+        "recommended_policy": "c2v-anatomy-v1"
+      },
+      "source_location": {
+        "row": 10,
+        "input_cell_id": "55"
+      },
+      "revision": {
+        "previous_case_id": "09-reel-projector",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "166",
+            "text": "帮我为「Seko REEL 01」制作一条三维产品展示片。产品是「复古 35 毫米双盘胶片放映机」，外观重点是「双盘胶片与精密机械结构」。通过产品全貌和细节特写，重点展示「片门与压片板、输片齿轮与胶片、灯室与聚光镜」，整体氛围为「复古、精密、有机械感」。片头展示产品名称，主标语是「把光放进胶片」，结尾展示「Seko · 放映开始」。",
+            "type": "text"
+          },
+          {
+            "id": "167",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "168",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "169",
+            "text": "科技感风格化三维展示结合动态图形设计，造型结构精密，融合了半透明剖切与线框透视图解。机械主体呈细腻的哑光金属与塑料质感，带有清晰的高光反射与细节刻画。整体以深灰黑色网格为背景，叠加发光白色线条与扁平UI，局部采用高饱和荧光黄与金属金做明度跳跃的点缀，明暗反差强烈，呈现利落现代的工业图解风格。",
+            "type": "text"
+          }
+        ],
+        "sha256": "54697ad214a71c09cad8934a32fd70a0c095002c7cff2e23c7ecabc74bbdcd66",
+        "text_file": "dataset/v0.1.3/prompts/09-reel-projector.txt"
+      }
+    },
+    {
+      "id": "10-time-pause",
+      "title": "暂停时间的超能力",
+      "category": "3D场景演绎",
+      "source_row": 11,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "如果你拥有暂停时间的超能力，会发生什么？\n\n风格：\n低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。",
+      "prompt_submitted": "如果你拥有暂停时间的超能力，会发生什么？\n\n风格：\n低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-c24e7b80ce4f4491",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "暂停与未暂停状态形成可理解的情节和空间对比",
+          "新增明确画风要求：低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。"
+        ],
+        "style_prompt": "低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "scene_or_system",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "3D场景演绎",
+          "excerpt": "如果你拥有暂停时间的超能力，会发生什么？\n\n风格：\n低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 11,
+        "input_cell_id": "60"
+      },
+      "revision": {
+        "previous_case_id": "10-time-pause",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "111",
+            "text": "如果你拥有暂停时间的超能力，会发生什么？",
+            "type": "text"
+          },
+          {
+            "id": "112",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "113",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "114",
+            "text": "低模（Low-Poly）风格化三维动画。角色与物体由清晰的多面体几何切面构成，棱角分明，造型高度概括简化且无描边。表面呈均匀平滑的哑光纯色色块，无复杂纹理。色彩明亮饱和，主色与中性背景对比鲜明。光影呈现多边形平面明暗分界，搭配柔和的全局漫反射光，画面清爽、立体且富有几何折纸质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "d70a0e083d361be830379504e32a138ba6673621ae6eab1747c75be3f7f17619",
+        "text_file": "dataset/v0.1.3/prompts/10-time-pause.txt"
+      }
+    },
+    {
+      "id": "11-airtag",
+      "title": "AirTag 远程定位",
+      "category": "3D场景演绎",
+      "source_row": 12,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "没有 GPS 和网络连接的 AirTag，为什么能够被远程定位？\n\n风格：\n极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。",
+      "prompt_submitted": "没有 GPS 和网络连接的 AirTag，为什么能够被远程定位？\n\n风格：\n极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-722ba593f8dda46b",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "解释没有自身 GPS/网络时的定位链路",
+          "不得把设问误解为完全不依赖任何外部网络",
+          "新增明确画风要求：极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。"
+        ],
+        "style_prompt": "极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "scene_or_system",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "3D场景演绎",
+          "excerpt": "没有 GPS 和网络连接的 AirTag，为什么能够被远程定位？\n\n风格：\n极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 12,
+        "input_cell_id": "65"
+      },
+      "revision": {
+        "previous_case_id": "11-airtag",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "239",
+            "text": "没有 GPS 和网络连接的 AirTag，为什么能够被远程定位？",
+            "type": "text"
+          },
+          {
+            "id": "240",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "241",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "242",
+            "text": "极简风格化三维动效。模型采用高度简化的几何形态与圆角哑光材质，无明显纹理与硬轮廓线。整体以深暗冷蓝、黑灰为基调，搭配亮白与荧光绿、蓝色的半透明发光线框、波纹与界面UI元素。环境光漫射柔和，对比度克制，结合轴测透视与网格空间，呈现冷峻克制的科技信息可视化质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "59b43926f18c798d9553809fc24c8bec7785999f216ef075b0afce1ef7c070c7",
+        "text_file": "dataset/v0.1.3/prompts/11-airtag.txt"
+      }
+    },
+    {
+      "id": "12-earth-tunnel",
+      "title": "穿过地球的隧道",
+      "category": "3D场景演绎",
+      "source_row": 13,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "如果挖一条贯穿地球的隧道，然后跳进去，会发生什么？\n\n风格：\n风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。",
+      "prompt_submitted": "如果挖一条贯穿地球的隧道，然后跳进去，会发生什么？\n\n风格：\n风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-f54f15d920c40670",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "空间位置与运动关系可辨认",
+          "说明理想化设定，不伪装成现实可行工程",
+          "新增明确画风要求：风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。"
+        ],
+        "style_prompt": "风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "scene_or_system",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "3D场景演绎",
+          "excerpt": "如果挖一条贯穿地球的隧道，然后跳进去，会发生什么？\n\n风格：\n风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 13,
+        "input_cell_id": "70"
+      },
+      "revision": {
+        "previous_case_id": "12-earth-tunnel",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "121",
+            "text": "如果挖一条贯穿地球的隧道，然后跳进去，会发生什么？",
+            "type": "text"
+          },
+          {
+            "id": "122",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "123",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "124",
+            "text": "风格化三维低模动画，角色与物体均由极度简化的几何方块和圆柱拼接而成，造型棱角清晰微带倒角。无轮廓描边，表面呈干净平滑的哑光塑料质感。整体采用明亮鲜艳的高饱和度纯色块搭配，光照均匀通透，阴影柔和自然，空间纵深明确且背景层次简洁。",
+            "type": "text"
+          }
+        ],
+        "sha256": "24ee7ffc4d23a9d00e508b0a8d9d5288a812681cb89d7a077137d577a31743ac",
+        "text_file": "dataset/v0.1.3/prompts/12-earth-tunnel.txt"
+      }
+    },
+    {
+      "id": "13-sitcom-template",
+      "title": "Inkwell 打印机情景喜剧",
+      "category": "扁平卡通",
+      "source_row": 14,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "Make a 60-second 16:9 cartoon sitcom episode for people who follow our channel, playing YouTube and Shorts. Use only the names, facts and lines below as given; invent the story, the jokes and an original cast around them, and no real people or existing characters.\n\nA 2D TV-cartoon look: thick dark outlines that wobble slightly, flat colour, big round eyes, noodle arms. Two characters with clearly different voices and one small non-speaking creature. The comedy is banter, pauses and reaction close-ups, not action: they mostly stand or sit and act with face and hands. One palette per place, subtitles with a coloured speaker label on every line, a title card by 15 seconds, a light synthesized score that ducks under the dialogue. End on a card with the series title, the episode name and my end line, held 4 seconds.\n\nTopic: \"an office printer that never works\"\nMust appear, word for word: the line \"Have you tried turning it off?\"; the name Inkwell\nCast ideas (optional): \"a deadpan office manager and a nervous intern\"\nEnd line: \"Inkwell — printers that print.\"\n\n风格：\n美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。",
+      "prompt_submitted": "Make a 60-second 16:9 cartoon sitcom episode for people who follow our channel, playing YouTube and Shorts. Use only the names, facts and lines below as given; invent the story, the jokes and an original cast around them, and no real people or existing characters.\n\nA 2D TV-cartoon look: thick dark outlines that wobble slightly, flat colour, big round eyes, noodle arms. Two characters with clearly different voices and one small non-speaking creature. The comedy is banter, pauses and reaction close-ups, not action: they mostly stand or sit and act with face and hands. One palette per place, subtitles with a coloured speaker label on every line, a title card by 15 seconds, a light synthesized score that ducks under the dialogue. End on a card with the series title, the episode name and my end line, held 4 seconds.\n\nTopic: \"an office printer that never works\"\nMust appear, word for word: the line \"Have you tried turning it off?\"; the name Inkwell\nCast ideas (optional): \"a deadpan office manager and a nervous intern\"\nEnd line: \"Inkwell — printers that print.\"\n\n风格：\n美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-c01917fdb47d04a2",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": 60,
+        "aspect_ratio": "16:9",
+        "exact_text": [
+          "Have you tried turning it off?",
+          "Inkwell",
+          "Inkwell — printers that print."
+        ],
+        "quality_checks": [
+          "60 秒、16:9；打印机故障主题，双角色不同声音及一个无台词小生物",
+          "逐字台词和片尾准确；每句有区分说话人的字幕",
+          "15 秒内片头；结尾系列名、集名与指定句保持 4 秒；配乐在对白下降音量",
+          "新增明确画风要求：美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。"
+        ],
+        "style_prompt": "美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "扁平卡通",
+          "excerpt": "Make a 60-second 16:9 cartoon sitcom episode for people who follow our channel, playing YouTube and Shorts. Use only the names, facts and lines below as given; invent the story, the jokes and an original cast around them, and no real people or existing characters.\n\nA 2D TV-cartoon look: thick dark outlines that wobble slightly, flat colour, big round eyes, noodle arms. Two characters with clearly different voices and one small non-speaking creature. The comedy is banter, pauses and reaction close-ups, not action: they mostly stand or sit and act with face and hands. One palette per place, subtitles with a coloured speaker label on every line, a title card by 15 seconds, a light synthesized score that ducks under the dialogue. End on a card with the series title, the episode name and my end line, held 4 seconds.\n\nTopic: \"an office printer that never works\"\nMust appear, word for word: the line \"Have you tried turning it off?\"; the name Inkwell\nCast ideas (optional): \"a deadpan office manager and a nervous intern\"\nEnd line: \"Inkwell — printers that print.\"\n\n风格：\n美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 14,
+        "input_cell_id": "75"
+      },
+      "revision": {
+        "previous_case_id": "13-sitcom-template",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "132",
+            "text": "Make a 60-second 16:9 cartoon sitcom episode for people who follow our channel, playing YouTube and Shorts. Use only the names, facts and lines below as given; invent the story, the jokes and an original cast around them, and no real people or existing characters.",
+            "type": "text"
+          },
+          {
+            "id": "133",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "134",
+            "text": "A 2D TV-cartoon look: thick dark outlines that wobble slightly, flat colour, big round eyes, noodle arms. Two characters with clearly different voices and one small non-speaking creature. The comedy is banter, pauses and reaction close-ups, not action: they mostly stand or sit and act with face and hands. One palette per place, subtitles with a coloured speaker label on every line, a title card by 15 seconds, a light synthesized score that ducks under the dialogue. End on a card with the series title, the episode name and my end line, held 4 seconds.",
+            "type": "text"
+          },
+          {
+            "id": "135",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "136",
+            "text": "Topic: \"an office printer that never works\"",
+            "type": "text"
+          },
+          {
+            "id": "137",
+            "text": "Must appear, word for word: the line \"Have you tried turning it off?\"; the name Inkwell",
+            "type": "text"
+          },
+          {
+            "id": "138",
+            "text": "Cast ideas (optional): \"a deadpan office manager and a nervous intern\"",
+            "type": "text"
+          },
+          {
+            "id": "139",
+            "text": "End line: \"Inkwell — printers that print.\"",
+            "type": "text"
+          },
+          {
+            "id": "140",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "141",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "142",
+            "text": "美式手绘二维卡通动画风格。角色与物体造型高度夸张、几何化且简化，具有强烈的夸张表情。画面通篇采用清晰均匀的黑色粗轮廓线勾勒，内部以大面积纯色平涂填充，几乎无体积光影与渐变渲染。整体色彩明快柔和，饱和度适中，空间纵深扁平，背景线条与色块结构简练，呈现鲜明的扁平插画质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "e2bd9c516a9fbe61989755dd4493a878506419bbc1eff84a8179e4f662ac27d4",
+        "text_file": "dataset/v0.1.3/prompts/13-sitcom-template.txt"
+      }
+    },
+    {
+      "id": "14-postit",
+      "title": "便利贴的意外发明",
+      "category": "扁平卡通",
+      "source_row": 15,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "用马克笔手绘漫画动画讲述便利贴是如何被意外发明的\n\n风格：\n二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。",
+      "prompt_submitted": "用马克笔手绘漫画动画讲述便利贴是如何被意外发明的\n\n风格：\n二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "url": "https://topview-frontend.topviewai.app/media/videos/COrXkXHYTdqI-zm-.mp4",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "style_or_structure_only",
+          "inspection_note": "抽帧展示议会、法案和表决流程，与便利贴发明不同；只作马克笔漫画风格参考。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "马克笔手绘漫画风格",
+          "因果故事及史实人工核验",
+          "新增明确画风要求：二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。"
+        ],
+        "style_prompt": "二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "扁平卡通",
+          "excerpt": "用马克笔手绘漫画动画讲述便利贴是如何被意外发明的\n\n风格：\n二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 15,
+        "input_cell_id": "80"
+      },
+      "revision": {
+        "previous_case_id": "14-postit",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "300",
+            "text": "用马克笔手绘漫画动画讲述便利贴是如何被意外发明的",
+            "type": "text"
+          },
+          {
+            "id": "301",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "302",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "303",
+            "text": "二维手绘涂鸦卡通风格，具有童趣简笔画质感。造型高度夸张简化，空间扁平无纵深。采用粗重、略带抖动感的黑色手绘轮廓线，搭配高饱和度的鲜明平涂色块，无真实立体光影渲染。背景常见方格纸或斜向条纹纹理，呈现手工纸质拼贴般的视觉效果。",
+            "type": "text"
+          }
+        ],
+        "sha256": "c42bd7ba9aaa6a2e29c6a8712a794e8e126d603d180ce850cbd5cf5c92dc2500",
+        "text_file": "dataset/v0.1.3/prompts/14-postit.txt"
+      }
+    },
+    {
+      "id": "15-neighbor",
+      "title": "NEIGHBOR 邻里品牌",
+      "category": "矢量图",
+      "source_row": 16,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "帮我做一个品牌名为「NEIGHBOR」的「邻里社区」品牌宣传视频，讲述邻居问候的温暖日常，内容包含：「问好、归属、关心、美好、共享、相遇、日常、互助」八个主题，标语为「每一声问好，都让我们更近一点」，最后结尾「好邻居，从问好开始」。\n\n风格：\n扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。",
+      "prompt_submitted": "帮我做一个品牌名为「NEIGHBOR」的「邻里社区」品牌宣传视频，讲述邻居问候的温暖日常，内容包含：「问好、归属、关心、美好、共享、相遇、日常、互助」八个主题，标语为「每一声问好，都让我们更近一点」，最后结尾「好邻居，从问好开始」。\n\n风格：\n扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-1bfdfd2d9b2a44a0",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [
+          "NEIGHBOR",
+          "问好",
+          "归属",
+          "关心",
+          "美好",
+          "共享",
+          "相遇",
+          "日常",
+          "互助",
+          "每一声问好，都让我们更近一点",
+          "好邻居，从问好开始"
+        ],
+        "quality_checks": [
+          "八个主题完整",
+          "品牌名、标语、结尾文案准确",
+          "温暖邻里日常及矢量图风格",
+          "新增明确画风要求：扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。"
+        ],
+        "style_prompt": "扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "矢量图",
+          "excerpt": "帮我做一个品牌名为「NEIGHBOR」的「邻里社区」品牌宣传视频，讲述邻居问候的温暖日常，内容包含：「问好、归属、关心、美好、共享、相遇、日常、互助」八个主题，标语为「每一声问好，都让我们更近一点」，最后结尾「好邻居，从问好开始」。\n\n风格：\n扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 16,
+        "input_cell_id": "85"
+      },
+      "revision": {
+        "previous_case_id": "15-neighbor",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "309",
+            "text": "帮我做一个品牌名为「NEIGHBOR」的「邻里社区」品牌宣传视频，讲述邻居问候的温暖日常，内容包含：「问好、归属、关心、美好、共享、相遇、日常、互助」八个主题，标语为「每一声问好，都让我们更近一点」，最后结尾「好邻居，从问好开始」。",
+            "type": "text"
+          },
+          {
+            "id": "310",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "311",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "312",
+            "text": "扁平化二维矢量插画风格动画。造型高度几何化与平面化，形体圆润规整，细节极度概括，无透视纵深感。主要依靠纯净平滑的大色块拼接，局部搭配少量简洁平滑的轮廓线。整体以森林绿、柔和米白与暖黄色为核心基调，色彩温和自然，几乎无体积光影，呈现极简、纯粹且温暖的扁平图形质感。",
+            "type": "text"
+          }
+        ],
+        "sha256": "dc3dbfa0b9d7833034ae90a4d75702673ffac01e950948198b9ac6b34a37852e",
+        "text_file": "dataset/v0.1.3/prompts/15-neighbor.txt"
+      }
+    },
+    {
+      "id": "16-no-sleep",
+      "title": "连续不睡觉的变化",
+      "category": "Violet Flat",
+      "source_row": 17,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "如果连续几天不睡觉，你的大脑和身体会发生什么变化？\n\n风格：\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。",
+      "prompt_submitted": "如果连续几天不睡觉，你的大脑和身体会发生什么变化？\n\n风格：\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-55aed8446933bb17",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "变化过程可理解",
+          "健康风险与科学表述人工核验",
+          "新增明确画风要求：现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+        ],
+        "style_prompt": "现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Violet Flat",
+          "excerpt": "如果连续几天不睡觉，你的大脑和身体会发生什么变化？\n\n风格：\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 17,
+        "input_cell_id": "90"
+      },
+      "revision": {
+        "previous_case_id": "16-no-sleep",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "281",
+            "text": "如果连续几天不睡觉，你的大脑和身体会发生什么变化？",
+            "type": "text"
+          },
+          {
+            "id": "282",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "283",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "284",
+            "text": "现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。",
+            "type": "text"
+          }
+        ],
+        "sha256": "6abbcf8a0910168426a580b304d864bd802a76897b6effb246636a4216233015",
+        "text_file": "dataset/v0.1.3/prompts/16-no-sleep.txt"
+      }
+    },
+    {
+      "id": "17-caffeine",
+      "title": "咖啡因影响大脑",
+      "category": "Violet Flat",
+      "source_row": 18,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "喝下一杯咖啡后，咖啡因是如何影响大脑的？\n\n风格：\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。",
+      "prompt_submitted": "喝下一杯咖啡后，咖啡因是如何影响大脑的？\n\n风格：\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "咖啡因与脑部作用的因果解释",
+          "Violet Flat 参考仅为风格，不是内容答案",
+          "新增明确画风要求：现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+        ],
+        "style_prompt": "现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Violet Flat",
+          "excerpt": "喝下一杯咖啡后，咖啡因是如何影响大脑的？\n\n风格：\n现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 18,
+        "input_cell_id": "95"
+      },
+      "revision": {
+        "previous_case_id": "17-caffeine",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "272",
+            "text": "喝下一杯咖啡后，咖啡因是如何影响大脑的？",
+            "type": "text"
+          },
+          {
+            "id": "273",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "274",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "275",
+            "text": "现代扁平矢量二维动画风格，造型高度概括且几何圆润，比例适度夸张。无轮廓线或弱轮廓，主要以纯色平涂与柔和渐变色块区分形体，局部带有细腻颗粒噪点质感。整体色彩饱和明快，多用紫、粉、蓝、黄等丰富活泼的冷暖撞色，光影极度简化，画面呈扁平层叠结构，视觉轻快清晰。",
+            "type": "text"
+          }
+        ],
+        "sha256": "5948a00ade42efd587da176f84ec1038ff742861c49245e1aefdfd325b1e6744",
+        "text_file": "dataset/v0.1.3/prompts/17-caffeine.txt"
+      }
+    },
+    {
+      "id": "18-animal-vision",
+      "title": "动物视觉世界",
+      "category": "Pixel Night",
+      "source_row": 19,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "如果人类拥有不同动物的视觉能力，看到的世界会是什么样子？\n\n风格：\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。",
+      "prompt_submitted": "如果人类拥有不同动物的视觉能力，看到的世界会是什么样子？\n\n风格：\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [
+        {
+          "kind": "reference_output",
+          "asset_id": "asset-ad828c430be2b79a",
+          "model": null,
+          "model_status": "unknown",
+          "quality_status": "business_reference_not_gold",
+          "use": "reference_not_gold",
+          "inspection_note": "仅做关键帧抽查，尚未完成全片质量评价。"
+        }
+      ],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "不同视觉能力有可辨认差异",
+          "Pixel Night 风格",
+          "新增明确画风要求：二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+        ],
+        "style_prompt": "二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Pixel Night",
+          "excerpt": "如果人类拥有不同动物的视觉能力，看到的世界会是什么样子？\n\n风格：\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 19,
+        "input_cell_id": "100"
+      },
+      "revision": {
+        "previous_case_id": "18-animal-vision",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "260",
+            "text": "如果人类拥有不同动物的视觉能力，看到的世界会是什么样子？",
+            "type": "text"
+          },
+          {
+            "id": "261",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "262",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "263",
+            "text": "二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。",
+            "type": "text"
+          }
+        ],
+        "sha256": "f75a6c5960b8b38dc1cb0cea3dc732af62790c4e5f6b34cdde4626d563f73d5e",
+        "text_file": "dataset/v0.1.3/prompts/18-animal-vision.txt"
+      }
+    },
+    {
+      "id": "19-civilization",
+      "title": "文明科技闯关",
+      "category": "Pixel Night",
+      "source_row": 20,
+      "status": "ready",
+      "block_reason": null,
+      "prompt_original": "以游戏闯关的形式，展示人类文明从石器时代到太空时代的发展，每个关卡解锁对应时代的关键科技。\n\n风格：\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。",
+      "prompt_submitted": "以游戏闯关的形式，展示人类文明从石器时代到太空时代的发展，每个关卡解锁对应时代的关键科技。\n\n风格：\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。",
+      "prompt_adapter": "business-verbatim-v1",
+      "input_assets": [],
+      "reference_outputs": [],
+      "skill_policy": "c2v-core-v1",
+      "requirements": {
+        "duration_seconds": null,
+        "aspect_ratio": null,
+        "exact_text": [],
+        "quality_checks": [
+          "石器时代→太空时代的递进",
+          "每关解锁对应时代科技",
+          "游戏闯关与 Pixel Night 风格",
+          "新增明确画风要求：二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+        ],
+        "style_prompt": "二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+      },
+      "notes": [
+        "未指定时长、分辨率或音轨的项目，不由 benchmark 擅自补成硬约束。",
+        "参考成片不作为模型输入，也不是理想标准。"
+      ],
+      "gate_intake": {
+        "explanation_target": "2d_story",
+        "subject_defined": true,
+        "needs_parts_relationships": false,
+        "requires_3d": false,
+        "engineering_precision_required": false,
+        "missing_required_inputs": [],
+        "source_evidence": {
+          "category": "Pixel Night",
+          "excerpt": "以游戏闯关的形式，展示人类文明从石器时代到太空时代的发展，每个关卡解锁对应时代的关键科技。\n\n风格：\n二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。"
+        },
+        "annotation_source": "人工整理业务原文，待需求变化时随版本更新"
+      },
+      "skill_gate": {
+        "version": "anatomy-fit-0.1.0",
+        "status": "unsuitable",
+        "label": "不适用",
+        "reasons": [
+          "当前重点不是单个实体的内部部件、空间结构及工作关系；使用 C2V 对应技能即可。"
+        ],
+        "adaptations": [],
+        "recommended_policy": "c2v-core-v1"
+      },
+      "source_location": {
+        "row": 20,
+        "input_cell_id": "105"
+      },
+      "revision": {
+        "previous_case_id": "19-civilization",
+        "previous_version": "0.1.2",
+        "action": "source_unchanged",
+        "description": "业务文字未变；改为原文直传，旧版结果保留但不计入新版。"
+      },
+      "prompt_contract": {
+        "policy": "business-verbatim-v1",
+        "source_blocks": [
+          {
+            "id": "291",
+            "text": "以游戏闯关的形式，展示人类文明从石器时代到太空时代的发展，每个关卡解锁对应时代的关键科技。",
+            "type": "text"
+          },
+          {
+            "id": "292",
+            "text": "",
+            "type": "text"
+          },
+          {
+            "id": "293",
+            "text": "风格：",
+            "type": "text"
+          },
+          {
+            "id": "294",
+            "text": "二维复古像素艺术风格，具有经典像素游戏质感。形体高度简化为颗粒感鲜明的阶梯状像素块，边缘锐利无平滑抗锯齿。色彩鲜明饱和且对比强烈，多用有限色阶进行平涂与层次排布，光影平面化，整体呈现横版卷轴构图与复古游戏UI元素融合的电子美学。",
+            "type": "text"
+          }
+        ],
+        "sha256": "42cbf5f2789d1bca3d4ba293e0686e1e7559cd5131ba23dbe8541354cc18c3ae",
+        "text_file": "dataset/v0.1.3/prompts/19-civilization.txt"
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "asset-c0327003a3effc6a",
+      "path": "source/business-20261124/图片和附件/screenshot-20261123-181355.png",
+      "sha256": "c0327003a3effc6af03d5a74d7dc8a2b09a83ea2bd088437c2ad3515ec94932c",
+      "bytes": 301324,
+      "name": "screenshot-20261123-181355.png",
+      "roles": [
+        "input"
+      ]
+    },
+    {
+      "id": "asset-47b5656486f8dd1a",
+      "path": "source/business-20261124/图片和附件/screenshot-20261123-181407.png",
+      "sha256": "47b5656486f8dd1a8f3e89ab516d8bea59835bee780ebc9d65eccdcbde2f04c5",
+      "bytes": 303481,
+      "name": "screenshot-20261123-181407.png",
+      "roles": [
+        "input"
+      ]
+    },
+    {
+      "id": "asset-a3f6aa317ecfca05",
+      "path": "source/business-20261124/图片和附件/screenshot-20261123-181422.png",
+      "sha256": "a3f6aa317ecfca05acc186f90e45f70d3b6a94f58f69354097ddd2f103c23bc9",
+      "bytes": 276607,
+      "name": "screenshot-20261123-181422.png",
+      "roles": [
+        "input"
+      ]
+    },
+    {
+      "id": "asset-f45ef83f7e38d4e1",
+      "path": "source/business-20261124/图片和附件/preview-1.mp4",
+      "sha256": "f45ef83f7e38d4e1160ad9702f87fca6a6767ef50b292eb4a6dc4eb3ce092fbc",
+      "bytes": 31172351,
+      "name": "preview-1.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-965bb63367a0b2aa",
+      "path": "source/business-20261124/图片和附件/image.png",
+      "sha256": "965bb63367a0b2aaab385d2c833f09c83e3469ab6611339a4757690ff34fdb1b",
+      "bytes": 522856,
+      "name": "image.png",
+      "roles": [
+        "input"
+      ]
+    },
+    {
+      "id": "asset-9650d1e596a08033",
+      "path": "source/business-20261124/图片和附件/THE_DETOUR_LA_v2_1080p.mp4",
+      "sha256": "9650d1e596a080335eea95a3628dc5fde1b5d6e8e9515caff97f3a0eb4497351",
+      "bytes": 4740780,
+      "name": "THE_DETOUR_LA_v2_1080p.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-480370bf7fed4232",
+      "path": "source/business-20261124/图片和附件/info-orig 1.mp4",
+      "sha256": "480370bf7fed4232226afaebf76cca6e7c2af02d8b4d96c3da660b36718f3c6b",
+      "bytes": 5996548,
+      "name": "info-orig 1.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-21d4671b3045a368",
+      "path": "source/business-20261124/图片和附件/Download.mp4",
+      "sha256": "21d4671b3045a3684d68f465a5d83a6e6fd66dbb17f4ebf7f56cb6c7c4e5f631",
+      "bytes": 6357365,
+      "name": "Download.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-1fa0bca58322f5d1",
+      "path": "source/business-20261124/图片和附件/下载 1.mp4",
+      "sha256": "1fa0bca58322f5d16621bdbade89b71e2f51e8377d03c87783c9f8912581950f",
+      "bytes": 7126792,
+      "name": "下载 1.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-c24e7b80ce4f4491",
+      "path": "source/business-20261124/图片和附件/d85ea4b2bf075b47e5add84349d51a53b190d81b2944a469a7b1d926cda9e301.mp4",
+      "sha256": "c24e7b80ce4f4491ea3c97eea81c9c4af4482c1330db1c9e8f5cd19fb6b544cf",
+      "bytes": 4002842,
+      "name": "d85ea4b2bf075b47e5add84349d51a53b190d81b2944a469a7b1d926cda9e301.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-722ba593f8dda46b",
+      "path": "source/business-20261124/图片和附件/f963e6bf5f8c05a7a20b7aef2e7de6e1daa5d1510cb329c638bf539936bf1051.mp4",
+      "sha256": "722ba593f8dda46b6f53ec8e711602599f2b1e923fba55721a4ce63ed6c2a148",
+      "bytes": 5301435,
+      "name": "f963e6bf5f8c05a7a20b7aef2e7de6e1daa5d1510cb329c638bf539936bf1051.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-f54f15d920c40670",
+      "path": "source/business-20261124/图片和附件/3e2148607411f5c7b48b981611632b94c87cbc4157ac8bd6d3afe90ac4e21f36.mp4",
+      "sha256": "f54f15d920c406705ee81f70a7182f58f1fa9c987bb7b9edf7e4e3f665e59c7c",
+      "bytes": 3871055,
+      "name": "3e2148607411f5c7b48b981611632b94c87cbc4157ac8bd6d3afe90ac4e21f36.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-c01917fdb47d04a2",
+      "path": "source/business-20261124/图片和附件/look-sitcom-toon-v1.mp4",
+      "sha256": "c01917fdb47d04a28795b9bc276022d13686f87f3798d8d014e52ef5ecd4daff",
+      "bytes": 9592396,
+      "name": "look-sitcom-toon-v1.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-1bfdfd2d9b2a44a0",
+      "path": "source/business-20261124/图片和附件/下载 (1) 1.mp4",
+      "sha256": "1bfdfd2d9b2a44a0adad09427c174663c789c45317927f683b99271d4217ba8f",
+      "bytes": 1550078,
+      "name": "下载 (1) 1.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-55aed8446933bb17",
+      "path": "source/business-20261124/图片和附件/68cb9699af6bbb43228716a882f8ec4c7455cfed28df5307db3f033195517b68.mp4",
+      "sha256": "55aed8446933bb176d43f333fedb0aaeb230a81d1f8b450a91cabdfe5475c635",
+      "bytes": 3822349,
+      "name": "68cb9699af6bbb43228716a882f8ec4c7455cfed28df5307db3f033195517b68.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-ad828c430be2b79a",
+      "path": "source/business-20261124/图片和附件/acb45064cd115877d5288f3f8d9098ded0de9bcbe34048929832ae08df3a2a34 1.mp4",
+      "sha256": "ad828c430be2b79a699204182ff354dd00ceae3cccc2a27ae6843b5eba1481b8",
+      "bytes": 3604691,
+      "name": "acb45064cd115877d5288f3f8d9098ded0de9bcbe34048929832ae08df3a2a34 1.mp4",
+      "roles": [
+        "reference_output"
+      ]
+    },
+    {
+      "id": "asset-52e21121888e9962",
+      "path": "source/feishu-20261125/paper-kestrel/archive_1.jpg",
+      "sha256": "52e21121888e996293516b1f83133572534455349f9ae67315329e65f7006360",
+      "bytes": 252593,
+      "name": "archive_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-835d2e21e990e5e0",
+      "path": "source/feishu-20261125/paper-kestrel/archive_2.jpg",
+      "sha256": "835d2e21e990e5e09b92b011636e47808a45af943c1faef1859ba440a011c4bc",
+      "bytes": 278816,
+      "name": "archive_2.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-e8a61ee7a04dc5ef",
+      "path": "source/feishu-20261125/paper-kestrel/athlete_1.jpg",
+      "sha256": "e8a61ee7a04dc5efb587a3513bf97b37a0ba0ef569ef2c45167ea1543db8fd20",
+      "bytes": 463794,
+      "name": "athlete_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-45fcb3fa24399412",
+      "path": "source/feishu-20261125/paper-kestrel/closeup_1.jpg",
+      "sha256": "45fcb3fa243994120c62b619b7856d0c9bc4cc86c90422c5b4719f886ea36344",
+      "bytes": 312054,
+      "name": "closeup_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-c5a148d9a8ea4c76",
+      "path": "source/feishu-20261125/paper-kestrel/hero_1.jpg",
+      "sha256": "c5a148d9a8ea4c768bb1581f9494ea601e49987c1f58d45480a51d2ed8140e39",
+      "bytes": 283523,
+      "name": "hero_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-cae65776075311c0",
+      "path": "source/feishu-20261125/paper-kestrel/logo_1.png",
+      "sha256": "cae65776075311c0db73ee357f5ea1952f3aab65f8085af433f2e626d4512fa2",
+      "bytes": 47897,
+      "name": "logo_1.png",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-98e4526c3be15c61",
+      "path": "source/feishu-20261125/paper-kestrel/montage_1.jpg",
+      "sha256": "98e4526c3be15c614c0350242ada31855eeb9fce3d223fd28e794b2b4734ddc5",
+      "bytes": 420463,
+      "name": "montage_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-3a1c39632dbc4a14",
+      "path": "source/feishu-20261125/paper-kestrel/montage_10.jpg",
+      "sha256": "3a1c39632dbc4a149039885ac796820268c87aed747eb0aa040c0cb771deb2ab",
+      "bytes": 242308,
+      "name": "montage_10.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-0d2ee7556379b9cc",
+      "path": "source/feishu-20261125/paper-kestrel/montage_11.jpg",
+      "sha256": "0d2ee7556379b9cca85c0f87b95484b4d3e5c424d8d3b2964c77c7a6386adb11",
+      "bytes": 213792,
+      "name": "montage_11.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-00491c7a4d0879ed",
+      "path": "source/feishu-20261125/paper-kestrel/montage_12.jpg",
+      "sha256": "00491c7a4d0879ed366af59547ab9772e8d9063186b5ee5419c0a703274c6d4f",
+      "bytes": 158545,
+      "name": "montage_12.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-f192e5ce4b32dc21",
+      "path": "source/feishu-20261125/paper-kestrel/montage_2.jpg",
+      "sha256": "f192e5ce4b32dc21dbaaed57c929ea2485f0cd27447d9620a76072dd5daee81f",
+      "bytes": 273030,
+      "name": "montage_2.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-00b2d17b45bc0a5d",
+      "path": "source/feishu-20261125/paper-kestrel/montage_3.jpg",
+      "sha256": "00b2d17b45bc0a5d3b8ff1340184d1bb4bc8b8b78320bb651ffcce254871ec20",
+      "bytes": 109460,
+      "name": "montage_3.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-ee464b7967beeb4e",
+      "path": "source/feishu-20261125/paper-kestrel/montage_4.jpg",
+      "sha256": "ee464b7967beeb4e47d6dd7b50256b74a685d034ab849619165c71f0d219f70e",
+      "bytes": 342066,
+      "name": "montage_4.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-255ba6fa0241caaa",
+      "path": "source/feishu-20261125/paper-kestrel/montage_5.jpg",
+      "sha256": "255ba6fa0241caaa9c6843fa96ac8c9fd560c3244a5a4343fe7795f6108086c1",
+      "bytes": 341587,
+      "name": "montage_5.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-0d570930846b7b3b",
+      "path": "source/feishu-20261125/paper-kestrel/montage_6.jpg",
+      "sha256": "0d570930846b7b3b653afdefb15b48230f7a2b130e46137f5fa72d036cc42d75",
+      "bytes": 149734,
+      "name": "montage_6.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-fade930cc197f902",
+      "path": "source/feishu-20261125/paper-kestrel/montage_7.jpg",
+      "sha256": "fade930cc197f902eaa12d17d08bd177eca78cb285b8862df090f92b6577e39f",
+      "bytes": 199266,
+      "name": "montage_7.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-2b879c7fced5349a",
+      "path": "source/feishu-20261125/paper-kestrel/montage_8.jpg",
+      "sha256": "2b879c7fced5349abf6d17b504b2e4a62d0fb87dcd785a9185c5d7eadc1449a7",
+      "bytes": 212381,
+      "name": "montage_8.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-8748d75650e40322",
+      "path": "source/feishu-20261125/paper-kestrel/montage_9.jpg",
+      "sha256": "8748d75650e403222d2d44a6b42a605aa5b32e71c521a6c95983f0d12c963868",
+      "bytes": 398336,
+      "name": "montage_9.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-4e1aae192baf4ed4",
+      "path": "source/feishu-20261125/paper-kestrel/opener_1.jpg",
+      "sha256": "4e1aae192baf4ed420fc618016c705a3401a18fb37fc6327b82f33e73b5ea189",
+      "bytes": 163275,
+      "name": "opener_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-9a457f901ff547e3",
+      "path": "source/feishu-20261125/paper-kestrel/product_1.jpg",
+      "sha256": "9a457f901ff547e341a670dc4a366cb6e5e50dba80b23a697f2ce4ec86507a25",
+      "bytes": 114336,
+      "name": "product_1.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-77470fc4ea85637e",
+      "path": "source/feishu-20261125/paper-kestrel/product_2.jpg",
+      "sha256": "77470fc4ea85637e5251428818e74cdac07be978c76bea886000a1872018a479",
+      "bytes": 176360,
+      "name": "product_2.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-6c4a56ab4c7df70b",
+      "path": "source/feishu-20261125/paper-kestrel/product_3.jpg",
+      "sha256": "6c4a56ab4c7df70be15113ee6816f8e44420c97aebf90c3b31d336cea2975815",
+      "bytes": 135400,
+      "name": "product_3.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-3ad6da509d988496",
+      "path": "source/feishu-20261125/paper-kestrel/product_4.jpg",
+      "sha256": "3ad6da509d98849688109f527b8452b111fbf1b6aaff2beeb2f77e37586a837e",
+      "bytes": 125347,
+      "name": "product_4.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-17883776a82cb139",
+      "path": "source/feishu-20261125/paper-kestrel/product_5.jpg",
+      "sha256": "17883776a82cb139bddfa5bd5a1e4b2eb8adde4a6ec9660d7eb8f0fe236488bb",
+      "bytes": 130478,
+      "name": "product_5.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-d4a843d4bccbd895",
+      "path": "source/feishu-20261125/paper-kestrel/product_6.jpg",
+      "sha256": "d4a843d4bccbd8954fc1a14ade596c018a72c6355286a10df0ea10ae5f6fe7ad",
+      "bytes": 91589,
+      "name": "product_6.jpg",
+      "roles": [
+        "input"
+      ],
+      "source_archive": "source/feishu-20261125/25-images.zip"
+    },
+    {
+      "id": "asset-fa47d5e18795b347",
+      "path": "source/feishu-20261125-final/moon-chalkboard-reference-preview.mp4",
+      "sha256": "fa47d5e18795b347d069ad13c444ec17130b8b06b1a678ace9a81e21f02d1573",
+      "bytes": 1737549,
+      "name": "13.手绘风（业务预览 360p）.mp4",
+      "roles": [
+        "reference_output"
+      ],
+      "source_note": "飞书附件可见播放器下载的 360p 预览，非原始上传文件。"
+    }
+  ],
+  "revision_summary": {
+    "previous_version": "0.1.2",
+    "source_rows": 20,
+    "total_cases": 21,
+    "ready": 20,
+    "blocked": 1,
+    "description": "Seko 官网对象具体化、Kestrel 补齐英文文案、新增月相板书；仅 Hush Buds 缺真人视频。不提交任务。"
+  },
+  "prompt_policy": "business-verbatim-v1"
+}

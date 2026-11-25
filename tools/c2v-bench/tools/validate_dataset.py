@@ -14,6 +14,7 @@ def sha(path):
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "bench"))
 from gate import evaluate_gate, adapt_prompt
+from prompts import POLICY, validate_prompt, extract
 
 def main():
     p = argparse.ArgumentParser()
@@ -21,7 +22,7 @@ def main():
         "--data-root", type=Path, default=Path(__file__).resolve().parents[1]
     )
     p.add_argument("--media", action="store_true")
-    p.add_argument("--suite-version", default="0.1.2")
+    p.add_argument("--suite-version", default="0.1.3")
     args = p.parse_args()
     root = args.data_root.resolve()
     import re
@@ -39,7 +40,21 @@ def main():
         assert c["skill_policy"] in suite["policies"]
         gate = evaluate_gate(c["gate_intake"])
         assert gate == c["skill_gate"]
-        assert c["prompt_submitted"] == adapt_prompt(c["category"], c["prompt_original"], gate, c.get("submission_clarification"))[0]
+        if suite.get("prompt_policy") == POLICY:
+            expected = validate_prompt(c, required=True)
+            contract = c["prompt_contract"]
+            assert (root / contract["text_file"]).read_bytes() == expected.encode("utf-8")
+            evidence = json.loads((path.parent / "business-text.json").read_text())
+            row = next(r for r in evidence["rows"] if r["index"] == c["source_row"])
+            blocks = row["blocks"]
+            split = contract.get("split")
+            if split:
+                marker = next(i for i,b in enumerate(blocks) if b["id"] == split["separator_block_id"])
+                blocks = blocks[:marker] if split["removed_prefix"] == "1、" else blocks[marker+1:]
+            assert blocks == contract["source_blocks"], c["id"]
+            assert extract(blocks, split) == expected
+        else:
+            assert c["prompt_submitted"] == adapt_prompt(c["category"], c["prompt_original"], gate, c.get("submission_clarification"))[0]
         assert c["status"] == "ready" or c["block_reason"]
         for aid in c["input_assets"]:
             assert aid in assets and "input" in assets[aid]["roles"]

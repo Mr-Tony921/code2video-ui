@@ -1,0 +1,120 @@
+{
+  "version": "0.1.3",
+  "previous_version": "0.1.2",
+  "summary": {
+    "previous_version": "0.1.2",
+    "source_rows": 20,
+    "total_cases": 21,
+    "ready": 20,
+    "blocked": 1,
+    "description": "Seko 官网对象具体化、Kestrel 补齐英文文案、新增月相板书；仅 Hush Buds 缺真人视频。不提交任务。"
+  },
+  "cases": [
+    {
+      "case_id": "01-mindflow",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "02-manus-template",
+      "action": "source_changed",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "03-hush-buds",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "04a-paper-kestrel",
+      "action": "source_changed",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "04b-paper-yeti",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "05-coffee-journey",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "06-protein-age",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "07-sleep-age",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "08-microwave",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "09-reel-projector",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "10-time-pause",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "11-airtag",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "12-earth-tunnel",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "13-sitcom-template",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "14-postit",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "15-neighbor",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "16-no-sleep",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "17-caffeine",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "18-animal-vision",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "19-civilization",
+      "action": "source_unchanged",
+      "submitted_prompt_changed": true
+    },
+    {
+      "case_id": "20-moon-chalkboard",
+      "action": "new_test",
+      "submitted_prompt_changed": true
+    }
+  ],
+  "submitted": false
+}

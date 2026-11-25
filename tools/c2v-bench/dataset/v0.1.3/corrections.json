@@ -1,0 +1,10 @@
+[
+  {
+    "type": "move_reference_outputs",
+    "from_case": "06-protein-age",
+    "to_case": "07-sleep-age",
+    "confirmed_at": "2026-11-24",
+    "basis": "用户核对原表格：蛋白质和睡眠是两个单元格，共有的参考视频属于睡眠；可能是 Markdown 导出丢失对应关系。",
+    "inspection_note": "按用户核对的原表格归到睡眠案；抽帧确为睡眠时长艺术字。此调整属于附件映射校正，不是模型内容错误。"
+  }
+]

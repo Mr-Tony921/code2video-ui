@@ -5,6 +5,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from core import Store, TERMINAL, digest, digest_file, evaluation, now, summary
 from remote import Remote, RemoteError
+from prompts import POLICY, validate_prompt
 from local_media import cached_original, download_original, probe_original
 
 
@@ -79,6 +80,7 @@ class App:
         r = self.store.get(rid, owner)
         if r.get("job_id"):
             return
+        validate_prompt(r["case"], required=r.get("prompt_policy") == POLICY)
         self.check_inputs(r)
         if r["state"] == "CREATING_SESSION":
             raise ValueError(
@@ -254,7 +256,7 @@ class App:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "C2VBench/0.1.2"
+    server_version = "C2VBench/0.1.3"
 
     def log_message(self, *args):
         pass  # Request URLs, credentials and cookies do not enter logs.
@@ -640,7 +642,7 @@ def main():
     parser.add_argument("--dev-url", default="http://10.210.9.14:20211")
     parser.add_argument("--port", type=int, default=18942)
     parser.add_argument("--showcase-root", type=Path)
-    parser.add_argument("--suite-version", default="0.1.2")
+    parser.add_argument("--suite-version", default="0.1.3")
     args = parser.parse_args()
     parsed = urllib.parse.urlsplit(args.dev_url)
     if (
