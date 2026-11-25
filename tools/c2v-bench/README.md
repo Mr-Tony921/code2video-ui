@@ -1,4 +1,4 @@
-# Seko C2V benchmark · 测试台 0.1.3 / 测试集 0.1.3
+# Seko C2V benchmark · 测试台 0.1.4 / 测试集 0.1.3
 
 本目录用于 C2V 业务需求整理、网页提交模型测试和独立评价。与既有白模 benchmark、Seko 白模 skill/harness 分开维护。
 
@@ -40,3 +40,5 @@ node tests/test_web_versions.js
 ```
 
 `dataset/v0.1.3/prompts/` 为逐案原文；`business-text.json` 保留业务文字块证据。旧版和取消记录保留供追溯，不自动恢复生成。
+
+制作时长统一显示为 `00小时00分钟00秒`，从服务端开始执行计到结束，包含模型、工具、自检和渲染，排队另计。逐条 `timing`、网页、JSON/CSV 与离线审核索引均保留该指标；原始秒数和时间戳不丢弃，缺失时间不填成 0。

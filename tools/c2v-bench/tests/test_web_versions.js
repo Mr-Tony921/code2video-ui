@@ -24,6 +24,10 @@ vm.runInContext(`
   assert.equal(resultRuns().length,1);
   assert.equal(reviewCases()[0].prompt_original,newCase.prompt_original);
   assert.match(renderResults(),/0.1.1/);
+  assert.match(renderResults(),/制作时长 00小时01分钟40秒/);
+  assert.equal(elapsed(3599.6),'01小时00分钟00秒');
+  assert.equal(elapsed(3723.25),'01小时02分钟03秒');
+  assert.equal(elapsed(null),'未记录');
   resultVersion='0.1.0';
   assert.equal(resultRuns().length,1);
   assert.equal(reviewCases()[0].prompt_original,oldCase.prompt_original);

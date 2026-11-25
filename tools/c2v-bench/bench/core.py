@@ -6,6 +6,7 @@ from pathlib import Path
 
 from gate import evaluate_gate
 from prompts import POLICY, validate_prompt
+from timing import job_timing, format_elapsed
 
 TERMINAL = {"COMPLETED", "FAILED", "CANCELLED", "OUT_OF_SCOPE"}
 
@@ -116,6 +117,7 @@ class Store:
 
     def put(self, r):
         with self.lock:
+            r["timing"] = job_timing(r.get("job"))
             atomic(self.path(r["id"]), r)
 
     def update(self, rid, owner, **fields):
@@ -235,9 +237,7 @@ def evaluation(run):
         "aspect_ok": aspect_ok,
         "hard_pass": hard,
         "quality": q["quality"] if q else "unreviewed",
-        "queue_seconds": seconds(j.get("queued_at"), j.get("started_at")),
-        "execution_seconds": seconds(j.get("started_at"), j.get("finished_at")),
-        "total_seconds": seconds(j.get("created_at"), j.get("finished_at")),
+        **{k: v for k, v in job_timing(j).items() if k.endswith(("_seconds", "_duration"))},
         "inference_seconds": None,
     }
 
@@ -299,4 +299,6 @@ def summary(runs):
         t = g.pop("times")
         g["median_execution_seconds"] = statistics.median(t) if t else None
         g["max_execution_seconds"] = max(t) if t else None
+        g["median_execution_duration"] = format_elapsed(g["median_execution_seconds"])
+        g["max_execution_duration"] = format_elapsed(g["max_execution_seconds"])
     return list(groups.values())

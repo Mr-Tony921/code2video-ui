@@ -256,7 +256,7 @@ class App:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "C2VBench/0.1.3"
+    server_version = "C2VBench/0.1.4"
 
     def log_message(self, *args):
         pass  # Request URLs, credentials and cookies do not enter logs.
@@ -379,6 +379,9 @@ class Handler(BaseHTTPRequestHandler):
                     "queue_seconds",
                     "execution_seconds",
                     "total_seconds",
+                    "execution_duration",
+                    "queue_duration",
+                    "total_duration",
                 ]
                 w = csv.DictWriter(buf, fieldnames=cols)
                 w.writeheader()
