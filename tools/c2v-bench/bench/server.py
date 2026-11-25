@@ -220,7 +220,7 @@ class App:
     def probe(self, rid, c):
         dest = download_original(self.root, self.store, rid, c["owner"], c["remote"])
         p = probe_original(dest)
-        self.store.update(rid, c["owner"], probe=p)
+        self.store.update(rid, c["owner"], probe=p, last_error=None)
         self.store.event(rid, c["owner"], "original_probed", decode_ok=p["decode_ok"])
 
     def record(self, run):

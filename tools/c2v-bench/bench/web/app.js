@@ -14,6 +14,7 @@ const $ = (s) => document.querySelector(s),
 let boot,
   models = [],
   runs = [],
+  runsLoaded = false,
   stats = [],
   tab = "cases",
   current,
@@ -142,6 +143,7 @@ function median(values) {
   return n ? (a[Math.floor((n - 1) / 2)] + a[Math.floor(n / 2)]) / 2 : null;
 }
 function renderResults() {
+  if (boot.user && !runsLoaded) return '<h2>结果总览</h2><p class="muted">正在读取本地结果…</p>';
   const groups = modelGroups(), cases = reviewCases();
   return `<h2>结果总览</h2><p class="muted">按任务并排对照，点击案例进入审核。原片保留原分辨率和编码，优先从本地播放；人工评价与技术检查分开。</p>
   <div class="metrics"><div class="metric"><strong>${cases.length}</strong><span>已测试业务案例</span></div><div class="metric"><strong>${runs.filter(r=>r.local_original_available).length} / ${runs.filter(r=>r.job_id).length}</strong><span>原片已下载到本地</span></div><div class="metric"><strong>${runs.filter(r=>r.evaluation?.render_verified === true).length}</strong><span>完整解码通过</span></div><div class="metric"><strong>${runs.filter(reviewed).length}</strong><span>已人工评价</span></div></div>
@@ -156,7 +158,7 @@ function renderResults() {
 }
 function renderReview() {
   const cases=reviewCases();
-  if (!cases.length) return '<h2>逐案审核</h2><p class="empty">请登录后查看本账号已提交的案例。</p>';
+  if (!cases.length) return `<h2>逐案审核</h2><p class="empty">${!boot.user ? "请登录后查看本账号已提交的案例。" : runsLoaded ? "本账号尚无已提交的案例。" : "正在读取本地结果…"}</p>`;
   const c=cases.find(x=>x.id===current.id) || cases[0];
   current=c;
   const index=cases.findIndex(x=>x.id===c.id), same=runs.filter(r=>r.case.id===c.id && r.job_id).sort(runOrder);
@@ -190,6 +192,7 @@ async function updateRuns(draw = false) {
     JSON.stringify(runs.map((x) => [x.id, x.state, x.last_error, x.probe, x.local_original_available, x.reviews])) !==
     JSON.stringify(r.runs.map((x) => [x.id, x.state, x.last_error, x.probe, x.local_original_available, x.reviews]));
   runs = r.runs;
+  runsLoaded = true;
   stats = r.summary;
   if (draw) render();
   else if (changed)
@@ -251,6 +254,7 @@ document.addEventListener("click", async (e) => {
       boot.user = null;
       models = [];
       runs = [];
+      runsLoaded = false;
       stats = [];
       render();
       return;

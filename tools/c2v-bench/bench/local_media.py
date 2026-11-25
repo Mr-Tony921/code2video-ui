@@ -126,8 +126,8 @@ def download_original(root, store, rid, owner, remote, attempts=3, range_bytes=N
                             raise ValueError('Unexpected download status')
                         with part.open('ab' if offset else 'wb') as f:
                             count = offset
-                            while True:
-                                chunk = response.read(1024 * 1024)
+                            while count < expected:
+                                chunk = response.read(min(1024 * 1024, expected - count))
                                 if not chunk:
                                     break
                                 count += len(chunk)

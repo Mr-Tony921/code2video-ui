@@ -373,6 +373,17 @@ for _ in range(20):
         self.assertIsNone(cached_original(self.app.root,self.store.get(r2['id'])))
         self.assertFalse(original_path(self.app.root,r2).exists())
 
+    def test_download_does_not_wait_for_proxy_bytes_beyond_known_original(self):
+        r,blob=self.local_fixture()
+        class ExactEndResponse(MediaResponse):
+            def read(self,n=-1):
+                if n < 0 or n > len(blob)-self.tell():
+                    raise http.client.IncompleteRead(b"",1)
+                return super().read(n)
+        self.remote.open=lambda *a,**kw: ExactEndResponse(blob)
+        dest=download_original(self.app.root,self.store,r['id'],r['owner'],self.remote,attempts=1)
+        self.assertEqual(dest.read_bytes(),blob)
+
     def test_parallel_ranges_reassemble_original_and_resume_prefix(self):
         r, _ = self.local_fixture()
         blob = b"0000ftypisom" + bytes(range(256)) * 1600
