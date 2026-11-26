@@ -1,6 +1,6 @@
 # Git 使用步骤
 
-当前项目目录：`/mnt/afs_if/codevideo/workspace/code2video-dev-codex`。私有仓库：`git@github.com:Mr-Tony921/code2video-ui.git`。
+当前项目目录：`/mnt/afs_if/codevideo/workspace/code2video-dev-codex`。公开仓库：`https://github.com/Mr-Tony921/code2video-ui.git`。下载不需要账号或邀请；所有者推送继续使用现有 SSH remote。
 署名 Tony <tongronglei@163.com> 只设置在本仓库，不修改全局 Git 配置。
 
 ## 当前基线
@@ -8,6 +8,14 @@
 - `main`：当前开发版本。
 - `v1.4.6-codex.1`：首次接手、复现与精简重构完成后的基线。
 - `v1.5.0`：统一版本号并纳入 Git 的发布版本。
+
+## 下载与权限
+
+```bash
+git clone https://github.com/Mr-Tony921/code2video-ui.git
+```
+
+`main-owner-only` 为 Active，只匹配 `main`；Restrict updates / deletions、Require linear history、Block force pushes 均启用，仅 `Mr-Tony921` 可绕过。未添加协作者写权限；以下提交步骤仅供所有者执行。下载者可在自己的副本修改，不能直接更新本仓库的 main。
 
 ## 平时开发
 
@@ -46,4 +54,4 @@ git push --atomic origin main v1.5.1
 实际 `config/backend.json`、runtime/、.env、依赖和构建产物均被忽略。仓库提交的是脱敏的 backend.example.json。
 新 clone 后先复制模板，再设置独立部署的路径/端口/模型，并在 runtime/.secrets 配置需要的密钥；不要覆盖已有运行配置。
 SSH 私钥保存在当前机器的本地文档目录下，Git 的 core.sshCommand 只在此仓库引用它，不会上传。
-在另一台机器 clone 时，应使用该机器自己的 GitHub 登录或授权密钥。
+公开源码可直接用 HTTPS clone，无需复制所有者的 SSH 密钥。只有需要以所有者身份推送时，才配置该机器自己的授权密钥。

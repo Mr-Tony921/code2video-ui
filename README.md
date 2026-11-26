@@ -129,7 +129,9 @@ bash scripts/release-check.sh
 
 ## Git 管理
 
-私有仓库：https://github.com/Mr-Tony921/code2video-ui 。默认分支为 `main`。
+公开仓库：https://github.com/Mr-Tony921/code2video-ui 。默认分支为 `main`。同事无需邀请即可通过 HTTPS clone 或下载 ZIP，不授予协作者写权限。
+
+`main-owner-only` 分支规则已启用：匹配 `main`，限制更新和删除，要求线性历史并阻止强推；仅所有者 `Mr-Tony921` 在绕过名单中。其他人可以下载或 fork，但不能直接更新本仓库的 `main`。仓库公开意味着源码及提交历史公开，提交前仍须检查密钥与业务敏感信息；运行数据继续保存在私有存储。
 `v1.4.6-codex.1` 保留首次重构基线，`v1.5.0` 保留首个常规版本，后续以 VERSION 与发布标签追溯。提交署名为 Tony，仅在本仓库设置。
 
 按用户要求只在 `main` 上线性提交，拉取使用 `git pull --ff-only`，不另建分支或 worktree；详细命令见 [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)。
