@@ -108,6 +108,11 @@ export default function Workspace() {
   const [exBusy, setExBusy] = useState(false);
   /** 是否做 prompt 增强，默认开。点击示例会自动关闭（示例已是增强结果） */
   const [enhance, setEnhance] = useState(true);
+  const [fastChoices, setFastChoices] = useState<Record<string, boolean>>({});
+  const latestFastJob = boot.jobs.filter(j => j.session_id === boot.session?.id)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+  const fastMode = boot.session?.mode === 'coding_to_video'
+    ? fastChoices[boot.session.id] ?? latestFastJob?.fast_mode ?? false : false;
   const [examples, setExamples] = useState<ExamplePrompt[]>([]);
   const [examplesLoaded, setExamplesLoaded] = useState(false);
   const [examplesLoading, setExamplesLoading] = useState(false);
@@ -309,6 +314,7 @@ export default function Workspace() {
       const isRevision = !!continuation;
       const r = await api.submitJob(boot.session.id, text, idemKey, {
         is_revision: isRevision,
+        ...(boot.session.mode === 'coding_to_video' ? { fast_mode: fastMode } : {}),
         // 续写轮不报扩写意图：后端无论如何都会跳过（enhancer.mjs:125），
         // 这里送 true 只会让 UI 和实际行为对不上（用户实测：勾着但其实没扩写）。
         enhance: boot.session.mode === 'experimental' || boot.session.mode === 'blockout_3d' || isRevision ? false : enhance,
@@ -338,7 +344,7 @@ export default function Workspace() {
       setToast(e instanceof ApiError ? e.message : '提交失败，请重试');
     }
     // enhance 必须在依赖里：漏了会捕获旧值，用户改了开关却按上一次的设置提交
-  }, [boot, loadRefs, enhance, continuation, experimentSkills, referenceBusy]);
+  }, [boot, loadRefs, enhance, fastMode, continuation, experimentSkills, referenceBusy]);
 
   /**
    * 切换模式。
@@ -659,6 +665,11 @@ export default function Workspace() {
           </div>
 
           <Composer
+            fastMode={fastMode}
+            onFastModeChange={boot.session?.mode === 'coding_to_video' ? value => {
+              const id = boot.session!.id;
+              setFastChoices(previous => ({ ...previous, [id]: value }));
+            } : undefined}
             tools={boot.session?.mode === 'experimental' ? <ExperimentSkills value={experimentSkills}
               onChange={setExperimentSkills} disabled={degraded || sessionBusy || locked}
               archiveName={boot.session.experimental_skills?.archive_name}

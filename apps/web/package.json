@@ -1,6 +1,6 @@
 {
   "name": "cvw-web",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "private": true,
   "description": "前端：对话式视频创作 UI。只做 UI 与 BFF 转发，调度在 Gateway。",
   "engines": {

@@ -129,6 +129,8 @@ export type Asset = {
 
 export type WhiteboxResult = { status: string; model?: string; scene_success: boolean; structure_pass?: boolean; repairs?: number; shot_count?: number; reference_count?: number; download_url?: string; timings: { engineering_seconds: number; video_seconds: number; total_seconds?: number }; issues?: { code: string; shot_id?: string; message?: string }[] };
 export type Job = {
+  fast_mode?: boolean;
+  fast_skill?: { skill: string; version: string; sha256: string } | null;
   whitebox_result?: WhiteboxResult | null;
   model_selection?: ExperimentalModel | null;
   experimental_skills?: ExperimentalSkills | null;

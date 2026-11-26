@@ -175,6 +175,7 @@ export class Dispatcher {
         job_id: job.id,
         session_id: sess?.binding?.backend_session_ref ?? job.session_id,
         mode: job.mode,
+        fast_mode: job.fast_mode === true, fast_skill: job.fast_skill ?? null,
         model_selection: job.model_selection, experimental_skills: job.experimental_skills,
         prompt: job.prompt,
         base_asset_path: job.base_asset_path,

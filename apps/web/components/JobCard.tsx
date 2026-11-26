@@ -63,6 +63,7 @@ export function JobCard({ job, onChanged, onEditPrompt }: {
       <div className="title">
         <span aria-hidden>{ICON[job.status] ?? '•'}</span>
         <span>{STATUS_LABEL[job.status]}</span>
+        {job.fast_mode && <span className="badge" title={job.fast_skill ? `${job.fast_skill.skill} ${job.fast_skill.version}` : undefined}>快速模式</span>}
         {job.elapsed.running_ms != null && (
           <span className="muted">· 已运行 {formatDuration(job.elapsed.running_ms)}</span>
         )}

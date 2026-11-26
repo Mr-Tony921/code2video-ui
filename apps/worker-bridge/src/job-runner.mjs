@@ -309,6 +309,7 @@ export async function startJob(p) {
     sessionId: p.sessionId, jobId: p.jobId, mode: p.mode, prompt: p.prompt,
     agentWsPath: isoAvailable ? mountPoint : hostWs,
     experimentalSkills: p.experimentalSkills, modelSelection: p.modelSelection,
+    fastMode: p.fastMode, fastSkill: p.fastSkill,
   });
 
   // 轨迹与 stderr 跟【工作区】走：各轮追加到同一个文件，

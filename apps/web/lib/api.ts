@@ -219,7 +219,7 @@ export const api = {
     sessionId: string,
     prompt: string,
     idempotencyKey: string,
-    opts?: { is_revision?: boolean; enhance?: boolean; experimental_skills?: ExperimentalSkillsInput },
+    opts?: { is_revision?: boolean; enhance?: boolean; fast_mode?: boolean; experimental_skills?: ExperimentalSkillsInput },
   ) =>
     call<{
       job: Job | null;

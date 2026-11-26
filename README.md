@@ -1,6 +1,6 @@
 # Code2Video — Codex 独立开发环境
 
-基于 `/mnt/afs_if/codevideo/workspace/code2video-dev` 的 **1.4.6** 接手，当前代码版本以根目录 `VERSION` 为准。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
+当前版本 **1.5.8**（以根目录 `VERSION` 为准），开发副本位于 `/mnt/afs_if/codevideo/workspace/code2video-dev-codex`。代码、Cookie 和进程按接手版隔离，数据直接复用原 dev 存储；不修改原 dev 代码或线上 `coding-video-web`。
 
 当前 dev 入口为 **http://10.210.9.14:20211/**，前端直连 `http://10.120.7.224:8000`。页面显示「Codex 开发环境」。
 
@@ -14,6 +14,48 @@
 | Worker Bridge | 10.120.4.55:18081 | 4 槽 / `bridge cvw-codex-4055` |
 
 所有账号和模式共用 14 槽，任务按入队时间派发。同一会话串行执行，未开始的任务可在共享工作区的 Worker 间选择空槽。历史 session、参考文件、原生轨迹和成片保留在原存储中。
+
+
+## 快速模式与接口接入
+
+C2V 输入区在「智能扩写需求」后提供「快速模式」，默认关闭，提示减少检查和修改轮数、可能牺牲画面质量。它与扩写独立：同时开启仍先扩写；关闭扩写则使用原文。实验模式和白模不受影响。历史卡片标注当轮模式，续改默认继承最近一轮选择，可在发送前切换；新会话默认关闭。
+
+快速模式挂载冻结的 `assets/c2v-fast/releases/0.1.0/c2v-fast-compact`，明确要求模型先 Read 完整 skill；不同时挂载常规创意/审美 skill。一次实现后批量录制、元数据与完整解码校验；无可播放文件才允许一次局部技术修复，不循环改审美。追问仅修改用户指定范围，复用原代码/素材，最多一次局部实现与一次技术修复。约5分钟是参考目标，不强制中止；也不表示只有一次模型请求。复杂需求可能超时或质量降低，普通模式仍用于更充分打磨。
+
+通过正常登录 Cookie 调用 `POST /api/sessions/:id/jobs`，保留 `Idempotency-Key`：
+
+```json
+{"prompt":"用户原文","enhance":false,"fast_mode":true,"is_revision":false}
+```
+
+先创建 `mode: "coding_to_video"` 的会话，并按原流程上传 reference。`fast_mode` 必须为布尔值；省略为 false。服务端生成 `fast_skill`（skill/version/SHA-256），客户端不能指定文件或版本。任务、排队载荷、历史 API 和本轮 `_meta.json` 保存快照，Worker 校验后加载；发行目录不得原地修改，升级新增版本。是否履行有限流程以轨迹核实，当前是 skill 约束，不伪称有程序级质量循环计数器。
+
+完整 API 和接入步骤见 [INTEGRATION.md](INTEGRATION.md)。
+
+## 模型与 Claude Code 启动
+
+C2V 默认内网服务：`http://app-309ce2c5435d493daee192aff417dcea.ns-zuhu2026-c9929bca.svc.cluster.local:60011`，模型 `deepseek-c2v-v1`，上下文配置 1,048,576、输出上限 64,000、自动压缩阈值 80%。这是当前服务配置，不代表其它渠道同样支持。管理员保存的默认模型快照优先于 `config/backend.json` 的 fallback；既有会话继续使用创建时的模型快照。集成环境须能解析该集群域名；不要用外网映射端口直接替代集群端口。
+
+C2V 和实验模式使用 CC，白模使用独立 Seko Python harness。Bridge 在隔离工作区内以 stdin 传入本轮 prompt，等价启动形态为：
+
+```bash
+claude -p --permission-mode bypassPermissions --output-format stream-json --verbose --session-id <uuid>
+# 续改使用 --resume <uuid> 替代 --session-id；prompt 由 stdin 传入
+```
+
+工作区浅挂载到 `/workspace`，每会话独立 HOME，模型地址/凭据由受控环境注入；`bypassPermissions` 必须与现有 Linux user/mount namespace 隔离同时使用，不能裸跑在共享源码目录。首轮与续改共享 source/assets/CC 会话，但每轮 prompt、meta、原生轨迹索引和最终视频单独保留。运行时真实命令含模式对应工具开关，以 `job-runner.mjs` 为准；快速模式不改 CC 的模型和权限设置。
+
+## 后端依赖与并发
+
+后端镜像为 `registry.cn-tj-01.sensecore.cn/ccr-zuhu2026/coding-video-cc-v2-261023:hjw-hermes-20261023112829`（用户提供，需内部拉取权限；本轮未重新拉取或验证digest）。仓库不是完整镜像，也未附 Dockerfile。依赖边界见 [部署说明](docs/DEPLOYMENT.md)。Node22、Claude Code、FFmpeg/ffprobe、Python、字体、Chrome、`/opt/videokit` 的 Node/Python 包须事先就绪。Chrome 与部分白模依赖位于共享存储，复制容器镜像并不会带走这些数据。依赖核查用 `scripts/verify-deps.sh`，配置路径以 `config/backend.example.json` 为模板、按实际环境修改。
+
+当前全局 **14 个生成槽位**，4台Worker按 **2+4+4+4** 分配，单机上限4。与Gateway同机的Worker留2槽给调度/增强等服务留余量；其它机器4槽控制Chrome、FFmpeg、内存与I/O竞争。这是当前dev运行配置，并非吞吐能力上限结论。所有用户/模式共享槽位，同会话串行、跨会话FIFO。prompt增强另有6个并发额度，属于前置流程，不额外增加生成槽位。部署到不同规格需实测后调整，不能简单按模型各开14槽。
+
+## 共享仓库与私有运行数据
+
+Git包含代码、冻结skill、依赖锁、必要回归和使用文档。`config/backend.json`、`runtime/`、`.secrets`、`.env*local`、日志、Cookie、TokenHub key、参考素材与生成视频不提交。`config/backend.example.json` 可以公开给授权同事，其中凭据为空或环境变量名。运行中的TokenHub凭据仍需保留在私有配置以支持已授权模型，不能把整个dev目录打包共享。
+
+新机器先clone、`git pull --ff-only`，复制配置模板、设置自己的部署/存储路径与私有凭据，并安装依赖。不要直接复用本dev的生产数据路径；isolation guard 所需的部署授权记录需在目标环境单独配置。下载源码不等于获得模型或原dev数据的访问权限。
 
 ## 运行
 
@@ -43,7 +85,7 @@ python3 scripts/service.py bridge start cvw-codex-4055  # 10.120.4.55
 
 热更新用 `bash scripts/hot-update.sh run`：设置维护态、先 Bridge 后 Gateway、检查任务认领、清除维护态并执行部署检查。该命令不构建前端。重启失败时返回失败；维护状态有到期时间。
 
-## 工作区首屏（1.5.7）
+## 工作区首屏
 
 登录、刷新默认显示新对话入口，不自动恢复本地或服务端最近会话，也不自动创建空会话。首屏仅等待登录验证；进行中和维护状态通过后台brief请求更新，brief不扫描历史会话。侧栏已完成历史与示例登录后自动在后台加载，失败可重试，不阻塞新对话入口；「创作历史」保留完整记录，点选任务仅取一次归属校验快照。新建时的模型设置按需加载；现有草稿、后台任务、历史视频和续改绑定保持保留。
 
@@ -83,7 +125,7 @@ bash scripts/release-check.sh
 - `assets/skillsets`：仅保留运行时实际使用的 `coding_to_video`、`blockout_3d` 技能集。
 - `runtime`：本副本的依赖、私密配置、日志、备份与验证产物，整体忽略提交。原 dev 用户/任务数据位于 `code2video-dev/runtime`，会话工作区位于 `session-dev`，均直接复用。
 
-接手理解、设计约束与验证范围见 [docs/TAKEOVER.md](docs/TAKEOVER.md)。其余旧文档、SYNC 记录和旧 CHANGELOG 是历史资料，不是本环境的部署指令。复制前的原始文件摘要见 `runtime/validation/baseline-manifest.json`；重构前独立副本快照见 `runtime/validation/before-refactor.tar.gz`。
+接手理解、设计约束与验证范围见 [docs/TAKEOVER.md](docs/TAKEOVER.md)。旧 CHANGELOG 与未更新的设计资料仅用于追溯；过期根目录 SYNC-1.4.x 已删除，可从 Git 历史恢复。当前部署只遵循本 README 和 [部署说明](docs/DEPLOYMENT.md)。复制前的原始文件摘要见 `runtime/validation/baseline-manifest.json`；重构前独立副本快照见 `runtime/validation/before-refactor.tar.gz`。
 
 ## Git 管理
 
@@ -131,4 +173,4 @@ tmux -L cvw-codex attach -t cvw-codex-gateway
 
 ## Seko C2V benchmark
 
-独立本地测试台和固定测试集见 [tools/c2v-bench/README.md](tools/c2v-bench/README.md)。包含 19 条业务需求、15 条可执行案例、Anatomy 适配 gate 与普通 Web API 提交/评价工具。原始媒体和运行证据位于 `runtime/c2v-bench/`，不进入 Git；不改变现有生成、模型默认值或白模流程。
+独立本地测试台和固定测试集见 [tools/c2v-bench/README.md](tools/c2v-bench/README.md)。测试集 0.1.3 包含 20 行业务需求拆成的 21 案，其中 20 案可执行、Anatomy 适配 gate 与普通 Web API 提交/评价工具。原始媒体和运行证据位于 `runtime/c2v-bench/`，不进入 Git；不改变现有生成、模型默认值或白模流程。

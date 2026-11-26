@@ -14,7 +14,7 @@ import { uuid } from '@/lib/uuid';
 
 export function Composer({
   sessionId, disabled, disabledReason, onSubmit, injected, onInjected,
-  enhance, onEnhanceChange, basedOn, enhanceLocked, experimental, tools,
+  enhance, onEnhanceChange, basedOn, enhanceLocked, experimental, tools, fastMode, onFastModeChange,
 }: {
   sessionId: string | null;
   disabled: boolean;
@@ -36,6 +36,8 @@ export function Composer({
    */
   enhanceLocked?: string | null;
   experimental?: boolean;
+  fastMode?: boolean;
+  onFastModeChange?: (value: boolean) => void;
   tools?: ReactNode;
   onSubmit: (text: string, idempotencyKey: string) => Promise<void>;
   /** 是否做 prompt 增强（默认开）。点击示例会自动关闭 —— 示例本身已是增强结果 */
@@ -110,6 +112,14 @@ export function Composer({
               ? '会先把你的描述扩写成详细制作方案（约半分钟）'
               : '直接按你写的内容制作，不做改写'}
         </span>
+        {onFastModeChange && <>
+          <label className="tiny" style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+            <input type="checkbox" checked={fastMode ?? false} disabled={disabled || busy}
+                   onChange={(e) => onFastModeChange(e.target.checked)} />
+            快速模式
+          </label>
+          <span className="tiny" style={{ opacity: .7 }}>减少检查和修改轮数，可能牺牲画面质量</span>
+        </>}
         {tools}
       </div>
 

@@ -1,6 +1,6 @@
 {
   "name": "cvw-gateway",
-  "version": "1.5.6",
+  "version": "1.5.8",
   "private": true,
   "type": "module",
   "description": "调度与对外 API 的常驻服务。独立于 Next.js，Web 重启不影响长任务。",

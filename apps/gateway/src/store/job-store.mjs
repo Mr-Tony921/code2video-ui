@@ -359,7 +359,7 @@ export async function findByIdempotency(userId, key) {
 export async function createJob({
   userId, sessionId, workflowId, mode, prompt, baseAssetPath, isRevision = false,
   workerId, processInstanceId, idempotencyKey, maxRuntimeSeconds,
-  originalPrompt, enhancement, initialStatus, modelSelection, experimentalSkills,
+  originalPrompt, enhancement, initialStatus, modelSelection, experimentalSkills, fastMode = false, fastSkill = null,
 }) {
   // I-5 / I-6：幂等重放返回同一个 Job，不产生第二个昂贵任务
   //
@@ -386,6 +386,7 @@ export async function createJob({
     mode,
     prompt,                                   // 投产用（增强后的 dense prompt）
     model_selection: modelSelection ?? null, experimental_skills: experimentalSkills ?? null,
+    fast_mode: fastMode === true, fast_skill: fastSkill,
     original_prompt: originalPrompt ?? null,  // 用户原始指令，留档与轨迹导出
     enhancement: enhancement ?? null,         // 增强元信息（含 skipped 标记）
     base_asset_path: baseAssetPath ?? null,

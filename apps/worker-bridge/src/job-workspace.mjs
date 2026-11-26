@@ -34,6 +34,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { config } from './config.mjs';
+import { validateFastMode, verifyFastSkill, fastSkillRoot, fastEntry } from '../../shared/c2v-fast.mjs';
 import { mountCustomSkills } from '../../shared/experimental-skills.mjs';
 import { sessionDir, referencesDir } from './session-workspace.mjs';
 import { prepareWhiteboxHost } from './whitebox-host.mjs';
@@ -56,7 +57,7 @@ function skillsetSrc(mode) {
  * Output contract —— 告诉 agent 交付到哪、环境里有什么。
  * 路径全部来自实际工作区，不写死（同事的模板里是 /root/videobench/... 硬编码）。
  */
-function buildOutputContract({ wsDir, hasAssets, skills, mode }) {
+function buildOutputContract({ wsDir, hasAssets, skills, mode, fastMode }) {
   // ★ wsDir 必须是 agent 在自己视图里看到的路径。
   // 隔离开启时工作区 bind 到浅路径 /workspace，宿主的 /mnt/... 路径在隔离内被遮蔽，
   // 写进 contract 会让 agent 找不到目录、转而乱探查文件系统（实测发生过）。
@@ -88,7 +89,7 @@ function buildOutputContract({ wsDir, hasAssets, skills, mode }) {
       '`--no-sandbox --disable-gpu --disable-dev-shm-usage`.',
     );
   }
-  if (skills?.length) {
+  if (skills?.length && !fastMode) {
     lines.push(
       '- Project skills for code-to-video work are available through the Skill tool (their files are in ' +
       '`./.claude/skills/`). Start by loading `code-video-core`, then load the craft skills that fit this brief.',
@@ -156,13 +157,15 @@ function buildRevisionNote() {
 
 function hasAssetNote(files) { return files.length ? 'User reference files: ' + files.map(f => './assets/' + f).join(', ') : ''; }
 
-export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agentWsPath, experimentalSkills, modelSelection }) {
+export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agentWsPath, experimentalSkills, modelSelection, fastMode = false, fastSkill = null }) {
+  validateFastMode(mode, fastMode);
+  if (fastMode) await verifyFastSkill(config.repoRoot, fastSkill);
   const { agentWs, bookDir, legacy } = resolveJobPaths(sessionId, jobId);
   const ws = agentWs;
   // agent 视图里的工作区路径：隔离开启时是浅挂载点，否则就是宿主真实路径
   const viewPath = agentWsPath ?? ws;
   const builtin = (mode === 'experimental' || (mode === 'blockout_3d' && experimentalSkills)) ? (experimentalSkills?.builtin ?? 'none') : mode;
-  const { name: skillsetName, src: skillsetPath } = builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetSrc(builtin);
+  const { name: skillsetName, src: skillsetPath } = fastMode ? { name: `c2v-fast@${fastSkill.version}`, src: fastSkillRoot(config.repoRoot, fastSkill.version) } : builtin === 'none' ? { name: 'experimental-none', src: null } : skillsetSrc(builtin);
 
   /**
    * 本轮是不是同一会话的后续轮次。
@@ -349,18 +352,18 @@ export async function prepareJobWorkspace({ sessionId, jobId, mode, prompt, agen
     whiteboxHost?.contract,
     hasAssetNote(assetFiles),
   ].filter(Boolean).join('\n') + '\n' : mode === 'experimental' ? '\n\n## Delivery\nSave the finished video to `output/final.mp4` in the current working directory.\n' : buildOutputContract({
-    wsDir: viewPath, hasAssets: assetFiles.length > 0, skills, mode,
+    wsDir: viewPath, hasAssets: assetFiles.length > 0, skills, mode, fastMode,
   });
   const revisionNote = revision && mode !== 'experimental' && !customWhitebox ? buildRevisionNote() : '';
   // ★ prompt.md 与 _meta.json 落【本轮簿记目录】，不落共享工作区 ——
   //   共享的话第 2 轮会把第 1 轮的 prompt 覆盖掉，排障时查不到当轮提交了什么。
   const promptPath = join(bookDir, 'prompt.md');
   const submittedPrompt = mode === 'experimental' ? prompt : prompt.trim();
-  await writeFile(promptPath, `${submittedPrompt}\n${revisionNote}${contract}`, 'utf8');
+  await writeFile(promptPath, `${fastMode ? fastEntry(isContinuation) : ''}${submittedPrompt}\n${revisionNote}${contract}`, 'utf8');
 
   await writeFile(join(bookDir, '_meta.json'), JSON.stringify({
     session_id: sessionId, job_id: jobId, mode,
-    skillset: skillsetName, skills,
+    skillset: skillsetName, skills, fast_mode: fastMode, fast_skill: fastSkill,
     model_selection: modelSelection ?? null, experimental_skills: experimentalSkills ?? null,
     assets: assetFiles, whitebox_compat: whiteboxCompat, time_target_seconds: customWhitebox ? 600 : null,
     whitebox_host: whiteboxHost ? { version: whiteboxHost.version, state_path: whiteboxHost.state_path, context_policy: whiteboxHost.context_policy, stage_transport: whiteboxHost.stage_transport, user_prompt: whiteboxHost.user_prompt } : null,

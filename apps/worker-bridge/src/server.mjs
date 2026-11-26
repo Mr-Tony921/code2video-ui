@@ -218,6 +218,7 @@ const routes = {
         sessionId: b.session_id,
         mode: b.mode,
         modelSelection: b.model_selection, experimentalSkills: b.experimental_skills,
+        fastMode: b.fast_mode, fastSkill: b.fast_skill,
         prompt: b.prompt,
         leaseToken: b.lease_token,
         baseAssetPath: b.base_asset_path ?? null,

@@ -1,6 +1,6 @@
 {
   "name": "cvw-worker-bridge",
-  "version": "1.5.6",
+  "version": "1.5.8",
   "private": true,
   "type": "module",
   "description": "后端机器上的常驻 HTTP 服务：Gateway 的生产数据通路。SSH 仅用于部署调试。",

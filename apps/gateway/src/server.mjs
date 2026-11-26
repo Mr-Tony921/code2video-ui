@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { validateFastMode, fastSkillSnapshot } from '../../shared/c2v-fast.mjs';
 import { sekoPublicResult, sekoDownload } from '../../shared/seko-artifact.mjs';
 import { isSeko, sekoSelectionForUser, sekoSettings, sekoConnection } from '../../shared/seko-model.mjs';
 import { whiteboxResponsePatch } from '../../shared/whitebox-response.mjs';
@@ -944,6 +945,11 @@ const routes = {
       return json(res, 200, { job: publicJob(dup), idempotent_replay: true, server_time: nowIso() });
     }
 
+    let fastMode;
+    try { fastMode = validateFastMode(s.mode, b.fast_mode); }
+    catch (e) { return err(res, 400, 'FAST_MODE_INVALID', e.message); }
+    const fastSkill = fastMode ? await fastSkillSnapshot(config.repoRoot) : null;
+
     // 生产期禁止 steering（V2 需求 3）：该会话有非终态 Job 时拒绝新提交
     const live = (await store.listJobs({ sessionId: id }))
       .filter((j) => !store.isTerminal(j.status));
@@ -1004,7 +1010,7 @@ const routes = {
       idempotencyKey: idemKey,
       maxRuntimeSeconds: whitebox ? 0 : b.max_runtime_seconds ?? config.raw.production?.max_runtime_seconds,
       initialStatus: s.mode === 'experimental' || whitebox ? 'QUEUED' : 'ENHANCING',
-      modelSelection, experimentalSkills,
+      modelSelection, experimentalSkills, fastMode, fastSkill,
     });
     if (replayed) {
       dbg('job.submit.replay', { u: u.id, sid: id, job: job.id, key: idemKey });
@@ -2074,6 +2080,7 @@ function publicJob(j, queueIds = null) {
   const ms = (t) => (t ? now - new Date(t).getTime() : null);
   return {
     id: j.id, session_id: j.session_id, mode: j.mode,
+    fast_mode: j.fast_mode === true, fast_skill: j.fast_skill ?? null,
     ...(j.mode === 'blockout_3d' && isSeko(j.model_selection) ? { whitebox_result: sekoPublicResult(config, j) } : {}),
     model_selection: j.model_selection ?? null, experimental_skills: j.experimental_skills ?? null,
     status: j.status, phase: j.phase,
