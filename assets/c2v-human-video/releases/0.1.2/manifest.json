@@ -1,0 +1,19 @@
+{
+  "name": "c2v-human-video",
+  "version": "0.1.2",
+  "status": "frozen",
+  "frozen_date": "2026-11-26",
+  "tested_package_sha256": "ec7d4d43b6a6ca2958cddf96c42a8a9e80746c9eea118f3d6390f7988fc8a84b",
+  "files_sha256": {
+    "c2v-human-video/SKILL.md": "c6b722ee78c8b749a2c942063a1815313687d3244806214eabbc51bc4239be21",
+    "c2v-human-video/references/asset-workflow.md": "5feced3fa7a6588a80b5d1d201da6a5c9238c3e9ab032d473a6e90ed79eb1237",
+    "c2v-human-video/references/provider-config.md": "7e13447a5daef2d269df800a6cf8823c77a9a37d4016afbdd66d42a64103f993",
+    "c2v-human-video/scripts/capture.mjs": "927870d5beeb8c644580a8cbc31aba6f0720745fd2f79ccb29204574b62647eb",
+    "c2v-human-video/scripts/media.py": "b4ce404a466141f3b19258ff0f9d40fd5855d5c7d9ded5bc62fa52cea444099c",
+    "c2v-human-video/scripts/pipeline.py": "1425f0f5d454459c74d5f10fde2e5cfb247618330a97ff59002ed05e2e7d1b29",
+    "c2v-human-video/scripts/render.mjs": "94913e6bf149085020c13eb3ac5ce2db61e2c759059471c15bd897f9e0deb6bd"
+  },
+  "entrypoint": ".claude/skills/c2v-human-video/SKILL.md",
+  "default_mode_changed": false,
+  "credentials_included": false
+}

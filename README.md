@@ -32,6 +32,10 @@ C2V 输入区在「智能扩写需求」后提供「快速模式」，默认关�
 
 完整 API 和接入步骤见 [INTEGRATION.md](INTEGRATION.md)。
 
+## 真人广告与口播 skill
+
+真人素材组合流程已固化为`c2v-human-video 0.1.2`，通过实验模式挂载使用。按剧情多次生图／图生视频，配合代码图示和字幕合成，效果优先，与快速模式分开。源码、文件哈希、私有配置及接入边界见[真人skill接入说明](docs/C2V-HUMAN-VIDEO.md)。本次不改变普通C2V默认模式。
+
 ## 模型与 Claude Code 启动
 
 C2V 默认内网服务：`http://app-309ce2c5435d493daee192aff417dcea.ns-zuhu2026-c9929bca.svc.cluster.local:60011`，模型 `deepseek-c2v-v1`，上下文配置 1,048,576、输出上限 64,000、自动压缩阈值 80%。这是当前服务配置，不代表其它渠道同样支持。管理员保存的默认模型快照优先于 `config/backend.json` 的 fallback；既有会话继续使用创建时的模型快照。集成环境须能解析该集群域名；不要用外网映射端口直接替代集群端口。
